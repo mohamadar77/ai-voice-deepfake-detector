@@ -1,0 +1,21 @@
+# Credential-free example for storing large inputs and outputs outside the checkout.
+# Environment variables are expanded at load time; defaults keep setup self-contained.
+project:
+  name: ai-voice-deepfake-detector
+  seed: 20261004
+
+paths:
+  data_root: "${VOICE_DETECTOR_DATA_DIR:-data}"
+  artifacts_root: "${VOICE_DETECTOR_ARTIFACTS_DIR:-artifacts}"
+
+audio:
+  sample_rate_hz: 16000
+  mono: true
+  window_seconds: 4.0
+
+evaluation:
+  preserve_official_splits: true
+  primary_dataset: asvspoof2019_la
+  threshold_source: development_reserved
+  aggregate_by: clip_id
+  evaluation_locked: true

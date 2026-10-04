@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-voice-deepfake-detector"
+version = "0.1.0"
+description = "Reproducible detection and evaluation of synthesized or voice-converted speech"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+authors = [{ name = "Mohamad Abo-Ras" }]
+dependencies = [
+  "fastapi>=0.115,<1",
+  "librosa>=0.11,<1",
+  "matplotlib>=3.10,<4",
+  "numpy>=2.1,<3",
+  "pandas>=2.2,<4",
+  "psutil>=6,<8",
+  "pydantic>=2.10,<3",
+  "python-multipart>=0.0.20,<1",
+  "pyyaml>=6.0.2,<7",
+  "scikit-learn>=1.6,<2",
+  "seaborn>=0.13.2,<1",
+  "soundfile>=0.13,<1",
+  "streamlit>=1.41,<2",
+  "torch>=2.6,<3",
+  "torchaudio>=2.6,<3",
+  "uvicorn[standard]>=0.34,<1",
+]
+
+[project.scripts]
+voice-detector = "voice_detector.cli:main"
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28,<1",
+  "pytest>=8.3,<10",
+  "pytest-cov>=6,<8",
+  "ruff>=0.9,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/voice_detector"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
