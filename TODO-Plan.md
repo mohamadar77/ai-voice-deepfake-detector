@@ -8,12 +8,13 @@ Build and evaluate a reproducible detector for human versus synthesized or voice
 
 This checklist follows the current project proposal. Every checkbox starts unchecked because implementation progress has not been verified. Check an item only when its output exists and its completion criteria have been met. Record experiment findings even when a model fails to improve.
 
-## Priorities and workflow
+## How to use this plan
 
-- **Core:** data audit, baseline, CNN, locked evaluation, robustness study, error analysis, API, demo, container, documentation and presentation.
-- **Planned transfer study:** ASVspoof 2021 DF evaluation; defer if access or compute threatens the primary result.
-- **Next enhancements:** frozen transformer audio embeddings and one cloud deployment.
-- **Optional:** WaveFake external evaluation, calibration and abstention, evidence assistant using RAG, and an agent integration through MCP.
+- **Proposal:** `docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx` explains the question, scope, method and acceptance criteria.
+- **Execution:** this file is the source of truth for implementation status. Check an item only when its output exists and its completion criteria are met.
+- **Roadmap:** `docs/roadmap.md` contains the current vertical slice, stop/go gates and the next concrete commands.
+- **Core first:** data audit, MFCC baseline, CNN, locked evaluation, robustness, failure analysis, API, demo, container, reproducibility and presentation.
+- **Deferred:** ASVspoof 2021 DF transfer, frozen transformer embeddings, cloud deployment, WaveFake, calibration, RAG and MCP. Start these only after the core acceptance criteria pass.
 
 Use GitHub Issues for individual tasks and a board with Backlog, Ready, In progress and Done. Keep one main implementation task in progress at a time. Each issue should include its expected output, dependencies and definition of done. Keep short decision notes when scope changes.
 
@@ -21,12 +22,25 @@ Use GitHub Issues for individual tasks and a board with Backlog, Ready, In progr
 
 | Target dates | Milestone | Completion evidence |
 | --- | --- | --- |
-| 5–11 October | Repository, data and baseline | Environment, audited manifest, EDA, baseline development results and compute pilot |
-| 12–18 October | CNN and protocol | Model comparison, documented splits, frozen test protocol and extension decision |
-| 19–25 October | Evaluation and demo | Locked results, robustness study, error analysis and working upload flow |
-| 26 October–1 November | Release and slides | Feature freeze, container verification, reliability measurements and presentation draft |
+| 5–7 October | Feasibility and data contract | Environment smoke check, dataset access decision, storage estimate and manifest schema |
+| 8–12 October | Data audit and baseline | Audited manifest, EDA, preprocessing checks, MFCC baseline and compute pilot |
+| 13–19 October | CNN and protocol | CNN comparison, development threshold, locked evaluation protocol and extension decision |
+| 20–26 October | Evaluation and demo | Locked results, robustness study, failure analysis and working upload flow |
+| 27 October–1 November | Release and slides | Feature freeze, container verification, reliability measurements and presentation draft |
 | 2–4 November | Rehearsal and backup | Reproducible startup, tested demonstration and rehearsal within 12 minutes |
 | 5 November | Presentation | Working demonstration, findings and limitations |
+
+## Start now
+
+The repository setup is complete. The next implementation slice is intentionally small and produces a decision before any expensive training:
+
+1. Confirm ASVspoof 2019 LA access, terms and local storage without downloading audio into Git.
+2. Record the source and protocol details in `docs/data.md` and finalize the manifest schema.
+3. Implement a metadata-only manifest audit and run it on the official protocol files.
+4. Run a tiny, declared preprocessing and timing pilot; do not inspect evaluation labels or train a model yet.
+5. Decide whether the full 2019 LA run fits the available disk, memory and compute. Record the decision and any subset rule before model experiments.
+
+The first coding target is therefore the data contract and manifest audit, not the CNN. The immediate stop/go gate is: official partitions are readable, labels are unambiguous, source overlap checks are defined, and a four-second preprocessing pilot completes deterministically.
 
 ## 1. Repository and environment
 
