@@ -66,13 +66,13 @@ The first coding target is therefore the data contract and manifest audit, not t
 
 Depends on: repository and environment.
 
-- [ ] Obtain ASVspoof 2019 logical access (LA) data and its official countermeasure protocols. **G0 status: not acquired; terms/access remain open.**
+- [x] Obtain ASVspoof 2019 logical access (LA) data and its official countermeasure protocols. **Acquired 2026-10-11** on the DL120 host: LA extracted to `data/raw/LA`; ODC-By 1.0 terms recorded; the three CM protocols audit to the published counts. See [`docs/data.md`](docs/data.md).
 - [x] Record the initial G0 environment/storage check in `docs/data.md`: no local audio, about 520 GiB available, shell Python 3.14.6, uv cache rerouted successfully.
 - [x] Resolve the G0 runtime blocker: intended Python 3.12/ARM64 environment versus current x86_64 PyTorch wheel resolution. Do not change the lockfile without a recorded platform decision. **Resolved 2026-10-11:** reserved a Linux `x86_64` host (HPE DL120 Gen10, Fedora 44, glibc 2.43, Xeon Gold 6152/44 cores, 30 GB RAM, CPU-only); `uv sync --frozen --all-groups`, smoke, ruff and pytest all pass there. No lockfile change. See [`docs/environment.md`](docs/environment.md).
-- [ ] Record source URLs, release identifiers, terms, archive checksums and download instructions in `docs/data.md`.
-- [ ] Verify storage requirements, extraction success and missing files.
+- [x] Record source URLs, release identifiers, terms, archive checksums and download instructions in `docs/data.md`. **Done 2026-10-11:** Edinburgh DataShare handle, ODC-By 1.0 license, the Todisco et al. 2019 citation, and SHA-256 of `dataset.zip`/`LA.zip` recorded. The exact mirror download URL is pending owner confirmation; the checksums are the authoritative anchor.
+- [x] Verify storage requirements, extraction success and missing files. **Done 2026-10-11:** host capacity verified (preflight / [`docs/environment.md`](docs/environment.md)); the LA archive extracted cleanly with the full documented directory structure. Per-clip file existence against the manifest is checked by the manifest builder (§3).
 - [ ] Preserve official training, development and evaluation boundaries.
-- [ ] Define the label mapping explicitly: bona fide human speech versus spoofed/synthetic speech.
+- [x] Define the label mapping explicitly: bona fide human speech versus spoofed/synthetic speech. **Done:** `label` ∈ {`bonafide`, `spoof`} is mapped directly from the protocol KEY column and enforced by `src/voice_detector/protocol.py`; documented in [`docs/data.md`](docs/data.md).
 - [ ] Reserve a speaker grouped part of development data for thresholds and optional calibration before tuning starts.
 - [ ] Document which development portion supports model selection and which supports operating thresholds.
 - [ ] Record primary-dataset source-group provenance where available and disclose missing mappings. Cross-collection work is deferred.
