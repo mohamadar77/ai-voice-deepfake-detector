@@ -68,7 +68,7 @@ Depends on: repository and environment.
 
 - [ ] Obtain ASVspoof 2019 logical access (LA) data and its official countermeasure protocols. **G0 status: not acquired; terms/access remain open.**
 - [x] Record the initial G0 environment/storage check in `docs/data.md`: no local audio, about 520 GiB available, shell Python 3.14.6, uv cache rerouted successfully.
-- [ ] Resolve the G0 runtime blocker: intended Python 3.12/ARM64 environment versus current x86_64 PyTorch wheel resolution. Do not change the lockfile without a recorded platform decision.
+- [x] Resolve the G0 runtime blocker: intended Python 3.12/ARM64 environment versus current x86_64 PyTorch wheel resolution. Do not change the lockfile without a recorded platform decision. **Resolved 2026-10-11:** reserved a Linux `x86_64` host (HPE DL120 Gen10, Fedora 44, glibc 2.43, Xeon Gold 6152/44 cores, 30 GB RAM, CPU-only); `uv sync --frozen --all-groups`, smoke, ruff and pytest all pass there. No lockfile change. See [`docs/environment.md`](docs/environment.md).
 - [ ] Record source URLs, release identifiers, terms, archive checksums and download instructions in `docs/data.md`.
 - [ ] Verify storage requirements, extraction success and missing files.
 - [ ] Preserve official training, development and evaluation boundaries.
