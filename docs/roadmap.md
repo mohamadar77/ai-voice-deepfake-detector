@@ -1,39 +1,42 @@
-# Implementation Roadmap
+# Implementation roadmap
 
-This roadmap turns the proposal into a sequence of small, verifiable vertical slices. It complements `TODO-Plan.md`: the checklist records all work, while this file identifies what to do next and when to stop.
+Current scope, dates, resource budgets and discussion outcomes are in the [architecture and delivery plan](architecture-and-delivery-plan.md). [TODO-Plan.md](../TODO-Plan.md) tracks completion. This file provides the execution order. The [final frozen proposal](AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx) (signed off 2026-10-11; see the architecture-plan sign-off) is the immutable source of truth; the dates below are current forecasts against its baseline milestones and may slip without changing the proposal.
 
 ## Current position
 
-Repository and environment setup is complete. No ASVspoof audio has been downloaded, no evaluation predictions have been inspected, and no model has been trained.
+Configuration/CLI/test scaffolding exists; historical environment setup is documented but must be revalidated at G0. No detector implementation or measured results were found during the architecture review. Dataset acquisition and training are not part of this documentation task.
 
-## Core path
+## Critical path
 
-| Slice | Output | Gate before continuing |
+| Gate / target | Output | Evidence required to continue |
 | --- | --- | --- |
-| 1. Data contract | `docs/data.md`, manifest schema, protocol parser and metadata audit | Official train/development/evaluation boundaries and label mapping are verified |
-| 2. Shared preprocessing | Deterministic decoder, four-second training windows, evaluation aggregation and feature-shape tests | Train-only fitting and train/serve parity are demonstrated |
-| 3. MFCC baseline | Logistic Regression bundle, development metrics and reproduction command | Development report exists; evaluation remains locked |
-| 4. CNN pilot | Compact log-Mel CNN timing run and declared training budget | Compute and storage are sufficient for the main run |
-| 5. Model comparison | CNN and baseline development comparison, selected checkpoint | Selection uses development data only |
-| 6. Locked evaluation | Frozen protocol, clip-level predictions and metrics | Protocol, thresholds and checkpoints are frozen before prediction inspection |
-| 7. Robustness and failures | Paired distortion results, slices and failure analysis | Transformations use frozen parameters and original-clip provenance |
-| 8. Demo and release | FastAPI, Streamlit, Docker, observability and model card | Serving uses the evaluated bundle and temporary audio is deleted |
+| G0 — 6–7 October | Environment, capacity/hours, data terms and manifest/development-role contracts | Python 3.12/uv smoke passes; storage/access and owner-hour budget recorded |
+| G1 — 8–12 October | Audited data, shared preprocessing, LR bundle, thin API/UI and CPU-container smoke | Train-only fitting, deterministic clip scoring, HTTP parity and cleanup; timed CNN pilot |
+| G2 — 13–18 October | Clean/augmented CNN, bounded PCA/K-means, selection and thresholds, all-candidate freeze | Reserved development untouched by selection; complete hashes/configs/membership/transformations frozen |
+| G3 — 19–25 October | Locked comparison, paired robustness, source-group uncertainty, failure report and real-model demo | All declared candidates/conditions reported; no post-test selection |
+| Freeze — 26 October | Product feature freeze | No new extensions or model families |
+| G4 — 27 October–1 November | Release, performance/reproduction verification, model card and slides | Local CPU container works with trusted bundle; measured limitations recorded |
+| G5 — 2–4 November | Fresh-start rehearsal and backup | <=12-minute presentation and local demonstration fallback |
+| 5 November | Tentative presentation | Working demo and honest measured conclusions |
 
-## First session
+## First work session
 
-1. Verify that the official ASVspoof 2019 LA protocol files can be obtained under their terms.
-2. Write the source, release identifier, checksums and permitted uses in `docs/data.md`.
-3. Define the manifest columns: clip ID, path, source ID, speaker ID, attack ID, label, official split, duration, sample rate, checksum and provenance.
-4. Implement a metadata-only audit command and test it on a tiny fixture.
-5. Record the storage and runtime decision in the experiment log before downloading audio or starting training.
+1. Revalidate uv/Python and the setup smoke command; record focused hours/week and current hardware/storage.
+2. Write `docs/data.md`, the manifest schema and tiny protocol fixtures.
+3. Define official partition and development-speaker roles plus nullable source provenance.
+4. Implement metadata-only audit tests before large downloads/features or training.
+5. Record access and measured pilot budgets before expensive model work.
 
 ## Stop/go rules
 
-- If data access is blocked, finish the parser, fixtures, schemas and synthetic smoke tests; do not invent benchmark results.
-- If full processing is too expensive, freeze a documented stratified subset before inspecting model scores and report it as a subset study.
-- If ASVspoof 2021 DF access is unavailable, keep it deferred and complete the 2019 LA core path.
-- If a model improves only on development data, prefer the simpler or more reliable model and record the negative result.
+- The 110–150-hour core estimate (about 140–190 with contingency) is conditional. If owner availability or compute cannot support it, revise scope/date before promising the release.
+- If access is blocked, implement fixtures/contracts; do not invent results.
+- If full processing is too expensive, freeze a documented subset before score inspection, preserving official partitions and labeling subset results.
+- Freeze LR, clean CNN and augmented CNN, all declared seeds, threshold rules and transformations before final testing. A configuration flag alone does not enforce this.
+- A baseline win or weak unseen-attack result is valid research; deployed model selection stays on development.
+- The evidence assistant is the only selected stretch, starts only after full core acceptance and must fit before 26 October with release reserve. Otherwise defer it.
+- External datasets, additional model families, cloud, calibration/abstention, agent orchestration and MCP are outside this release.
 
 ## Definition of done
 
-The core project is complete when a fresh checkout can reproduce the manifest, preprocessing, baseline, CNN comparison, locked evaluation report and demo using versioned configuration and recorded provenance. Extensions are separate and never change the core acceptance criteria.
+Reproduce the manifest, shared preprocessing, baseline/CNN study, locked metrics/robustness and failure report; run the API/UI and CPU containers; verify privacy, reliability and artifact provenance; deliver the model card and rehearsed presentation. Use the architecture plan's A0–A9 acceptance TODOs and the root checklist as evidence.

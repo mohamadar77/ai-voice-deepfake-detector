@@ -4,7 +4,7 @@ A reproducible AI Engineering graduation project for distinguishing bona fide hu
 
 ## Status
 
-Repository and environment setup is in progress. No dataset has been downloaded and no model has been trained. Results, accuracy claims, and model artifacts do not exist yet.
+Configuration, smoke-CLI, tests and CI scaffolding exist. Historical setup records require runtime revalidation at the first delivery gate. No detector or measured results are implemented yet; no dataset has been downloaded or model trained as part of this planning work.
 
 ## Core scope
 
@@ -15,7 +15,9 @@ Repository and environment setup is in progress. No dataset has been downloaded 
 - A shared inference path exposed through FastAPI and a Streamlit demo.
 - Docker packaging, reproducibility records, focused tests, and privacy-aware observability.
 
-Frozen transformer embeddings are a later enhancement. RAG and MCP integrations are optional and will not displace the core evaluation.
+The committed study includes clean and augmented CNN training, bounded training-fitted PCA/K-means diagnostics and paired noise/compression evaluation. The only selected stretch is an evaluated evidence assistant after full core acceptance and before the feature freeze; it has zero committed hours. Audio transformers, extra datasets/models, cloud deployment, calibration/abstention, agents and MCP are deferred beyond this release.
+
+See the [architecture and delivery plan](docs/architecture-and-delivery-plan.md) for agreed contracts, TODOs, resource estimates and the tentative November 5 schedule. It is the current scope/schedule addendum to the [final frozen proposal](docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx) (signed off 2026-10-11, SHA-256 `b16f5124…`), which is the immutable source of truth; the root TODO tracks completion.
 
 ## Repository layout
 

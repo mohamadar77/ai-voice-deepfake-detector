@@ -13,6 +13,8 @@ from pathlib import Path
 
 from voice_detector import __version__
 from voice_detector.config import load_config
+from voice_detector.manifest import VALID_SPLITS
+from voice_detector.protocol import parse_protocol_file, summarize_protocol
 
 _REQUIRED_IMPORTS = {
     "fastapi": "fastapi",
@@ -55,6 +57,13 @@ def _smoke(config_path: Path) -> int:
     return 0
 
 
+def _protocol_audit(protocol_path: Path, official_split: str) -> int:
+    entries = parse_protocol_file(protocol_path, official_split)
+    summary = summarize_protocol(entries)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="voice-detector")
     parser.add_argument("--version", action="version", version=__version__)
@@ -67,6 +76,23 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("configs/default.yaml"),
         help="path to the project YAML configuration",
     )
+
+    audit = subparsers.add_parser(
+        "protocol-audit",
+        help="summarise an official ASVspoof 2019 LA CM protocol file (reads no audio)",
+    )
+    audit.add_argument(
+        "--protocol",
+        type=Path,
+        required=True,
+        help="path to an official CM protocol file",
+    )
+    audit.add_argument(
+        "--split",
+        choices=sorted(VALID_SPLITS),
+        required=True,
+        help="official partition the protocol file belongs to",
+    )
     return parser
 
 
@@ -74,6 +100,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "smoke":
         return _smoke(args.config)
+    if args.command == "protocol-audit":
+        return _protocol_audit(args.protocol, args.split)
     return 2
 
 

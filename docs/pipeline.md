@@ -1,360 +1,67 @@
-# Project Workflow & Pipeline
+# Project workflow and pipeline
 
-This document describes the end-to-end workflow for the AI Voice Deepfake Detector project, from data acquisition through model serving.
+This is the planned implementation, not a claim that the modules or services exist. The current package provides configuration and a smoke CLI. See [architecture and delivery decisions](architecture-and-delivery-plan.md) for contracts, acceptance tests, deadlines and remaining TODOs.
 
-## High-Level Workflow
+## Offline experiment path
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                   AI VOICE DEEPFAKE DETECTOR PROJECT                        │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-    1. DATA & SETUP                2. FEATURE ENGINEERING            3. MODEL TRAINING
-    ──────────────────────         ─────────────────────────         ──────────────────
-    
-    ASVspoof 2019 LA               Audio Preprocessing                MFCC + Logistic
-    ├─ Train (6K+)                ├─ Decode (mono, 16kHz)           Regression Baseline
-    ├─ Dev (3K+)                  ├─ Slice (4-sec windows)          │
-    └─ Eval (2.6K)                ├─ Extract Features                └─ Log-Mel CNN
-                                   │  ├─ MFCC                       
-    Official protocol              │  └─ Log-Mel spectrograms      4. MODEL SELECTION
-    └─ Manifest (ID, speaker,     │                                 ──────────────────
-      attack, label, split)        └─ Normalize & Scaler Fit        Dev metrics only
-                                                                     ├─ Baseline F1
-    ↓                              ↓                                 ├─ CNN F1
-    ────────────────────────────────────────────────────────────────├─ Select best
-                                                                     └─ Freeze checkpoint
-
-
-    5. LOCKED EVALUATION            6. ROBUSTNESS ANALYSIS            7. DEMO & SERVE
-    ─────────────────────────        ──────────────────────────        ────────────────
-    
-    Frozen checkpoint               Test distortions on Eval:        FastAPI service
-    Eval data (locked)              ├─ Noise                         ├─ Audio upload
-    ├─ Aggregate windows            ├─ Compression                   ├─ Feature extract
-    ├─ Clip-level scores            ├─ Speed change                  ├─ Score inference
-    ├─ Metrics (EER, F1, AUC)       ├─ Pitch shift                   └─ Return score
-    └─ Frozen protocol              └─ Measure robustness
-                                                                      Streamlit demo
-    Failure analysis                Failure analysis                 ├─ Upload UI
-    └─ Inspect misclassifications   └─ Understand failure modes      ├─ Visualize
-                                                                      └─ Display results
-    ↓                              ↓                                 ↓
-    Report: eval_results.json      Report: robustness.json          Docker container
-    + model card                   + failure_analysis.md            + documentation
-
+```mermaid
+flowchart TD
+    A[Official protocols and permitted local audio] --> B[Audited manifest and provenance]
+    B --> T[Training partition]
+    B --> D[Speaker-grouped development reservation]
+    B --> E[Locked evaluation membership]
+    T --> P[Shared decoder, windows and features]
+    P --> M[LR baseline, clean CNN, augmented CNN]
+    P --> U[Train-fitted scaler, PCA and K-means]
+    D --> S[Selection development: checkpoints and deployment choice]
+    M --> S
+    S --> H[Reserved development: operating thresholds]
+    H --> F[Frozen bundles, protocol, transforms and hashes]
+    E --> F
+    F --> I[Shared scorer: one score per original clip]
+    I --> R[Predictions, metrics, paired robustness and failure report]
+    U --> R
 ```
 
-## Detailed Data Flow
+Dataset sizes come from audited protocol counts, not estimates in this diagram. Dataset format comes from release documentation and verified decoding; the initial upload interface supports WAV/FLAC. Acquisition remains subject to published terms and a storage gate. No cloud storage is required.
 
-### Phase 1: Data Acquisition & Validation
-```
-ASVspoof 2019 LA (Local or Cloud)
-            │
-            ├─ Verify checksums
-            ├─ Parse manifest
-            └─ Audit metadata → docs/data.md
-                     │
-                     ├─ Label mapping
-                     ├─ Train/Dev/Eval splits (LOCKED)
-                     ├─ Speaker grouping
-                     └─ Duration statistics
-```
+Train/development feature exploration cannot use final-test outcomes. Split original clips before windows and augmentation. Fit statistical transforms on training only. Use the same deterministic clip scorer for development, locked evaluation and serving. Training augmentation and random cropping are separate, explicitly seeded training operations.
 
-### Phase 2: Preprocessing & Feature Engineering
-```
-Audio files (MP4)
-    │
-    ├─ Decode audio
-    │  └─ Sample rate: 16 kHz
-    │  └─ Channels: mono
-    │
-    ├─ Window into segments
-    │  └─ Train: 4-second non-overlapping windows
-    │  └─ Eval: aggregate windows back to clips
-    │
-    ├─ Feature extraction
-    │  ├─ Path A: MFCC (13-40 coefficients)
-    │  └─ Path B: Log-Mel spectrogram (64-128 bins)
-    │
-    └─ Normalization & preprocessing statistics
-       └─ Fit ONLY on training data
-       └─ Apply to dev & eval
+The locked comparison includes the baseline and both CNN training conditions, not just the deployed winner. Select the deployed bundle on selection development before evaluation. Set each reported model's threshold on reserved development speakers after model selection. Record the development false-alarm target of at most 5%; do not imply a final-test guarantee.
 
-    ↓ TRAINING PARTITION ONLY
-    Feature cache → artifacts/features_train.pkl
+Robustness is clean audio, one declared compression setting and two declared noise levels, applied to both classes on the same source clips. Freeze codec/bitrate, noise construction, seeds, amplitude handling, membership and metric rules before final predictions. Speed and pitch changes are deferred. Report EER, macro F1, balanced accuracy, ROC AUC, class counts, confusion matrices, human false positives, synthetic detection, slice counts and grouped uncertainty.
+
+## Serving path
+
+```mermaid
+flowchart LR
+    U[Streamlit upload] --> A[FastAPI input validation]
+    A --> S[Shared versioned clip scorer]
+    B[Trusted local model bundle] --> S
+    S --> J[Typed score response]
+    J --> U
+    A --> C[Cleanup on success, error and cancellation]
 ```
 
-### Phase 3: Model Training
+The API owns decoding and inference. Streamlit calls it rather than loading another model. Load a verified bundle once per worker. Initially use one worker and bounded inference concurrency; increase only after measurement. The bundle contains the feature specification, training-fitted transforms, model parameters, score direction, aggregation rule, threshold and version/hash metadata.
 
-#### Baseline (MFCC + Logistic Regression)
-```
-Training features (MFCC)
-    │
-    ├─ Fit Logistic Regression
-    │  ├─ Loss: binary cross-entropy
-    │  ├─ Regularization: L2
-    │  └─ Random seed: 20261004
-    │
-    └─ Checkpoint: artifacts/baseline_model.pkl
-       (Contains scaler, encoder, model)
+Proposed response fields: `request_id`, `label`, `score`, `score_direction`, `threshold`, `model_version`, `preprocessing_version`, `duration_seconds`, and `processing_ms`. These are a contract to implement, not an existing endpoint. No `confidence` or probability field is planned. A spectrogram is an input visualization, not a causal explanation.
 
-    ↓ DEVELOPMENT PARTITION
-    Development metrics:
-    ├─ EER (Equal Error Rate)
-    ├─ Macro F1
-    ├─ Balanced Accuracy
-    └─ ROC AUC
-    
-    → baseline_dev_metrics.json
-```
+Proposed endpoints: `POST /predict`, `GET /health` (process alive), `GET /ready` (valid bundle loaded). Reject invalid decoded content and enforce byte, duration, decode-resource and concurrency limits. Upload target: WAV/FLAC, 1–30 seconds, at most 20 MB, subject to duration evaluation. Clean API temporary files and UI session buffers; exclude audio, filenames, local paths, request bodies and secrets from logs.
 
-#### CNN Pilot (Log-Mel + Neural Network)
-```
-Training features (Log-Mel spectrograms)
-    │
-    ├─ Build compact CNN
-    │  ├─ Conv blocks
-    │  ├─ Batch normalization
-    │  ├─ Dropout (0.2-0.5)
-    │  └─ Binary classification head
-    │
-    ├─ Training loop
-    │  ├─ Optimizer: Adam
-    │  ├─ Loss: BCE
-    │  ├─ Epochs: TBD
-    │  └─ Early stopping on dev loss
-    │
-    └─ Checkpoint: artifacts/cnn_checkpoint.pt
-       (PyTorch model state)
+## Local packaging
 
-    ↓ DEVELOPMENT PARTITION
-    Development metrics:
-    ├─ EER
-    ├─ Macro F1
-    ├─ Balanced Accuracy
-    └─ ROC AUC
-    
-    → cnn_dev_metrics.json
-```
+Use one application image with two services/processes, API and Streamlit, orchestrated locally. Mount a trusted bundle read-only into the API; do not bake restricted audio or large checkpoints into Git or the image. Use temporary storage for uploads. Verify CPU container inference against the evaluated bundle within a declared numeric tolerance. Docker on the development machine is not an assumption of MPS access inside the container.
 
-### Phase 4: Model Selection
-```
-Baseline metrics           CNN metrics
-    │                            │
-    └──────────────┬─────────────┘
-                   │
-                   ├─ Compare on dev data
-                   ├─ Account for variance
-                   ├─ Select better model
-                   │
-                   ↓
-          Selected checkpoint
-          (e.g., CNN v7)
-                   │
-                   └─ FREEZE for evaluation
-```
+## Commands that exist today
 
-### Phase 5: Locked Evaluation
-```
-LOCKED EVALUATION DATA (never touched during development)
-            │
-            ├─ Load selected checkpoint
-            ├─ Extract features (same pipeline)
-            ├─ Generate predictions
-            │
-            ├─ Aggregate window scores → clip scores
-            │  └─ Strategy: mean (or configurable)
-            │
-            ├─ Compute clip-level metrics
-            │  ├─ EER
-            │  ├─ Macro F1
-            │  ├─ Balanced Accuracy
-            │  ├─ ROC AUC
-            │  └─ Confusion matrix
-            │
-            ├─ Slice analysis
-            │  ├─ By attack type
-            │  ├─ By speaker
-            │  └─ False positive/negative rates
-            │
-            └─ → eval_results.json (immutable)
-               → predictions.csv (locked)
-               → confusion_matrix.png
-```
-
-### Phase 6: Robustness Experiments
-```
-Original evaluation clips
-    │
-    ├─ Apply distortions (frozen parameters)
-    │  ├─ Additive noise (SNR: TBD)
-    │  ├─ Compression (codec, bitrate)
-    │  ├─ Speed perturbation (0.95x, 1.05x)
-    │  └─ Pitch shift (semitones: TBD)
-    │
-    ├─ Re-extract features
-    ├─ Run inference with locked checkpoint
-    ├─ Compare scores & metrics
-    │
-    └─ → robustness_metrics.json
-       → failure_analysis.md
-       → per_distortion_results/
-```
-
-### Phase 7: Serving & Demo
-
-#### FastAPI Backend
-```
-User uploads audio
-    │
-    ├─ Store temporarily
-    ├─ Validate (duration, format)
-    │
-    ├─ Preprocessing pipeline
-    │  ├─ Decode
-    │  ├─ Window (if needed)
-    │  └─ Extract features (apply training normalization)
-    │
-    ├─ Load locked inference model
-    ├─ Generate predictions
-    ├─ Aggregate (if windowed)
-    │
-    ├─ Return JSON response
-    │  └─ { score: float, label: "bonafide"|"spoof", confidence: float }
-    │
-    └─ DELETE temporary audio
-       (Privacy-preserving)
-
-    Endpoint: POST /detect
-    Logs: Request metadata only (no audio)
-```
-
-#### Streamlit UI
-```
-User visits http://localhost:8501
-    │
-    ├─ Upload audio file
-    ├─ Display metadata (duration, sample rate)
-    │
-    ├─ Call FastAPI backend
-    ├─ Display results
-    │  ├─ Score visualization
-    │  ├─ Confidence indicator
-    │  └─ Interpretation
-    │
-    └─ Show model card & disclaimers
-```
-
-#### Docker Container
-```
-Build image
-    │
-    ├─ Python 3.12 base
-    ├─ Install dependencies (uv sync)
-    ├─ Copy model checkpoint & config
-    │
-    └─ docker build -t voice-detector .
-
-Run container
-    │
-    ├─ docker run -p 8000:8000 -p 8501:8501 voice-detector
-    │
-    ├─ FastAPI on port 8000
-    ├─ Streamlit on port 8501
-    │
-    └─ Persistent logs (configured)
-```
-
-## Configuration & Reproducibility
-
-```
-configs/default.yaml
-├─ Project name & seed
-├─ Data paths (env overridable)
-├─ Audio settings (16 kHz, mono, 4 sec windows)
-├─ Evaluation protocol (locked partitions)
-└─ Feature extraction parameters
-
-Version control:
-├─ ✓ Configs (YAML)
-├─ ✓ Source code
-├─ ✓ Test fixtures
-├─ ✓ Data manifest & checksums
-├─ ✗ Audio files (ignored)
-├─ ✗ Feature cache (ignored)
-├─ ✗ Model checkpoints (ignored)
-└─ ✗ Database (ignored)
-
-Reproducibility record:
-└─ artifacts/experiment_log.json
-   ├─ Git commit
-   ├─ Configuration hash
-   ├─ Manifest hash
-   ├─ Dependency versions
-   ├─ Random seed
-   ├─ Runtime & hardware
-   └─ Metric outputs
-```
-
-## Key Constraints & Safeguards
-
-| Constraint | Enforcement | Purpose |
-|-----------|------------|---------|
-| Train/Dev/Eval split | YAML config + validation | No data leakage |
-| Train-only fitting | Preprocessing module | Fair evaluation |
-| Development-only tuning | Checkpoints frozen before eval | No overfitting to test set |
-| Window aggregation | Clip ID mapping | Per-clip metrics are honest |
-| Deterministic preprocessing | Explicit random seeds | Reproducibility |
-| Locked evaluation protocol | Immutable prediction file | No p-hacking |
-| Frozen thresholds | Recorded before prediction inspection | Fair reporting |
-| Feature parity | Shared module for train & serve | Train-serve consistency |
-| Temporary audio | Auto-delete after inference | Privacy |
-| Versioned outputs | Small JSON + metadata | Audit trail |
-
-## Command Reference
+These require a working Python 3.12/uv installation:
 
 ```bash
-# Setup
 uv sync --frozen --all-groups
-
-# Smoke test
 uv run voice-detector smoke --config configs/default.yaml
-
-# Preprocessing & EDA
-uv run python -m voice_detector.data audit_manifest
-uv run python -m voice_detector.preprocessing extract_features
-
-# Training
-uv run python -m voice_detector.models train_baseline --config configs/default.yaml
-uv run python -m voice_detector.models train_cnn --config configs/default.yaml
-
-# Evaluation
-uv run python -m voice_detector.evaluation locked_eval --checkpoint artifacts/cnn_checkpoint.pt
-
-# Robustness
-uv run python -m voice_detector.robustness distort_and_test --distortion noise
-
-# Serving
-uv run fastapi run app/main.py --port 8000
-uv run streamlit run app/streamlit_app.py --server.port 8501
-
-# Docker
-docker build -t voice-detector .
-docker run -p 8000:8000 -p 8501:8501 voice-detector
-
-# Testing & linting
-uv run pytest
 uv run ruff check .
+uv run pytest
 ```
 
-## Timeline & Milestones
-
-| Phase | Duration | Deliverables |
-|-------|----------|--------------|
-| 1. Data & Setup | Oct 5-11 | Manifest, audit, preprocessing module, tests |
-| 2. Baselines | Oct 12-18 | MFCC baseline, CNN timing run, comparison |
-| 3. Evaluation & Robustness | Oct 19-25 | Locked eval, robustness report, failure analysis |
-| 4. Demo & Release | Oct 26-Nov 4 | FastAPI, Streamlit, Docker, model card, slides |
-| 5. Presentation | Nov 5 | Live demo & slides |
-
+Data, training, freeze/evaluation, API, Streamlit and Docker commands must be implemented and tested before being documented as runnable. Their intended boundaries are in the architecture plan; the earlier speculative commands have been removed.

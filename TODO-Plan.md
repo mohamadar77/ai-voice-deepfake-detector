@@ -6,15 +6,16 @@ Target presentation: 5 November 2026, subject to the course schedule
 
 Build and evaluate a reproducible detector for human versus synthesized or voice converted speech. Compare an MFCC feature baseline with a Convolutional Neural Network (CNN), study unfamiliar attacks and audio distortions, and demonstrate a working application.
 
-This checklist follows the current project proposal. Every checkbox starts unchecked because implementation progress has not been verified. Check an item only when its output exists and its completion criteria have been met. Record experiment findings even when a model fails to improve.
+This checklist follows the original proposal and the [6 October architecture addendum](docs/architecture-and-delivery-plan.md). Existing checked setup items are historical records; runtime/environment readiness must be revalidated at G0. Check an item only when its output exists and its completion criteria have been met. Record experiment findings even when a model fails to improve.
 
 ## How to use this plan
 
-- **Proposal:** `docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx` explains the question, scope, method and acceptance criteria.
+- **Proposal:** `docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx` is the final, frozen, immutable proposal and source of truth for scope/commitments/acceptance (SHA-256 `b16f5124…`; signed off 2026-10-11 — see the sign-off in `docs/architecture-and-delivery-plan.md`). `_Revised.docx` is a non-selected historical candidate. `docs/architecture-and-delivery-plan.md` is the current scope, contracts, budget and schedule addendum, subordinate to the frozen proposal.
 - **Execution:** this file is the source of truth for implementation status. Check an item only when its output exists and its completion criteria are met.
 - **Roadmap:** `docs/roadmap.md` contains the current vertical slice, stop/go gates and the next concrete commands.
 - **Core first:** data audit, MFCC baseline, CNN, locked evaluation, robustness, failure analysis, API, demo, container, reproducibility and presentation.
-- **Deferred:** ASVspoof 2021 DF transfer, frozen transformer embeddings, cloud deployment, WaveFake, calibration, RAG and MCP. Start these only after the core acceptance criteria pass.
+- **Only selected stretch:** the evaluated evidence assistant, with zero committed hours and a strict early-core-completion gate before 26 October.
+- **Deferred beyond release:** ASVspoof 2021 DF, WaveFake, transformer/LSTM/extra model families, cloud, calibration/abstention, agents and MCP. Their educational coverage is conceptual; they are not release TODOs.
 
 Use GitHub Issues for individual tasks and a board with Backlog, Ready, In progress and Done. Keep one main implementation task in progress at a time. Each issue should include its expected output, dependencies and definition of done. Keep short decision notes when scope changes.
 
@@ -22,19 +23,22 @@ Use GitHub Issues for individual tasks and a board with Backlog, Ready, In progr
 
 | Target dates | Milestone | Completion evidence |
 | --- | --- | --- |
-| 5–7 October | Feasibility and data contract | Environment smoke check, dataset access decision, storage estimate and manifest schema |
-| 8–12 October | Data audit and baseline | Audited manifest, EDA, preprocessing checks, MFCC baseline and compute pilot |
-| 13–19 October | CNN and protocol | CNN comparison, development threshold, locked evaluation protocol and extension decision |
-| 20–26 October | Evaluation and demo | Locked results, robustness study, failure analysis and working upload flow |
-| 27 October–1 November | Release and slides | Feature freeze, container verification, reliability measurements and presentation draft |
-| 2–4 November | Rehearsal and backup | Reproducible startup, tested demonstration and rehearsal within 12 minutes |
-| 5 November | Presentation | Working demonstration, findings and limitations |
+| 6–7 October | G0: feasibility and data contract | Revalidated environment, terms/access, capacity/hours and manifest/split contracts |
+| 8–12 October | G1: data, baseline and early application | Audit/features, LR bundle, HTTP upload path, cleanup, CNN timing pilot and CPU container smoke |
+| 13–18 October | G2: CNN and protocol freeze | Clean/augmented CNN, train-fit diagnostics, development selection, reserved thresholds and all-candidate freeze |
+| 19–25 October | G3: evaluation and complete demo | Locked paired results, uncertainty/failures, model card draft and real-model UI |
+| 26 October | Feature freeze | No new models, datasets or extensions |
+| 27 October–1 November | G4: release and slides | Full container/reproduction/performance checks and presentation draft |
+| 2–4 November | G5: rehearsal and backup | Fresh-start demonstration, backup recording and <=12-minute rehearsal |
+| 5 November | Tentative presentation | Findings, working demonstration and limitations |
+
+Budget: estimated 110–150 focused hours, approximately 140–190 with 25% contingency, plus unattended compute. Record actual owner availability at G0; the date is not a feasibility guarantee.
 
 ## Start now
 
-The repository setup is complete. The next implementation slice is intentionally small and produces a decision before any expensive training:
+The repository has setup scaffolding and historical setup records. Revalidate the runtime before the next implementation slice:
 
-1. Confirm ASVspoof 2019 LA access, terms and local storage without downloading audio into Git.
+1. Revalidate Python 3.12/uv and record current hours/compute/storage; confirm ASVspoof 2019 LA access, terms and local storage without downloading audio into Git.
 2. Record the source and protocol details in `docs/data.md` and finalize the manifest schema.
 3. Implement a metadata-only manifest audit and run it on the official protocol files.
 4. Run a tiny, declared preprocessing and timing pilot; do not inspect evaluation labels or train a model yet.
@@ -62,15 +66,16 @@ The first coding target is therefore the data contract and manifest audit, not t
 
 Depends on: repository and environment.
 
-- [ ] Obtain ASVspoof 2019 logical access (LA) data and its official countermeasure protocols.
+- [ ] Obtain ASVspoof 2019 logical access (LA) data and its official countermeasure protocols. **G0 status: not acquired; terms/access remain open.**
+- [x] Record the initial G0 environment/storage check in `docs/data.md`: no local audio, about 520 GiB available, shell Python 3.14.6, uv cache rerouted successfully.
+- [ ] Resolve the G0 runtime blocker: intended Python 3.12/ARM64 environment versus current x86_64 PyTorch wheel resolution. Do not change the lockfile without a recorded platform decision.
 - [ ] Record source URLs, release identifiers, terms, archive checksums and download instructions in `docs/data.md`.
 - [ ] Verify storage requirements, extraction success and missing files.
 - [ ] Preserve official training, development and evaluation boundaries.
 - [ ] Define the label mapping explicitly: bona fide human speech versus spoofed/synthetic speech.
 - [ ] Reserve a speaker grouped part of development data for thresholds and optional calibration before tuning starts.
 - [ ] Document which development portion supports model selection and which supports operating thresholds.
-- [ ] Prepare ASVspoof 2021 DF access and released evaluation metadata if resources permit. Use it for evaluation, not supervised training.
-- [ ] Obtain the published source file maps to audit overlap between collections.
+- [ ] Record primary-dataset source-group provenance where available and disclose missing mappings. Cross-collection work is deferred.
 
 **Done when:** data sources and permitted uses are documented; partitions and label meanings are unambiguous; the primary dataset can be read locally.
 
@@ -78,7 +83,10 @@ Depends on: repository and environment.
 
 Depends on: data access.
 
-- [ ] Implement a manifest builder with clip ID, path, source ID, speaker ID, attack ID, label, split, duration, sample rate, checksum and provenance where available.
+- [x] Draft the canonical manifest fields and provenance rules in `docs/data.md`.
+- [x] Add dataset-free manifest row/duplicate validation in `src/voice_detector/manifest.py` with focused tests.
+- [x] Parse the official CM protocol into structured entries (speaker, clip, attack, label, split) with a metadata-only audit and fixtures in `src/voice_detector/protocol.py`, exposed as `voice-detector protocol-audit`. Reads no audio; runs before the dataset is present.
+- [ ] Implement a manifest builder with clip ID, path, source ID, speaker ID, attack ID, label, split, duration, sample rate, checksum and provenance where available (decodes audio; extends the protocol entries above).
 - [ ] Export a versioned CSV manifest and SQLite catalog with a documented schema.
 - [ ] Verify that manifest IDs and paths are unique and referenced files exist.
 - [ ] Audit exact duplicates, speaker overlap across official partitions and mapped original source overlap.
@@ -127,7 +135,7 @@ Depends on: preprocessing.
 Depends on: working baseline and compute pilot.
 
 - [ ] Implement a compact spectrogram CNN with a small Multilayer Perceptron (MLP) classification head.
-- [ ] Configure training batches, loss, class weighting, optimizer, early stopping and checkpoint selection.
+- [ ] Configure one compact architecture, loss, weighting, optimizer, early stopping and matched clean/augmented runs; record actual epochs/steps/clip exposure.
 - [ ] Verify the training loop on a small subset before a full run.
 - [ ] Train the main model using a declared development tuning budget.
 - [ ] Save learning curves, checkpoint, configuration and development predictions.
@@ -142,15 +150,14 @@ Depends on: working baseline and compute pilot.
 Depends on: model development complete.
 
 - [ ] Write `docs/evaluation-protocol.md` before final test predictions are inspected.
-- [ ] Freeze candidate configurations, checkpoints, score direction, operating thresholds, test membership and metrics.
+- [ ] Freeze LR, clean CNN and augmented CNN bundles (plus every declared seed), score direction, thresholds, membership, conditions, metrics, slices and the report template/outline before inspection.
+- [ ] Implement DRAFT/FROZEN/SCORED/REPORTED records, hash validation and refusal of silent result overwrite; a YAML Boolean is insufficient.
 - [ ] Verify no final test data was used to fit scalers, select checkpoints, calibrate outputs or choose thresholds.
 - [ ] Generate clip level predictions on the locked ASVspoof 2019 LA evaluation set.
 - [ ] Report EER, macro F1, balanced accuracy, ROC AUC, class counts and confusion matrices.
 - [ ] Report human false positive rate and synthetic detection rate at the development chosen threshold. Treat the proposed 5% development false alarm target as a target, not a test guarantee.
-- [ ] Report unfamiliar attack groups separately, with sample counts.
+- [ ] Report unfamiliar attack detection rates/counts; predeclare and disclose a bona fide comparison pool when calculating attack-specific EER/AUC.
 - [ ] Compute 95% bootstrap intervals grouped by original source recording; disclose limits from speaker dependence where relevant.
-- [ ] Run frozen models on ASVspoof 2021 DF if accessible; report codec, source and published evaluation subset slices.
-- [ ] Identify overlap between 2019 and 2021 evaluation recordings and avoid presenting correlated results as independent evidence.
 - [ ] Save prediction files and structured metrics; document any deviations from the original protocol.
 - [ ] Label evaluation on a subset and externally pretrained models accurately; do not claim an official leaderboard result.
 
@@ -166,9 +173,10 @@ Depends on: an evaluation pipeline; specify experiments before final scores.
 - [ ] Keep transformation parameters and random seeds in configuration.
 - [ ] Report paired changes in detection errors and false alarms under each condition.
 - [ ] Review false positives and false negatives by attack, codec, duration and source.
-- [ ] Fit PCA and clustering on training features; project or assign evaluation examples without refitting on them.
+- [ ] Fit PCA and K-means on training features; cap the training-only K search and silhouette sample; project/assign evaluation examples without refitting.
 - [ ] Save diagnostic plots and a small set of licensed or consented failure examples.
 - [ ] Describe dataset shortcuts, failure patterns, what improved and what remained unresolved.
+- [ ] The proposal's "failure-analysis dashboard" is satisfied by this failure report plus the Streamlit evaluation-summary/evidence view (§9); no separate dashboard application is required.
 
 **Done when:** the report contains a controlled robustness comparison and evidence supported failure analysis. Feature plots are presented as diagnostics.
 
@@ -176,15 +184,15 @@ Depends on: an evaluation pipeline; specify experiments before final scores.
 
 Start a thin vertical slice after the baseline; finish after model selection.
 
-- [ ] Implement a shared inference module that loads a versioned model bundle.
-- [ ] Build FastAPI prediction and health endpoints with typed responses.
-- [ ] Validate WAV and FLAC files, decoded duration of 1–30 seconds and a maximum upload size of 20 MB.
+- [ ] Implement a shared clip scorer with trusted versioned bundle and fitted-statistics/config hashes; check offline/API and CPU-container parity.
+- [ ] Build POST /predict, GET /health and GET /ready with typed responses; configure the UI API URL for localhost versus container service hostname.
+- [ ] Validate WAV/FLAC, at most 20 MB and target 1–30-second decoded duration; evaluate duration coverage or explicitly narrow supported claims. Bound decoding and concurrency.
 - [ ] Handle corrupt files, unsupported formats, empty audio, silence and unavailable models clearly.
 - [ ] Return predicted class, model score, model version and processing time.
 - [ ] Build a Streamlit upload interface and spectrogram view.
 - [ ] Show the chosen model's measured evaluation summary and limitations.
 - [ ] Label uncalibrated outputs as scores; add probability or inconclusive behavior only after the corresponding optional evaluation is complete.
-- [ ] Delete temporary audio after successful and failed requests; verify cleanup.
+- [ ] Delete temporary audio after success, errors and cancellation; clear UI-held buffers and verify cleanup.
 - [ ] Choose a small reproducible set of permitted demo recordings.
 - [ ] Test the full upload → preprocessing → inference → display flow.
 
@@ -203,65 +211,24 @@ Depends on: a working application.
 - [ ] Write the model card: intended use, data, language scope, metrics, known failures and limitations.
 - [ ] Document training, evaluation, artifacts, result reproduction and temporary audio handling.
 - [ ] Provide artifact retrieval instructions and checksums where redistribution is permitted.
-- [ ] Verify baseline reproduction from a fresh checkout.
+- [ ] Verify fresh-checkout reproduction of data preparation, baseline training, CNN training and the report (not baseline only).
 
 **Done when:** another developer can follow the setup and reproduction instructions, and the application has measured reliability and a model card.
 
-## 11. Next enhancements
+## 11. Selected stretch: evidence assistant
 
-Choose only after the core pipeline works and the measured budget allows it.
+Zero committed hours. Start only after full core acceptance, including Docker/reliability, reproduction and model-card evidence, early enough to finish a provisional 16–24-hour pilot before 26 October while preserving release contingency. The current schedule likely leaves it deferred.
 
-### Frozen transformer audio representations
+- [ ] Record the explicit go/no-go decision and remaining time.
+- [ ] Curate approved documentation/model card/frozen results; version document IDs, chunks, enriched metadata and index.
+- [ ] Compare TF-IDF/BM25 with separate development and held-out questions; semantic retrieval is optional.
+- [ ] Implement cited, structured and schema-validated generated answers only if model access, cost and evaluation fit; templated search alone is not RAG.
+- [ ] Evaluate retrieval recall, citation/numeric correctness, unsupported claims, abstention, latency and usage, including unanswerable/injection cases.
+- [ ] Keep audio decisions and frozen thresholds in the detector. Never pass raw uploads into the evidence workflow.
 
-- [ ] Time a small wav2vec 2.0 feature extraction run and estimate full cost.
-- [ ] Freeze the encoder, pool its representations and train a linear or small MLP classifier.
-- [ ] Use the same split and tuning discipline as the core models.
-- [ ] Cache embeddings and record external pretraining provenance.
-- [ ] Compare detection performance, latency, memory and extraction cost.
-- [ ] Clearly distinguish this research setting from the original challenge training restrictions.
+## 12. Deferred work
 
-### Cloud deployment
-
-- [ ] Select one hosting target after confirming access, budget and resource needs.
-- [ ] Deploy the evaluated model and the same containerized inference path.
-- [ ] Verify health, input limits, temporary file cleanup and operational logs.
-- [ ] Measure hosted latency and verify the demo URL.
-- [ ] Keep a tested local demonstration fallback.
-
-## 12. Optional extensions
-
-### WaveFake external evaluation
-
-- [ ] Verify dataset terms, generator metadata and compatible preprocessing.
-- [ ] Evaluate frozen models without fitting or tuning on this data.
-- [ ] Report limited reference speaker and language diversity.
-- [ ] Report external results separately from the primary benchmark.
-
-### Calibration and abstention
-
-- [ ] Fit calibration only on the reserved development portion.
-- [ ] Evaluate calibration using a documented validation procedure; report a reliability plot and Brier score with split provenance.
-- [ ] Define an uncertainty band on development data and freeze it before final testing.
-- [ ] Report decision coverage and errors among decided clips alongside overall model results.
-- [ ] Explain that unfamiliar audio may still receive a confident wrong assessment.
-
-### Grounded evidence assistant
-
-- [ ] Curate dataset documentation, the model card and approved result reports.
-- [ ] Version source identifiers, chunking settings and the document index.
-- [ ] Compare BM25 with document embedding retrieval on 15–20 labeled questions.
-- [ ] Add source cited answers with numeric claims sourced from experiment records.
-- [ ] Measure retrieval recall at k, citation correctness, unsupported claims and unanswerable handling.
-- [ ] Keep authenticity assessment in the audio inference path.
-
-### Agent and MCP integration
-
-- [ ] Expose `inspect_audio`, `predict_audio` and `get_model_report` through FastMCP.
-- [ ] Reuse validated inputs, bounded execution and structured inference results.
-- [ ] Implement one bounded agent workflow only if it improves the evidence assistant or demo.
-- [ ] Verify tool errors, source traceability and timeout handling.
-
-**Extension rule:** start with the transformer, then cloud deployment, then the evidence assistant. Add MCP only for a useful integration. Stop adding features on 26 October.
+ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cloud deployment, calibration/abstention, agents and MCP are future work, not acceptance requirements or automatic next tasks. The course appendix explains their relevance and reasons for deferral.
 
 ## 13. Presentation and release
 
@@ -296,20 +263,23 @@ Choose only after the core pipeline works and the measured budget allows it.
 
 | Date | Decision or blocker | Impact | Next action |
 | --- | --- | --- | --- |
-| — | Record decisions here as implementation progresses | — | — |
+| 6 October 2026 | Lead/Meitner architecture agreement | One core, early API/container path, all-candidate freeze, zero-hour stretch | Execute G0; see architecture addendum |
+| 6 October 2026 | Requested existing reviewer unavailable through agent and CLI APIs | No three-way approval claimed | Incorporate feedback if the session becomes reachable |
+| 6 October 2026 | Session handoff recorded | Resume from G0 environment/data blockers and the architecture addendum | Read `docs/architecture-and-delivery-plan.md` handoff before continuing |
+| 11 October 2026 | Final proposal selected and signed off | Original `...Proposal.docx` frozen as sole source of truth (SHA-256 `b16f5124…`); `_Revised.docx` non-authoritative | All future changes recorded in Markdown only; see architecture-plan sign-off |
 
 ## First actions
 
-- [ ] Initialize the repository and commit the proposal and this plan.
-- [ ] Create the environment and verify audio decoding.
-- [ ] Verify ASVspoof 2019 LA access and available storage.
-- [ ] Build the first dataset manifest and EDA report.
-- [ ] Train and record the MFCC baseline development result.
+- [ ] Revalidate runtime, hardware/storage and focused hours/week (G0).
+- [ ] Verify ASVspoof 2019 LA access/terms and write the data contract.
+- [ ] Implement protocol fixtures, manifest schema and metadata-only audit.
+- [ ] Implement/test deterministic preprocessing and pilot capacity.
+- [ ] Train/record the baseline development result when the implementation task authorizes training; connect the same bundle to an early API/UI path.
 
 ## Project references
 
-- [Project proposal](AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx)
-- [GitHub starting plan and references](GitHub_Starting_Plan_and_References.md)
-- [Syllabus coverage notes](Syllabus_Coverage_for_Data_and_Modeling.md)
-
-The proposal, supplied syllabus and graduation brief define this plan. Companion file links assume these files are placed together; adjust paths when adding them to the repository.
+- [Final frozen project proposal (source of truth)](docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx)
+- [Current architecture, discussion and delivery decisions](docs/architecture-and-delivery-plan.md)
+- [Implementation roadmap](docs/roadmap.md)
+- [Project management](docs/project-management.md)
+- [Course coverage appendix](docs/proposal-review-and-course-coverage.md)

@@ -257,3 +257,6 @@ artifacts/**
 uploads/
 tmp/
 *.pid
+
+# macOS Finder metadata
+.DS_Store
