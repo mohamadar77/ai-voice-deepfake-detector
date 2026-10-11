@@ -11,6 +11,20 @@ audio:
   mono: true
   window_seconds: 4.0
 
+# Shared preprocessing specification. The same decoder, windowing and feature
+# settings are used for training, locked evaluation and serving. Bump
+# preprocessing_version whenever any value here changes so bundles stay
+# reproducible and comparable.
+preprocessing:
+  version: mfcc-v1
+  mfcc:
+    n_mfcc: 20
+    n_fft: 400        # 25 ms analysis window at 16 kHz
+    hop_length: 160   # 10 ms hop at 16 kHz
+    fmin: 20.0
+    fmax: 8000.0      # Nyquist at 16 kHz
+    include_delta: true
+
 evaluation:
   preserve_official_splits: true
   primary_dataset: asvspoof2019_la
