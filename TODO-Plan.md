@@ -292,6 +292,7 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 | 6 October 2026 | Requested existing reviewer unavailable through agent and CLI APIs | No three-way approval claimed | Incorporate feedback if the session becomes reachable |
 | 6 October 2026 | Session handoff recorded | Resume from G0 environment/data blockers and the architecture addendum | Read `docs/architecture-and-delivery-plan.md` handoff before continuing |
 | 11 October 2026 | Final proposal selected and signed off | Original `...Proposal.docx` frozen as sole source of truth (SHA-256 `b16f5124…`); `_Revised.docx` non-authoritative | All future changes recorded in Markdown only; see architecture-plan sign-off |
+| 11 October 2026 | Windowing tail/padding policy frozen — **option D**: pool MFCCs over real (non-padded) samples only; fold sub-frame tails; `<4 s` clip = one window over real audio | Removes zero-pad contamination of pooled MFCC stats (a potential class shortcut); unblocks [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7)/[#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8); bumps `mfcc-v1`→`mfcc-v2` | Implement in #7 with tests (see [#4](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/4)); CNN padding decided separately at G2 |
 
 ## First actions
 
