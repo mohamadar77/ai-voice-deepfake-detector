@@ -19,6 +19,28 @@ This checklist follows the original proposal and the [6 October architecture add
 
 Use GitHub Issues for individual tasks and a board with Backlog, Ready, In progress and Done. Keep one main implementation task in progress at a time. Each issue should include its expected output, dependencies and definition of done. Keep short decision notes when scope changes.
 
+## Current slice (G1) — tracked in GitHub
+
+This file stays the master plan and status source of truth; GitHub carries only the
+work in flight. **Gate milestones:** G0 (closed) … G5 exist as GitHub milestones. The
+active-slice issues below are minted just-in-time and link back to the sections here;
+sections are not mirrored issue-for-issue.
+
+| Issue | Slice | TODO § |
+| --- | --- | --- |
+| [#5](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/5) | Manifest builder over LA audio + versioned CSV/SQLite export | §3 |
+| [#6](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/6) | EDA and exclusion report on the LA manifest | §3 |
+| [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7) | MFCC feature extraction + cache keyed to manifest/config | §4 |
+| [#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8) | MFCC + Logistic Regression baseline bundle | §5 |
+| [#9](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/9) | Concrete scorer behind serving API + offline/API parity | §9 |
+| [#10](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/10) | CNN timing pilot on CPU (no full training) | §4/§6 |
+| [#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11) | CPU Docker container smoke for API + UI | §10 |
+| [#4](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/4) | **Decision (blocker):** freeze windowing tail/padding policy | §4 |
+
+**Dependency order:** #5 → (#7 after #4) → #8 → #9; #6 after #5; #10 after feature
+settings; #11 after #9. #4 (`needs-decision`) blocks #7 and #8 — freeze it before the
+MFCC features lock.
+
 ## Milestones
 
 | Target dates | Milestone | Completion evidence |
@@ -58,7 +80,7 @@ The first coding target is therefore the data contract and manifest audit, not t
 - [x] Record and lock dependencies for NumPy, Pandas, plotting, audio processing, scikit-learn, PyTorch, FastAPI and Streamlit as needed.
 - [x] Set configurable dataset and artifact paths; provide an example configuration without credentials.
 - [x] Record available CPU, memory, storage and accelerator access.
-- [ ] Create milestone Issues and a Project board.
+- [x] Create milestone Issues and a Project board. **2026-10-11:** GitHub milestones G0–G5 created (G0 closed) and the G1 issue set (#5–#11, plus decision #4) opened and linked under "Current slice". A Projects *board* is still to be added — the current `gh` token lacks the `project` scope; add it in the GitHub UI, or run `gh auth refresh -s project` and re-attempt.
 
 **Done when:** a fresh checkout can create the environment, import the package and run a small smoke command. The first configuration and setup instructions are committed.
 
