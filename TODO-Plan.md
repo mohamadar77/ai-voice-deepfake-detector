@@ -26,8 +26,8 @@ work in flight. **Gate milestones:** G0 (closed) … G5 exist as GitHub mileston
 active-slice issues below are minted just-in-time and link back to the sections here;
 sections are not mirrored issue-for-issue.
 
-**Board:** GitHub Projects board *AI Voice Deepfake Detector — Delivery* (columns
-Backlog · Ready · In progress · Done) tracks these issues across the gates.
+**Board:** GitHub Projects board [*AI Voice Deepfake Detector — Delivery*](https://github.com/users/mohamadar77/projects/3)
+(columns Todo · In Progress · Done) tracks these issues; one item is In Progress at a time.
 
 | Issue | Slice | TODO § |
 | --- | --- | --- |
