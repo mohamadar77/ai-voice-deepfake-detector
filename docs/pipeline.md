@@ -1,6 +1,6 @@
 # Project workflow and pipeline
 
-This is the planned implementation, not a claim that the modules or services exist. The current package provides configuration and a smoke CLI. See [architecture and delivery decisions](architecture-and-delivery-plan.md) for contracts, acceptance tests, deadlines and remaining TODOs.
+This is the planned implementation, not a claim that every module or service exists. Implemented so far: protocol parsing, the manifest builder, shared MFCC preprocessing and the serving skeleton. There is no trained model or evaluation harness yet. See [architecture and delivery decisions](architecture-and-delivery-plan.md) for contracts, acceptance tests, deadlines and remaining TODOs.
 
 ## Offline experiment path
 
@@ -62,6 +62,8 @@ uv sync --frozen --all-groups
 uv run voice-detector smoke --config configs/default.yaml
 uv run ruff check .
 uv run pytest
+uv run voice-detector protocol-audit --protocol <cm-protocol-file> --split <train|development|evaluation>
+uv run voice-detector build-manifest --la-root data/raw/LA
 ```
 
-Data, training, freeze/evaluation, API, Streamlit and Docker commands must be implemented and tested before being documented as runnable. Their intended boundaries are in the architecture plan; the earlier speculative commands have been removed.
+`build-manifest` reads audio headers and must run where the dataset lives (the training host). Data, training, freeze/evaluation, API, Streamlit and Docker commands must be implemented and tested before being documented as runnable. Their intended boundaries are in the architecture plan; the earlier speculative commands have been removed.

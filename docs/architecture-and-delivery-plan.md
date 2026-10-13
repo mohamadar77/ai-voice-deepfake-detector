@@ -10,7 +10,7 @@ This document is the current architecture and scope addendum to the frozen final
 
 Committed experiments: MFCC + Logistic Regression, compact CNN trained clean, and the same CNN trained with one declared augmentation recipe. Report all frozen candidates; select deployment using development only. Add bounded training-fitted PCA/K-means diagnostics. No accuracy improvement is promised.
 
-The only selected stretch is an evaluated evidence assistant over approved documents and frozen reports. Extra model families, transformer audio encoders, external datasets, cloud hosting, calibration/abstention, agent orchestration and MCP are deferred beyond this release. A successful core without the assistant is an acceptable final project.
+The only selected stretch was an evaluated evidence assistant over approved documents and frozen reports; it is a no-go for this release (owner, 13 October 2026, #37). Extra model families, transformer audio encoders, external datasets, cloud hosting, calibration/abstention, agent orchestration and MCP are deferred beyond this release. A successful core without the assistant is an acceptable final project.
 
 Code inspection currently shows a configuration loader and smoke CLI, tests for setup/configuration, dependency/configuration files and CI scaffolding. It does not show a dataset pipeline, detector, prediction API or evaluation results. Historical setup checkboxes are retained as prior records, not re-certified by this architecture review. Environment validation must be repeated at the first gate: a prior command in this session could not locate Python 3.12 through uv.
 
@@ -107,9 +107,24 @@ All items below remain open; documenting a design is not implementing it. Detail
 - [ ] **A9 — reproducibility and presentation (G4/G5):** fresh-checkout reproduction of data preparation, baseline training, CNN training and the report (not baseline only), checksummed bundle instructions, model card, approved summaries, course-evidence appendix, 12-minute slides and backup recording. Depends on A7/A8.
 - [ ] **S1 — stretch go/no-go (before 26 October):** only if A0–A8 and core reproduction/model-card evidence pass with presentation contingency remaining, authorize the bounded evidence-assistant experiment; otherwise record deferred. No automatic extension from being listed here.
 
+Issue mapping (13 October 2026):
+
+| Item | GitHub issues |
+| --- | --- |
+| A1 | #5 (closed), #31 |
+| A2 | #4, #7 |
+| A3 | #32, #8, #9 |
+| A4 | #9, #11 |
+| A5 | #10, #33 |
+| A6 | #34, #35, #36 |
+| A7 | #35, plus G3 issues minted just-in-time |
+| S1 | #37 |
+
 Test plan: fast fixtures for partition/provenance invariants; finite deterministic features and padded-window aggregation; freeze mismatches; known-score/one-class metric cases; paired resampling; API parity and error/cleanup paths. Core CI stays independent of datasets, network, GPUs and trained checkpoints. Implementation changes require `uv run ruff check .` and relevant `uv run pytest`; run the full fast suite when practical.
 
 ## Selected stretch contract
+
+> **Superseded for this release (13 October 2026):** the owner decided S1 is a no-go (#37). The contract below is kept as the historical record and as course-coverage context. Phase 2 work is in [research-backlog.md](research-backlog.md).
 
 Allocate **zero committed hours** to this stretch. A 16–24-hour pilot is a provisional estimate only if full core acceptance (including Docker/reliability) finishes early enough to complete it before 26 October with release contingency preserved. The current schedule does not provide that window; likely outcome is deferral. Start with approved documentation and already-frozen results, a versioned corpus, TF-IDF/BM25 retrieval comparison and a source-cited answer interface. Add LLM generation only if its configuration/access/cost and evaluation fit the remaining budget; lexical or templated answers alone do not count as RAG. Semantic retrieval is another optional part of this same bounded experiment, not mandatory infrastructure. No agent orchestration, MCP or persistent recording memory.
 
@@ -150,6 +165,102 @@ This sign-off freezes the proposal only. It does not certify environment readine
 - **RAG engineering** vocabulary (enriched metadata; structured, schema-validated output) added to the optional evidence-assistant plan (TODO §11).
 
 The frozen proposal (the original) remains the authoritative baseline; these are implementation elaborations recorded in Markdown, not changes to the `.docx`. The retired file's bytes are identified by the SHA-256 above should it ever need to be matched again.
+
+## Dated decisions — 13 October 2026 (architecture review)
+
+Full rationale: [architecture-review-2026-10-13.md](architecture-review-2026-10-13.md). The proposal `.docx` was re-verified unchanged (SHA-256 `b16f5124…a09aec`).
+
+### Deviation register (proposal commitments not delivered in this release)
+
+The 11 October sign-off deferred these items "with rationale" but did not record the fields this plan requires. They are recorded here.
+
+| Proposal commitment (where) | Status | Reason | Owner decision | Acceptance impact |
+| --- | --- | --- | --- | --- |
+| ASVspoof 2021 DF locked transfer test. Appears in research question 2 ("a second evaluation domain"), the data-partition table and the "Transfer and codec shift" experiment. | Deferred | CPU-only host and the schedule. The proposal's own risk rule says to defer 2021 transfer before delaying the main report. | Sign-off, 2026-10-11 | The report must state that RQ2's second-domain part was not run. RQ2 is answered only for unseen attacks A07–A19 plus compression/noise. In Phase 2 it leads the [research backlog](research-backlog.md). |
+| WaveFake external test ("if time permits") | Deferred | Conditional in the proposal; no capacity | Sign-off, 2026-10-11 | Listed as not run |
+| Frozen wav2vec 2.0 embeddings. Appears in research question 3 ("if resources allow") and the "next enhancement" row. | Deferred | The resource gate fails: CPU-only host and schedule | Sign-off, 2026-10-11 | RQ3 is reported as not run; no transfer-learning claim |
+| Calibration (reliability plot, Brier score) and the "inconclusive" band | Not implemented | The proposal makes both conditional ("if calibration is implemented") | Architecture agreement, 2026-10-06 | Outputs are labeled scores; no inconclusive output |
+| Cloud deployment ("attempt one small cloud deployment after the local demo is reliable") | Deferred | Conditional in the proposal; local container only | Architecture agreement, 2026-10-06 | No hosted claim |
+| RAG evidence assistant and MCP interface ("optional extension") | RAG: **no-go**, owner decision 2026-10-13 (#37). MCP: deferred. | Optional in the proposal | Architecture agreement, 2026-10-06 | None. Course coverage stays conceptual. |
+
+### Plan amendments adopted (owner-requested review)
+
+- **G1 narrowed to its critical path:** option D (#4) → features (#7) → development reservation + pre-tuning record ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)) and metrics ([#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32)) → LR dev report (#8) → CNN pilot (#10). EDA (#6), scorer parity (#9) and container smoke (#11) move to a **G2 parallel lane**, done while CNN training runs unattended. #31 and #32 **block** #8, because LR tuning and threshold selection must not touch development data before the reservation is frozen.
+- **Forecast:** G1 16 Oct, G2 freeze 22 Oct, G3 27 Oct. Feature freeze (26 Oct), G4 (1 Nov), G5 (4 Nov) and the presentation (5 Nov) are held. The 25% contingency is spent. The cut list is in the review and the roadmap.
+- **New G2 work items:**
+  - CNN study, including the input/padding policy, decided before training ([#33](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/33));
+  - robustness + silence-shortcut transformation spec ([#34](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/34));
+  - evaluation protocol + freeze record ([#35](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/35));
+  - PCA/K-means ([#36](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/36)).
+- **Silence-shortcut diagnostic.** This implements the proposal's risk commitment "inspect silence and duration effects" as a controlled test, not an EDA plot. It has two parts:
+  - a shortcut-only baseline on development data (#6);
+  - a paired, evaluation-only silence-trimmed condition, declared before the freeze and scored for every frozen bundle (#34).
+
+  It is a diagnostic condition alongside the four robustness conditions, not a fifth robustness condition, and not a new candidate.
+- **Predeclared analysis details (#35):**
+  - duration bins <1, 1–<2, 2–<4, 4–10 and >10 s, with per-class counts;
+  - bootstrap resampling by `speaker_id` when no source mapping exists;
+  - the report maps each proposal research question to evidence or to an explicit "not run";
+  - published B01/B02 challenge baselines are cited as context only, never as reproduced results.
+- **Demo set:** the owner's consented recordings plus owner-generated synthetic clips from a modern TTS/voice-clone tool whose terms allow it. Labeled illustrative with n reported. A miss is presented as a measured limitation.
+- **Container on the presentation machine** is checked during G2/G3 (#11), not first at G5.
+
+### Owner decisions — 13 October 2026 (two-phase strategy)
+
+Recorded from the owner's direction after the review. The project's direction is
+unchanged; the immediate focus moves from planning to experiments, evidence and
+delivery.
+
+- **Two phases.** Phase 1 is the graduation release (5 Nov). It optimizes for:
+  1. a working end-to-end system;
+  2. correct methodology;
+  3. reproducible experiments;
+  4. measured results and failure analysis;
+  5. demo and presentation;
+  6. delivery within time and compute.
+
+  Experimental correctness is never traded for the deadline. Phase 2 is post-graduation research, tracked separately in [research-backlog.md](research-backlog.md) and the GitHub milestone *Phase 2: post-graduation research (backlog)*. Phase 1 keeps interfaces extensible and archives evidence, but builds no research-only extensions.
+- **S1 evidence assistant: no-go for this release** ([#37](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/37), closed). RAG/MCP are off the research track. Cross-domain transfer (2021 DF) leads the Phase 2 backlog, matching the proposal's own priority order. This supersedes the S1 contract below for this release.
+- **Moved to Phase 2:** [#38](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/38) (min t-DCF) and [#39](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/39) (matched-input control). UI polish is cut to the minimum demo view: score, spectrogram, measured summary, limitations.
+- **Phase 1 / Phase 2 decision table** (canonical copy in [research-backlog.md](research-backlog.md)):
+  - keep (Phase 1): MFCC + LR, CNN, the silence-shortcut investigation, REST API + simple UI, containerization;
+  - **mandatory**: development/test separation and unseen-attack evaluation;
+  - defer: advanced pretrained models, the RAG assistant, extensive hyperparameter optimization, and additional research datasets (unless already committed by the proposal and feasible).
+
+  Defer research *features*, not the architecture's ability to support them. Datasets enter only as canonical-schema manifests through dataset-specific builders; model interfaces stay behind `Scorer` and the versioned bundle; preprocessing is versioned per feature type; every run is tracked in JSON plus the SQLite `runs` table.
+- **Backlog pull gate.** With good progress, the owner may pull a backlog item into Phase 1. Every one of these conditions must hold:
+  1. P0–P2 are done and P3 is on forecast;
+  2. new candidates, metrics or conditions are declared before the G2 freeze, while scoring-only additions on frozen bundles get their own freeze record;
+  3. the item finishes before the 26 Oct feature freeze;
+  4. Phase 1 results are never changed;
+  5. the item is timeboxed, with a stop rule.
+
+  Each pull is recorded here before work starts. Ordered candidates: second CNN seed pair, #38 min t-DCF, 2021 DF scoring-only transfer (committed by the proposal), #39.
+- **No advanced or pretrained models in Phase 1.** A reliable, thoroughly evaluated classical model takes priority over a pretrained model with weak evaluation.
+- **Methodology claims require artifacts.** Leakage tests on the real manifest, reproducible re-runs, per-attack results and offline/API parity come before any "rigorous" claim in the report or slides. See the review, "Design is not evidence".
+- **Known versus unseen attacks (correction).** ASVspoof 2019 LA evaluation attacks A16 and A19 reuse the A04 and A06 algorithms from training (Wang et al., 2020; verify against the challenge PDFs on the host). The locked report therefore has three slices:
+  - development A01–A06: known algorithms, unseen speakers;
+  - evaluation A16/A19: known algorithms, unseen speakers;
+  - evaluation A07–A15, A17, A18: unseen algorithms and unseen speakers; this is the headline "unseen" result.
+
+  Each slice is reported per attack and pooled. Recorded in #35 and `docs/data.md`.
+- **Metrics.** Per-class precision and recall are added to the required set (#32). Precision depends on class prevalence (about 1:8.8), so it is reported with the prevalence it was measured at and is never presented as transferable.
+- **Working mode.** Issue by issue, with tested code and verifiable outputs; no further broad architecture reviews in Phase 1. The owner picks the review gate (`/consult`, implement then `/code-review`, or none) for each slice.
+
+### External GPU compute protocol (owner-run Kaggle / Colab)
+
+The DL120 CPU host stays the default. The #10 pilot decides whether a GPU is needed. Use the GPU route if a forecast CNN run exceeds the 12 device-hour cap, or if the run matrix exceeds 48 device-hours. The owner runs the notebooks by hand. Any external run must:
+
+1. **Never receive evaluation audio or evaluation features.** Upload only the training and development partitions, or their features, as a *private* dataset, with the ODC-By attribution notice. Locked evaluation scoring runs only on the host, through the shared scorer, after the freeze.
+2. Check out a **pinned commit**. Install with `uv sync --frozen --all-groups` under Python 3.12 (`uv python install 3.12`; the locked Linux x86_64 CUDA `torch` matches these runtimes). A platform-forced deviation is recorded, never silently patched.
+3. Read every setting from the versioned YAML config. The notebook stays a thin launcher that imports package code.
+4. Record GPU model, driver/CUDA, torch version, seeds and the determinism settings used. GPU kernels may be nondeterministic, so record the tolerance.
+5. Pull back the checkpoint, run record and learning curves, with SHA-256 checksums. **Recompute the development predictions on the host** with the shared scorer, and check them against the notebook's predictions within the recorded tolerance before the bundle can be frozen.
+
+### Still pending owner decision
+
+- [#14](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/14): sub-1 s duration gate, before the G2 freeze.
+- [#34](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/34): concrete codec, SNR and trim parameters, before the G2 freeze.
 
 ## Architecture consultation
 

@@ -12,7 +12,7 @@ The repository documentation identifies the GitHub remote as `mohamadar77/ai-voi
 
 ## Board and work units
 
-Use Backlog, Ready, In progress and Done. Keep one main implementation issue active. Map future issues to A0–A9 in the architecture plan; each states owner, dependency, expected artifact, acceptance test and estimate. Do not close an issue because its design was documented.
+The board uses Todo, In Progress and Done. The milestones are G0–G5, plus *Phase 2: post-graduation research (backlog)* for work deferred past graduation; see [research-backlog.md](research-backlog.md). Keep one main implementation issue active. Map future issues to A0–A9 in the architecture plan; each states owner, dependency, expected artifact, acceptance test and estimate. Do not close an issue because its design was documented.
 
 ## Milestones
 

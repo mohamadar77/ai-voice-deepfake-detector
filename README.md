@@ -4,7 +4,14 @@ A reproducible AI Engineering graduation project for distinguishing bona fide hu
 
 ## Status
 
-Configuration, smoke-CLI, tests and CI scaffolding exist. Historical setup records require runtime revalidation at the first delivery gate. No detector or measured results are implemented yet; no dataset has been downloaded or model trained as part of this planning work.
+Phase 1 (graduation release, 5 November 2026) is in progress. These exist:
+
+- the data contract and the official-protocol parser/audit;
+- the ASVspoof 2019 LA manifest builder, verified against the published counts on the training host;
+- shared MFCC preprocessing with frozen windowing;
+- a FastAPI/Streamlit serving skeleton.
+
+**No model has been trained, and no measured results exist yet.** The prioritized critical path is in the [roadmap](docs/roadmap.md). Post-graduation research is kept separately in the [research backlog](docs/research-backlog.md).
 
 ## Core scope
 
@@ -15,7 +22,15 @@ Configuration, smoke-CLI, tests and CI scaffolding exist. Historical setup recor
 - A shared inference path exposed through FastAPI and a Streamlit demo.
 - Docker packaging, reproducibility records, focused tests, and privacy-aware observability.
 
-The committed study includes clean and augmented CNN training, bounded training-fitted PCA/K-means diagnostics and paired noise/compression evaluation. The only selected stretch is an evaluated evidence assistant after full core acceptance and before the feature freeze; it has zero committed hours. Audio transformers, extra datasets/models, cloud deployment, calibration/abstention, agents and MCP are deferred beyond this release.
+The committed study includes:
+
+- clean and augmented CNN training;
+- known- versus unseen-attack evaluation;
+- paired noise/compression evaluation;
+- a silence/duration shortcut diagnostic;
+- bounded training-fitted PCA/K-means diagnostics.
+
+The evidence-assistant stretch is a no-go for this release. Audio transformers, extra datasets/models, cloud deployment, calibration/abstention, agents and MCP belong to the post-graduation research backlog.
 
 See the [architecture and delivery plan](docs/architecture-and-delivery-plan.md) for agreed contracts, TODOs, resource estimates and the tentative November 5 schedule. It is the current scope/schedule addendum to the [final frozen proposal](docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx) (signed off 2026-10-11, SHA-256 `b16f5124…`), which is the immutable source of truth; the root TODO tracks completion.
 
@@ -40,7 +55,7 @@ tests/                Fast, dataset-free checks
 - [`uv`](https://docs.astral.sh/uv/)
 - Git
 
-The project currently locks dependencies for macOS ARM64, the development platform. The lockfile also resolves portable Python dependencies for other supported platforms; accelerator-specific behavior must be verified on the target machine.
+The verified install target for training and evaluation is Linux x86_64 (see [`docs/environment.md`](docs/environment.md)). macOS x86_64 cannot install the locked PyTorch build; use the Linux host or the container there. Accelerator-specific behavior must be verified on the target machine.
 
 ## Setup
 

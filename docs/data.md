@@ -72,9 +72,14 @@ published ASVspoof 2019 LA figures exactly:
 
 Consequences for evaluation design (all already required by `AGENTS.md`):
 
-- Train + development share attacks **A01–A06**; evaluation uses a **disjoint** set
-  **A07–A19**. Report performance on these unfamiliar attacks separately; do not
-  present known-attack numbers as the headline result.
+- Train and development share attacks **A01–A06**. Evaluation uses attack IDs
+  **A07–A19**, which are disjoint *as IDs* but not entirely as algorithms: **A16 and
+  A19 reuse the A04 and A06 algorithms** from training (Wang et al., 2020, *Computer
+  Speech & Language*; confirm against the challenge PDFs bundled in `dataset.zip`).
+  The unseen-attack headline is therefore A07–A15, A17 and A18. A16/A19 are reported
+  as a known-algorithm control on unseen speakers, alongside development A01–A06
+  (corrected 13 October 2026; see #35). Do not present known-attack numbers as the
+  headline result.
 - Class imbalance ≈ **1 : 8.8** (bonafide : spoof). Lead with EER, macro-F1 and
   balanced accuracy; consider class weighting. Never headline raw accuracy.
 - Per-split speaker counts 20 / 20 / 67. Cross-split speaker disjointness (a known LA
