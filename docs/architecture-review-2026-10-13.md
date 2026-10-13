@@ -107,7 +107,7 @@ others) go to the [post-graduation research backlog](research-backlog.md).
 | Medium | The **CNN input padding** policy was deferred to G2 with no issue. Zero-padding short clips to 4 s would bring back the shortcut option D removed. | New #33: decide repeat-pad, masking or variable-length input before any training run. |
 | Medium | The robustness spec lacked details: codec binaries (ffmpeg) sit outside `uv.lock`; the noise source was unspecified (a new noise dataset would be scope creep); augmentation/test overlap was undeclared. | New #34: pinned codec version, generated noise with per-clip seeds, overlap disclosure. |
 | Medium | **Bootstrap unit.** The manifest records no 2019 LA source grouping, so the "group by source" commitment needs a predeclared fallback. `dev_threshold` has only about 5 speakers, so threshold uncertainty is large. | #35: resample by `speaker_id` (67 evaluation speakers) and disclose. Report threshold-set counts. |
-| Medium | **Presentation-machine risk.** The locked x86_64 `torch` is the CUDA build, so the image may be several GB. The demo laptop cannot install the locked environment natively. A first test in G5 is too late. | #11 now records image size and cold start, and runs once on the presentation machine during G2/G3. |
+| Medium | **Presentation-machine risk.** The locked x86_64 `torch` is the CUDA build, so the image may be several GB. The demo laptop cannot install the locked environment natively. A first test in G5 is too late. | #11 now records image size and cold start. **Update (owner, 13 Oct):** the DL120 Fedora host is the presentation machine, so the locked env runs natively there. The remaining risk is venue access (on-site vs remote SSH tunnel), and the backup recording is the offline fallback. |
 | Medium | The **deviation register is incomplete**. The 11 Oct sign-off deferred 2021 DF, WaveFake and wav2vec 2.0 "with rationale", but did not record the fields the sign-off itself requires (commitment, reason, decision, date, acceptance impact). | Register added to the architecture plan, "Dated decisions — 13 October 2026". |
 | Low | The **stretch choice inverts the proposal's priority order** (RAG is ranked above the proposal's own 2021 DF evaluation item). The S1 gate also cannot pass on the forecast. | **Resolved by the owner the same day:** S1 no-go; 2021 DF leads the Phase 2 backlog. #37 closed. |
 | Low | Stale status text: roadmap "current position", README status and platform lines, pipeline "commands that exist". | Corrected. |
@@ -177,7 +177,7 @@ The forecast assumes about 32–43 focused hours a week, the plan's own envelope
 ## Open owner inputs
 
 1. **Focused hours per week**, plus any fixed unavailable days before 5 Nov. This determines whether the forecast holds and whether item 2 of the cut list triggers.
-2. **The presentation machine** (model, OS, CPU architecture, Docker available?) and whether the venue has network access.
+2. ~~The presentation machine~~: the DL120 Fedora host (owner, 13 Oct). Still open: whether it is on-site or reached remotely at the venue.
 3. ~~A decision on **#37**~~: decided by the owner the same day (see the addendum).
 4. A decision on **#14** (sub-1 s duration gate) before the G2 freeze.
 5. The demo TTS/voice-clone tool for the consented own-voice demo, and its terms.

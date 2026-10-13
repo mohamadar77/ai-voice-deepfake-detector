@@ -12,6 +12,16 @@ This is the machine where `uv sync --frozen --all-groups` installs cleanly and t
 smoke/lint/test gate passes. It is the recorded compute target for all training,
 validation and locked evaluation.
 
+**Role (owner, 13 October 2026):** this one machine is used for **development,
+training, evaluation and the demo/presentation**. Development and the full test
+suite run here natively. The Intel Mac isolated-env workaround is optional.
+
+- The owner states 32 GB RAM and a 270 GB disk. Setup measured 30 GB usable RAM and
+  about 209 GB free. These are consistent: installed versus usable memory, total
+  versus free disk.
+- Re-measure with `bash scripts/preflight.sh` and `df -h` before the CNN runs and
+  before G4.
+
 - Host: HPE ProLiant DL120 Gen10 (`hpe-dl120gen10-01`)
 - OS: Fedora Linux 44, `x86_64`, glibc 2.43
 - Processor: Intel Xeon Gold 6152 @ 2.10 GHz — **44 logical cores**
@@ -41,6 +51,24 @@ targets but sufficient for the **ASVspoof 2019 LA-only, CPU** scope:
   augmented copy ~40–60 GB + small checkpoints) fits within ~209 GB. The unused
   Physical Access (PA) archive is out of scope and should be removed to reclaim
   space.
+- **Phase 1 disk budget (13 October 2026):**
+
+  | Item | Size |
+  | --- | --- |
+  | LA data | ~20 GB |
+  | venv | ~15 GB |
+  | Docker image with the CUDA `torch` build, plus build cache | ~10–15 GB |
+  | MFCC features | <1 GB |
+  | log-Mel train/dev cache | ~4–8 GB (float32) |
+  | Checkpoints and predictions | <1 GB |
+  | **Total** | **~50–60 GB** |
+
+  Three rules keep it there:
+  - evaluation robustness and silence-trim conditions are computed **on the fly** at scoring time and never materialized as transformed audio copies, which would cost about 7 GB per condition;
+  - training augmentation is sampled per epoch and never cached;
+  - keep at least 30 GB free.
+
+  Record actual cache sizes in #7 and #33.
 - Compute: CPU-only is the planned mode. A compact CNN run (~20 epochs on ~25k
   train clips) is estimated at a few hours on 44 threads; the clean + augmented ×
   2-seed matrix is an overnight unattended job. The first real training pilot must

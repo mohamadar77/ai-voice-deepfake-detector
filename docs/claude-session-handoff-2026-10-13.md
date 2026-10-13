@@ -61,7 +61,13 @@ broad architecture reviews. Do not build Phase 2 items; they are in
 
 ## Environment
 
-- **Dev Mac (Intel x86_64):** cannot install the locked env (no torch or llvmlite
+- **Primary: the DL120 Fedora host is the single machine** for development,
+  training, evaluation and the demo/presentation (owner, 13 Oct). Run the session
+  there when possible: `uv sync --frozen --all-groups`, then `uv run ruff check .`
+  and `uv run pytest` with the full locked env. Disk budget and rules are in
+  `docs/environment.md`: robustness conditions on the fly, no cached augmentation,
+  ≥30 GB free.
+- **Optional: dev Mac (Intel x86_64):** cannot install the locked env (no torch or llvmlite
   wheels). Lint with `uvx ruff@0.16.10 check .`. Test dataset-free modules in an
   isolated env pinned to the lock:
 
@@ -96,7 +102,7 @@ broad architecture reviews. Do not build Phase 2 items; they are in
 | P2 | #35 eval protocol + freeze record | Start once #8 exists | Rehearse `DRAFT → FROZEN → SCORED → REPORTED` end-to-end on **`dev_select`** with the LR bundle, using no evaluation data. Encode the three attack slices, duration bins and the speaker-grouped bootstrap. |
 | P2 | #34 transforms + silence-trim diagnostic, #6 EDA + shortcut-only baseline | Parallel | The standout failure analysis. Parameters are predeclared, never tuned to results. |
 | P3 | #33 CNN, #36 PCA/K-means, #14 decision | G2 | Decide the CNN input/padding policy before training. Freeze every candidate (#35). |
-| P3‖ | #9 scorer parity, #11 container + presentation machine | G2 lane | Run these while the CNN trains. |
+| P3‖ | #9 scorer parity, #11 container in the presentation configuration on the host | G2 lane | Run these while the CNN trains. Keep API/UI bound to localhost; reach them via SSH tunnel if presenting remotely. |
 
 Milestone forecasts: G1 16 Oct; G2 freeze 22 Oct; feature freeze 26 Oct (hard); G3
 27 Oct; G4 1 Nov; G5 4 Nov; presentation 5 Nov.
@@ -105,7 +111,7 @@ Milestone forecasts: G1 16 Oct; G2 freeze 22 Oct; feature freeze 26 Oct (hard); 
 
 Ask for these when relevant; do not guess:
 1. focused hours per week (forecast validation);
-2. the presentation machine (OS/architecture, Docker, venue network);
+2. **how the DL120 is reached during the presentation**: physically at the venue, or remotely from a laptop. Remote means an SSH tunnel to localhost-bound services and a venue-network dependency, so the backup recording becomes the offline fallback;
 3. #14, the sub-1 s duration gate (before the G2 freeze);
 4. #34 codec, SNR and trim parameters (before the G2 freeze);
 5. the demo TTS/voice-clone tool and its terms.
