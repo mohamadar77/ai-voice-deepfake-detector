@@ -255,7 +255,7 @@ Depends on: a working application.
 - [ ] Add focused tests for feature shapes, split leakage, inference preprocessing and API error handling.
 - [ ] Configure lightweight GitHub Actions checks that do not require downloading the full dataset or training models.
 - [ ] Package API and UI in containers and document one startup command.
-- [ ] Verify a clean local container startup and health check, including one run on the actual presentation machine during G2/G3, with image size and cold start recorded ([#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11)).
+- [ ] Verify a clean local container startup and health check, in the presentation configuration on the DL120 host, which is the presentation machine (owner, 13 Oct), with image size and cold start recorded. Rehearse the venue access path (on-site, or an SSH tunnel to localhost-bound services) ([#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11)).
 - [ ] Write the model card: intended use, data, language scope, metrics, known failures and limitations.
 - [ ] Document training, evaluation, artifacts, result reproduction and temporary audio handling.
 - [ ] Provide artifact retrieval instructions and checksums where redistribution is permitted.
