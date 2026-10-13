@@ -98,13 +98,13 @@ broad architecture reviews. Do not build Phase 2 items; they are in
 | --- | --- | --- | --- |
 | #30 | Option D windowing, `mfcc-v2` (closes #4) | `main` | Open, mergeable |
 | #40 | Docs: review, Phase 1 critical path, Phase 2 backlog, this brief | #30's branch (stacked) | Open. **After #30 merges, retarget to `main`.** |
-| #41 | Metrics module (closes #32) | `main` | Open. Review fixes applied (`8f1f6c8`; 42 metrics tests; all 9 formula mutants killed). **Before merge:** CI green, then the full host suite on `8f1f6c8` (expect 111 tests). |
+| #41 | Metrics module (closes #32) | `main` | **Merged 14 Oct** (rebase-merge). CI and the host's 111-test suite were green on `8f1f6c8`. |
 
 ## Work order (pick the top unblocked item)
 
 | Pri | Issue | Ready? | Starting notes |
 | --- | --- | --- | --- |
-| P0 | #32 metrics | PR #41 | Host-verify `8f1f6c8`, then merge. **API for later slices:**<br>- `scoring.decide_spoof` is the only labeling rule (float64), and scorers (#9) must use it;<br>- `evaluate_clip_scores(ids, labels, scores, threshold=None \| float, score_direction=SCORE_DIRECTION)`;<br>- `threshold_at_target_fpr(ids, labels, scores, target_fpr=0.05, score_direction=SCORE_DIRECTION)`;<br>- `METRICS_VERSION` goes into every run record. |
+| ✅ | #32 metrics | Done (PR #41) | **API for later slices:**<br>- `scoring.decide_spoof` is the only labeling rule (float64), and scorers (#9) must use it;<br>- `evaluate_clip_scores(ids, labels, scores, threshold=None \| float, score_direction=SCORE_DIRECTION)`;<br>- `threshold_at_target_fpr(ids, labels, scores, target_fpr=0.05, score_direction=SCORE_DIRECTION)`;<br>- `METRICS_VERSION` goes into every run record. |
 | P0 | **#31** dev reservation + pre-tuning record | **Ready** | Code is local and dataset-free: deterministic seeded speaker assignment, coverage checks, `development_role` writer, YAML config, tests. The membership run happens **on the host** against the real manifest. **Do this before #7's host extraction** (see the hazard comment on #7/#31: roles change the manifest hash). The threshold rule is already implemented as `metrics.threshold_at_target_fpr`. |
 | P1 | #7 MFCC features + cache | After #30 merges | Planned shape: `features.py`, `.npz` per split, `extract-features` CLI, no scaler. Choose the cache key (manifest hash after #31, or a role-independent content key) at the review gate. |
 | P1 | #8 LR baseline dev report | After #31, #32, #7 | Tune three C values on `dev_select`, selecting with `evaluate_clip_scores(..., threshold=None)` (EER); set the threshold on `dev_threshold` clips via `threshold_at_target_fpr`; report with `evaluate_clip_scores(..., threshold=t)`; JSON run record plus SQLite `runs` table. **First real numbers.** |
