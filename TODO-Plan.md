@@ -38,7 +38,7 @@ The owner picks the review gate for each slice before implementation starts.
 | --- | --- | --- | --- | --- |
 | P0 | [#4](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/4) / PR #30 | Option D windowing (`mfcc-v2`), open for merge | G1 | §4 |
 | P0 | [#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31) | **Speaker-grouped development reservation + pre-tuning record** (blocks #8) | G1 | §2/§5 |
-| P0 | [#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32) | **Clip-level metrics module** with known-score tests (blocks #8). PR #41 is in `/code-review`. | G1 | §5/§7 |
+| ✅ | [#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32) | **Clip-level metrics module**: **done**, merged via PR #41 on 14 Oct (`/code-review` fixes applied; CI and the host's 111-test suite green on `8f1f6c8`) | G1 | §5/§7 |
 | P1 | [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7) | MFCC feature extraction + cache keyed to manifest/config | G1 | §4 |
 | P1 | [#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8) | MFCC + LR baseline: development report, bundle, run record | G1 | §5 |
 | P1 | [#10](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/10) | CNN timing pilot (decides CPU host vs Kaggle/Colab) | G1 | §4/§6 |
@@ -79,7 +79,7 @@ Budget: estimated 110–150 focused hours, approximately 140–190 with 25% cont
 The G0 checklist that used to live here is complete (see §1–§2 and `docs/data.md`). Current next actions, in order:
 
 1. Merge PR #30 (option D) and record the owner's focused hours per week.
-2. [#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32) metrics module (dataset-free) and [#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31) development reservation (code locally; membership frozen on the host), **before any tuning**.
+2. ~~[#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32) metrics module~~ (done 14 Oct, PR #41). [#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31) development reservation (code locally; membership frozen on the host), **before any tuning**.
 3. [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7) features → [#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8) LR development report: the first real evidence.
 4. [#10](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/10) CNN pilot: decide between the CPU host and Kaggle/Colab under the external-compute protocol.
 5. Start [#35](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/35) early and rehearse the full freeze → score → report pipeline on `dev_select` with the LR bundle.
