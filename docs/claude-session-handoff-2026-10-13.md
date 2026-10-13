@@ -1,131 +1,127 @@
-# Session handoff — 2026-10-13
+# Phase 1 resume brief: for the implementing senior engineer (agent)
 
-How to use: paste this file as the first message of a new Claude Code session (or
-point the session at `docs/claude-session-handoff-2026-10-13.md`). It is a
-pointer map, not a substitute for the sources it names — read `AGENTS.md`,
-`TODO-Plan.md`, `docs/data.md` and the memory files before acting.
+Updated: 13 October 2026, end of the architecture-review session. This replaces the
+earlier same-day handoff.
 
-## Project in one line
+**Use:** give this file to a fresh Claude Code session acting as **senior ML/software
+engineer**. It is a pointer map and work order, not a substitute for its sources.
+Read them in this order before acting:
 
-Reproducible detector for human vs. synthesized/voice-converted speech on
-**ASVspoof 2019 Logical Access (LA)**. Core path: MFCC + Logistic Regression
-baseline → compact log-Mel CNN → locked evaluation → robustness/failure analysis
-→ FastAPI + Streamlit + Docker + reproducibility. Target presentation **5 Nov
-2026**. Budget ~110–150 focused hours.
+1. `AGENTS.md`: binding conventions and evaluation non-negotiables.
+2. [`docs/roadmap.md`](roadmap.md): the **Phase 1 critical path** (P0–P5), deferrals, stop/go rules.
+3. [`TODO-Plan.md`](../TODO-Plan.md): master status, the critical-path table and the decisions log.
+4. [`docs/architecture-and-delivery-plan.md`](architecture-and-delivery-plan.md), section "Dated decisions — 13 October 2026": deviation register, owner decisions, external-GPU protocol.
+5. [`docs/architecture-review-2026-10-13.md`](architecture-review-2026-10-13.md): why the plan looks like this.
+6. [`docs/data.md`](data.md): data contract, verified counts, the A16/A19 note.
+7. The GitHub issue you are about to work on. Issues carry the definition of done.
 
-## Non-negotiables (see AGENTS.md — read it in full)
+## Mission
 
-- Python 3.12 + `uv` only; install `uv sync --frozen --all-groups`; run via `uv run`.
-- Preserve official LA train/development/evaluation boundaries. **Evaluation =
-  locked final test**: no fitting, selection, tuning, calibration, or inspecting
-  predictions on it.
-- Split before windowing; aggregate window scores to **one score per clip**.
-- Outputs are **scores**, not calibrated probabilities (unless calibration is
-  separately fit on reserved dev).
-- Never commit audio, features, checkpoints, DBs, `.env`. Record provenance,
-  seeds, versions, hashes for every experiment.
-- Before completing a code change: `uv run ruff check .` + the smallest relevant
-  `uv run pytest`.
+**Phase 1 (graduation, 5 Nov 2026):** a complete, scientifically credible,
+reproducible voice-deepfake detector. It must answer one question: *can we build a
+reliable AI-generated voice detector, and scientifically demonstrate where it
+succeeds, where it fails, and why?*
 
-## Standing rules (from memory — `.../memory/MEMORY.md`)
+Work **issue by issue, with tested code and verifiable outputs**. Do not commission
+broad architecture reviews. Do not build Phase 2 items; they are in
+[`research-backlog.md`](research-backlog.md) and can only be pulled in through its gate.
 
-1. **Consult an architect/tech-lead agent before non-trivial implementation**,
-   and loop to the optimal design first; then implement. (`Agent` tool, `Plan`
-   subagent; Codex not wired in.)
-2. **Log out-of-scope findings as labeled GitHub issues** (don't re-ask): bug →
-   `bug`, enhancement → `enhancement`, nice-to-have → `nice-to-have`, needs a
-   frozen decision → `needs-decision`.
-3. **CI hardening is parked** (GitHub milestone #7, issues #15–#29) until the
-   core ML work is done — do not implement it yet.
+## Standing rules (owner, durable)
 
-## Where things stand (milestones)
+1. **Before each implementation slice, ask the owner which review gate to use:**
+   - full `/consult` (two-model design review, then wait for a go);
+   - implement, then `/code-review`;
+   - no review.
 
-- **G0 — DONE.** Environment installs green on the host; ASVspoof 2019 LA acquired,
-  integrity-verified, provenance recorded (ODC-By 1.0, checksums, Todisco 2019
-  citation) in `docs/data.md`; `docs/environment.md` reconciled to the host.
-- **G1 — in progress.** Manifest builder shipped and verified on real data. Next:
-  features → baseline. ~4-day slip carried from G0; recoverable.
-- G2 CNN+freeze, G3 eval+demo, G4 release+slides, G5 rehearsal: not started.
+   Never decide it yourself. Never batch several slices under one answer.
+2. When `/code-review` is chosen, relay the ranked findings and apply fixes **only
+   after the owner approves each one**.
+3. Log out-of-scope findings as labeled GitHub issues: `bug`, `enhancement`,
+   `nice-to-have`, `needs-decision`. Do not re-ask for permission.
+4. CI/DevEx hardening (#15–#29) is **parked** until core ML is done.
+5. Never edit the proposal `.docx` (SHA-256 `b16f5124…`). Plan changes go in Markdown,
+   with dated decision rows.
+6. Commit and push only when the owner asks. The established pattern is one PR per
+   issue, with the attribution lines the harness provides.
 
-## What is on `main` now
+## Non-negotiables you will touch soon
 
-- `src/voice_detector/`: `protocol.py` (CM parser + `protocol-audit`),
-  `manifest.py` (validators **+ the merged builder**: `build_la_manifest`,
-  assertions, CSV/SQLite/`catalog_meta`, manifest hash), `preprocessing.py`
-  (shared decode→window→MFCC; real-sample windowing via `window_spans`, version
-  **mfcc-v2** after PR A), `api.py` (FastAPI
-  /health,/ready,/predict; 1–30 s gate, 20 MB cap), `scoring.py` (neutral
-  `Scorer` Protocol, no real model yet), `ui.py` (Streamlit client), `config.py`,
-  `cli.py` (`smoke`, `protocol-audit`, `build-manifest`).
-- Tests: 69 passing on the host (incl. 17 dataset-free manifest tests). CI
-  (`.github/workflows/ci.yml`) present.
-- Docs: `TODO-Plan.md` (master status), `docs/data.md`, `docs/environment.md`,
-  `docs/roadmap.md`, `docs/architecture-and-delivery-plan.md`.
+- **No tuning or threshold selection on development data before #31 freezes**
+  `dev_select` / `dev_threshold` membership.
+- **Evaluation partition is locked.** No fitting, selection, tuning or threshold
+  choice on it, and no inspection of evaluation predictions before the #35 freeze
+  record is `FROZEN`. Evaluation audio and features **never leave the DL120 host**;
+  external GPUs see training and development data only.
+- One score per clip (metrics reject duplicates). Synthetic = positive; higher
+  score = more synthetic; `score >= t` means spoof. Outputs are *scores*.
+- **Known versus unseen attacks:** evaluation A16/A19 reuse the A04/A06 algorithms.
+  The headline unseen result is A07–A15, A17 and A18. Never pool A16/A19 into it.
+- No advanced or pretrained models in Phase 1. Keep the declared tuning budget.
+  Extensive hyperparameter optimization is Phase 2.
 
-## Verified dataset facts (host build, 2026-10-13)
+## Environment
 
-`build-manifest` over the real data matched published figures exactly:
+- **Dev Mac (Intel x86_64):** cannot install the locked env (no torch or llvmlite
+  wheels). Lint with `uvx ruff@0.16.10 check .`. Test dataset-free modules in an
+  isolated env pinned to the lock:
 
-| split | bonafide | spoof | total | speakers | attacks |
-|---|---|---|---|---|---|
-| train | 2,580 | 22,800 | 25,380 | 20 | A01–A06 |
-| development | 2,548 | 22,296 | 24,844 | 20 | A01–A06 |
-| evaluation | 7,355 | 63,882 | 71,237 | 67 | A07–A19 |
+  ```bash
+  PYTHONPATH=src uv run --no-project --python 3.12 --with numpy==2.5.3 --with scikit-learn==1.9.1 --with soundfile==0.14.0 --with pyyaml==6.0.3 --with pytest==9.1.1 python -m pytest <tests> -q -p no:cacheprovider
+  ```
 
-Total 121,461. Train/dev share attacks; eval is disjoint (A07–A19) → report
-unfamiliar attacks separately. Class imbalance ≈ 1:8.8. Manifest hash
-`b172e50c…`. **Finding:** 1,277 clips are shorter than the API's 1.0 s gate
-(eval 1,059) — tracked as decision issue #14.
+  Tests importing librosa need `--with llvmlite==0.44.0 --with numba==0.61.2 --with librosa`.
+  The first run is slow (cold compile); warm runs take seconds.
+- **DL120 host** (`hpe-dl120gen10-01`; Fedora 44, 44 threads, 30 GB, CPU-only):
+  - runs `uv sync --frozen --all-groups`, the full suite and every data job;
+  - repo at `~/ai-voice-deepfake-detector`, LA data at `data/raw/LA`, manifest at `artifacts/manifest/` (all git-ignored);
+  - the owner runs host and Kaggle/Colab jobs; give exact commands.
 
-## The compute host
+## Open PRs and merge order
 
-HPE ProLiant DL120 Gen10 (`hpe-dl120gen10-01`), Fedora 44, x86_64, glibc 2.43,
-Xeon Gold 6152 (44 threads), 30 GB RAM, **CPU-only**, uv 0.13. Repo clone at
-`~/ai-voice-deepfake-detector`; LA data at `data/raw/LA` (git-ignored); manifest
-written to `artifacts/manifest/` (git-ignored).
+| PR | Content | Base | State at handoff |
+| --- | --- | --- | --- |
+| #30 | Option D windowing, `mfcc-v2` (closes #4) | `main` | Open, mergeable |
+| #40 | Docs: review, Phase 1 critical path, Phase 2 backlog, this brief | #30's branch (stacked) | Open. **After #30 merges, retarget to `main`.** |
+| #41 | Metrics module (closes #32) | `main` | Open; `/code-review` run in progress. Owner approves fixes, then merge. |
 
-**Workflow:** write code locally, the host runs it. This dev Mac **cannot install
-the torch-locked env** (documented macOS x86_64 wheel gap), so verify locally
-with `uvx ruff@0.9.10 check …` and an isolated test env:
-`PYTHONPATH=src uv run --no-project --with numpy --with soundfile --with pytest python -m pytest tests/test_manifest.py -q`.
-The full `uv run --all-groups` suite + real builds run on the host.
+## Work order (pick the top unblocked item)
 
-## GitHub (repo `mohamadar77/ai-voice-deepfake-detector`)
+| Pri | Issue | Ready? | Starting notes |
+| --- | --- | --- | --- |
+| P0 | #32 metrics | PR #41 | Finish the review fixes; merge. |
+| P0 | **#31** dev reservation + pre-tuning record | **Ready** | Code is local and dataset-free: deterministic seeded speaker assignment, coverage checks, `development_role` writer, YAML config, tests. The membership run happens **on the host** against the real manifest. **Do this before #7's host extraction** (see the hazard comment on #7/#31: roles change the manifest hash). The threshold rule is already implemented as `metrics.threshold_at_target_fpr`. |
+| P1 | #7 MFCC features + cache | After #30 merges | Planned shape: `features.py`, `.npz` per split, `extract-features` CLI, no scaler. Choose the cache key (manifest hash after #31, or a role-independent content key) at the review gate. |
+| P1 | #8 LR baseline dev report | After #31, #32, #7 | Tune three C values on `dev_select`; threshold on `dev_threshold` via `threshold_at_target_fpr(target_fpr=0.05)`; metrics via `evaluate_clip_scores`; JSON run record plus SQLite `runs` table. **First real numbers.** |
+| P1 | #10 CNN timing pilot | After log-Mel settings are declared (pilot-only) | Output is a compute-route decision: CPU host, or Kaggle/Colab under the external-GPU protocol. |
+| P2 | #35 eval protocol + freeze record | Start once #8 exists | Rehearse `DRAFT → FROZEN → SCORED → REPORTED` end-to-end on **`dev_select`** with the LR bundle, using no evaluation data. Encode the three attack slices, duration bins and the speaker-grouped bootstrap. |
+| P2 | #34 transforms + silence-trim diagnostic, #6 EDA + shortcut-only baseline | Parallel | The standout failure analysis. Parameters are predeclared, never tuned to results. |
+| P3 | #33 CNN, #36 PCA/K-means, #14 decision | G2 | Decide the CNN input/padding policy before training. Freeze every candidate (#35). |
+| P3‖ | #9 scorer parity, #11 container + presentation machine | G2 lane | Run these while the CNN trains. |
 
-- Milestones G0(closed)…G5; board **Project #3** "AI Voice Deepfake Detector —
-  Delivery" (Todo/In Progress/Done).
-- Merged PRs: #1 preprocessing, #2 serving, #3 G0 docs, #12 G1 tracking, #13
-  manifest builder (closed #5).
-- Issues: **#4** windowing policy — **frozen as option D** (pool MFCCs over real
-  samples only; fold sub-frame tails; `<4 s`→one window; bump mfcc-v1→**mfcc-v2**);
-  implemented in #7, which closes it. #6 EDA, #7 MFCC features+cache, #8 LR
-  baseline, #9 scorer+API parity, #10 CNN timing pilot, #11 CPU container smoke.
-  #14 duration-gate decision (`needs-decision`, G2). CI issues #15–#29 parked.
+Milestone forecasts: G1 16 Oct; G2 freeze 22 Oct; feature freeze 26 Oct (hard); G3
+27 Oct; G4 1 Nov; G5 4 Nov; presentation 5 Nov.
 
-## Current task (in flight)
+## Owner inputs still pending
 
-The architect/tech-lead review for the next phase **converged**. Verdict: ship
-as **two PRs, option-D first** (not bundled), because option-D changes feature
-values on a tiny pure surface that should be reviewed on its own and #7 declares
-"Blocked by #4".
+Ask for these when relevant; do not guess:
+1. focused hours per week (forecast validation);
+2. the presentation machine (OS/architecture, Docker, venue network);
+3. #14, the sub-1 s duration gate (before the G2 freeze);
+4. #34 codec, SNR and trim parameters (before the G2 freeze);
+5. the demo TTS/voice-clone tool and its terms.
 
-- **PR A — option-D (closes #4), in progress on branch `claude/option-d-windowing`:**
-  pure `window_spans` policy in `preprocessing.py`, `clip_feature_matrix` pools
-  real samples only, `window_waveform` retired, `mfcc-v1`→`mfcc-v2` (code constant
-  `PREPROCESSING_VERSION`, config asserted to match). Also carries the
-  `TODO-Plan.md` board-line fix (board now exists as Project #3). Verified locally:
-  ruff clean, 22 preprocessing tests pass.
-- **PR B — #7 features + cache:** builds on the frozen v2 next (new `features.py`,
-  `.npz`-per-split cache keyed on `(manifest_hash, preprocessing_fingerprint)`,
-  `extract-features` CLI, no scaler). Awaiting PR A merge.
+## Verified facts (do not re-derive)
 
-Local note: the preprocessing tests need librosa; on this x86_64 Mac pin
-`llvmlite==0.44.0 numba==0.61.2` in the isolated `uv run --no-project` env
-(llvmlite 0.50.0, the locked version, has no macOS x86_64 wheel). Full suite
-still runs on the host.
+LA manifest (host, 2026-10-13), matching the published counts exactly:
 
-## Next slices after this
+| Split | Bona fide | Spoof | Total | Speakers | Attacks |
+| --- | --- | --- | --- | --- | --- |
+| Train | 2,580 | 22,800 | 25,380 | 20 | A01–A06 |
+| Development | 2,548 | 22,296 | 24,844 | 20 | A01–A06 |
+| Evaluation | 7,355 | 63,882 | 71,237 | 67 | A07–A19 |
 
-#7 features → #8 LR baseline (first real metrics; EER/macro-F1/bal-acc/ROC-AUC on
-dev; threshold ≤5% human FA). #6 EDA can run in parallel off the manifest. Freeze
-#14 (duration gate) before #8 locks numbers.
+- Speakers are disjoint across splits (asserted).
+- Manifest hash `b172e50c…`, before #31 adds roles.
+- 1,277 clips are shorter than 1.0 s (1,059 of them in evaluation; #14).
+- No 2019 LA source grouping is available, so the bootstrap falls back to
+  `speaker_id`.
