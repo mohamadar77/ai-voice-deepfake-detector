@@ -12,6 +12,7 @@ This checklist follows the original proposal and the [6 October architecture add
 
 - **Proposal:** `docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx` is the final, frozen, immutable proposal and source of truth for scope/commitments/acceptance (SHA-256 `b16f5124…`; signed off 2026-10-11 — see the sign-off in `docs/architecture-and-delivery-plan.md`). `_Revised.docx` is a non-selected historical candidate. `docs/architecture-and-delivery-plan.md` is the current scope, contracts, budget and schedule addendum, subordinate to the frozen proposal.
 - **Execution:** this file is the source of truth for implementation status. Check an item only when its output exists and its completion criteria are met.
+- **Resuming implementation:** start from the [Phase 1 resume brief](docs/claude-session-handoff-2026-10-13.md). It gives the reading order, standing rules, environment, open-PR merge order and the work order.
 - **Roadmap:** `docs/roadmap.md` contains the prioritized Phase 1 critical path, safely deferrable work and stop/go rules.
 - **Two phases (owner, 13 October 2026):** Phase 1 = this graduation release (5 November). Phase 2 = post-graduation research, kept in the separate [research backlog](docs/research-backlog.md). Phase 1 builds no research-only extensions, but keeps datasets (canonical-schema manifests), model interfaces, preprocessing versions and experiment tracking modular so Phase 2 can plug in. With good progress, the owner may pull backlog items through the [pull gate](docs/research-backlog.md#pulling-backlog-items-into-phase-1-progress-gate). Extensive hyperparameter optimization is deferred.
 - **Core first:** data audit, MFCC baseline, CNN, locked evaluation, robustness, failure analysis, API, demo, container, reproducibility and presentation.
@@ -37,7 +38,7 @@ The owner picks the review gate for each slice before implementation starts.
 | --- | --- | --- | --- | --- |
 | P0 | [#4](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/4) / PR #30 | Option D windowing (`mfcc-v2`), open for merge | G1 | §4 |
 | P0 | [#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31) | **Speaker-grouped development reservation + pre-tuning record** (blocks #8) | G1 | §2/§5 |
-| P0 | [#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32) | **Clip-level metrics module** with known-score tests (blocks #8) | G1 | §5/§7 |
+| P0 | [#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32) | **Clip-level metrics module** with known-score tests (blocks #8). PR #41 is in `/code-review`. | G1 | §5/§7 |
 | P1 | [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7) | MFCC feature extraction + cache keyed to manifest/config | G1 | §4 |
 | P1 | [#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8) | MFCC + LR baseline: development report, bundle, run record | G1 | §5 |
 | P1 | [#10](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/10) | CNN timing pilot (decides CPU host vs Kaggle/Colab) | G1 | §4/§6 |
@@ -51,7 +52,7 @@ The owner picks the review gate for each slice before implementation starts.
 | P3‖ | [#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11) | CPU container smoke, incl. presentation machine | G2 lane | §10 |
 | — | [#5](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/5) | Manifest builder (closed) | G1 | §3 |
 
-**Dependency order:** PR #30 (#4) → #7; #31 + #32 → #8 → #9; #8 → #35 rehearsal;
+**Dependency order:** PR #30 (#4) → #7; freeze #31 membership on the host **before** the #7 extraction, because roles change the manifest hash; #31 + #32 → #8 → #9; #8 → #35 rehearsal;
 #10 → #33; #34 + #36 + #33 + thresholds → #35 `FROZEN` → G3 locked scoring. #6, #9 and
 #11 run in the G2 parallel lane while the CNN trains unattended.
 
