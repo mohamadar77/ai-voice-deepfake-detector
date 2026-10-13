@@ -43,6 +43,10 @@ broad architecture reviews. Do not build Phase 2 items; they are in
    with dated decision rows.
 6. Commit and push only when the owner asks. The established pattern is one PR per
    issue, with the attribution lines the harness provides.
+7. **Every commit carries the owner's sign-off** as a trailer, placed before the
+   `Co-Authored-By` line: `Signed-off-by: Mohamad Abo-Ras <mohamad.abo.ras@gmail.com>`.
+   Write it literally; don't use `git commit -s`, which takes the identity from git
+   config. Keep the author email complete (`…@gmail.com`).
 
 ## Non-negotiables you will touch soon
 
