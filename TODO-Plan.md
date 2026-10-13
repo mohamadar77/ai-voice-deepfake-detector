@@ -251,6 +251,7 @@ Start a thin vertical slice after the baseline; finish after model selection.
 Depends on: a working application.
 
 - [ ] Log request ID, model version, audio duration, status and latency without raw recordings or secrets.
+- [ ] Long host jobs (extraction, CNN training, locked scoring) run detached (`tmux`/`systemd-run --user`) with file logs and are resumable (per-epoch checkpoints with optimizer/RNG state; atomic cache writes). API/UI bind to localhost and are reached via an SSH tunnel.
 - [ ] Measure p50/p95 latency, failure rate and memory on named hardware using a declared input mix and request count.
 - [ ] Add focused tests for feature shapes, split leakage, inference preprocessing and API error handling.
 - [ ] Configure lightweight GitHub Actions checks that do not require downloading the full dataset or training models.
@@ -291,7 +292,7 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 - [ ] Allocate approximately 1 minute motivation, 2 data, 2 methods, 3 results, 2 demo, 1 conclusions and 1 buffer.
 - [ ] Freeze features and organize release artifacts.
 - [ ] Test demonstration startup and prepared samples on the presentation machine.
-- [ ] Prepare a short backup recording, saved plots and a local fallback.
+- [ ] Prepare a short backup recording, saved plots and a local fallback. The demo runs remotely over an SSH tunnel to the host, so the local fallback is the presentation image, frozen bundle and demo clips loaded on the laptop's Docker (`docker save`/`load`, `linux/amd64`), verified offline with score parity in G4.
 - [ ] Rehearse and time the presentation.
 - [ ] Tag the final release and record its commit, model version and manifest hash.
 

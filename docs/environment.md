@@ -22,6 +22,29 @@ suite run here natively. The Intel Mac isolated-env workaround is optional.
 - Re-measure with `bash scripts/preflight.sh` and `df -h` before the CNN runs and
   before G4.
 
+**Access (owner, 13 October 2026):** the host is reached **remotely over SSH from the
+owner's laptop** for all work, including the presentation demo. The host is not
+moved. Consequences:
+
+- **Long jobs run detached.** Feature extraction, CNN training and locked scoring
+  run under `tmux` (or `systemd-run --user`) with logs written to files, so a dropped
+  SSH session never kills a run.
+- **Long jobs are resumable.** CNN training checkpoints every epoch, including
+  optimizer and RNG state. Cache writes are atomic (write to a temp file, then
+  rename). A resumed run records that it resumed.
+- **No public ports.** API and UI bind to `localhost` on the host. The laptop reaches
+  them through an SSH tunnel, for example `ssh -L 8501:localhost:8501 -L 8000:localhost:8000 <host>`.
+  Uploads therefore never cross an exposed endpoint.
+- **Offline demo fallback.** A remote demo depends on the venue network, while G5
+  requires a demo without network dependence. The fallback: `docker save` the
+  presentation image on the host, `docker load` it on the laptop (Intel Mac with
+  Docker Desktop runs the `linux/amd64` image natively), and copy the frozen bundle
+  (mounted read-only) and the permitted demo clips. Verify it offline on the laptop
+  in G4, and check that its scores match the host's. The backup recording remains
+  the last resort.
+- **Latency.** p50/p95 are measured server-side on the host (named hardware). Tunnel
+  round-trip time is a separate demo-experience number, never mixed in.
+
 - Host: HPE ProLiant DL120 Gen10 (`hpe-dl120gen10-01`)
 - OS: Fedora Linux 44, `x86_64`, glibc 2.43
 - Processor: Intel Xeon Gold 6152 @ 2.10 GHz — **44 logical cores**

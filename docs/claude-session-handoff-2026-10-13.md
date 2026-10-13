@@ -67,6 +67,13 @@ broad architecture reviews. Do not build Phase 2 items; they are in
   and `uv run pytest` with the full locked env. Disk budget and rules are in
   `docs/environment.md`: robustness conditions on the fly, no cached augmentation,
   ≥30 GB free.
+- **Remote access (owner, 13 Oct):** the owner works on the host over SSH from a
+  laptop, for development, training, evaluation and the demo. Implementation rules:
+  - long jobs run detached (`tmux` / `systemd-run --user`) with file logs, and are **resumable**: CNN checkpoints each epoch with optimizer and RNG state; cache writes are atomic;
+  - API/UI bind to `localhost` and are reached via an SSH tunnel, with no public ports;
+  - when giving the owner a host command, wrap long ones in `tmux new -s <name> '…'`.
+
+  Details are in `docs/environment.md`, section "Access".
 - **Optional: dev Mac (Intel x86_64):** cannot install the locked env (no torch or llvmlite
   wheels). Lint with `uvx ruff@0.16.10 check .`. Test dataset-free modules in an
   isolated env pinned to the lock:
@@ -111,7 +118,7 @@ Milestone forecasts: G1 16 Oct; G2 freeze 22 Oct; feature freeze 26 Oct (hard); 
 
 Ask for these when relevant; do not guess:
 1. focused hours per week (forecast validation);
-2. **how the DL120 is reached during the presentation**: physically at the venue, or remotely from a laptop. Remote means an SSH tunnel to localhost-bound services and a venue-network dependency, so the backup recording becomes the offline fallback;
+2. ~~how the host is reached during the presentation~~: **remotely via SSH tunnel** (owner, 13 Oct). The offline fallback is the presentation image exported to the laptop's Docker (verify in G4), then the backup recording;
 3. #14, the sub-1 s duration gate (before the G2 freeze);
 4. #34 codec, SNR and trim parameters (before the G2 freeze);
 5. the demo TTS/voice-clone tool and its terms.
