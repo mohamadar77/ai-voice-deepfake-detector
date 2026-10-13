@@ -15,7 +15,7 @@ audio:
 
 # Shared preprocessing specification (see configs/default.yaml for notes).
 preprocessing:
-  version: mfcc-v1
+  version: mfcc-v2
   mfcc:
     n_mfcc: 20
     n_fft: 400

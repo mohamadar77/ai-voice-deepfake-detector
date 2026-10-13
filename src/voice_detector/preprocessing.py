@@ -10,14 +10,14 @@ seeded training operations and deliberately live elsewhere.
 The feature vector for one window is the per-coefficient mean and standard
 deviation of its MFCCs (and, when enabled, their first-order deltas) pooled
 over time. That gives a fixed-length vector regardless of window content, which
-is what the Logistic Regression baseline consumes. A clip becomes a matrix of
-one such vector per fixed-length window; window scores are aggregated to one
-score per clip downstream, never treated as independent clips.
+is what the Logistic Regression baseline consumes. A clip is split into windows
+that span real (non-padded) samples only (see ``window_spans`` for the frozen
+policy); each window yields one such vector, and window scores are aggregated to
+one score per clip downstream, never treated as independent clips.
 """
 
 from __future__ import annotations
 
-import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,6 +28,14 @@ import numpy as np
 import soundfile as sf
 
 AudioSource = str | Path | BinaryIO
+
+# Preprocessing epoch. Bump this whenever the decode -> window -> feature path
+# changes feature values in a way a parameter hash would not capture. The code
+# constant is authoritative; configs/default.yaml declares the same string and
+# is asserted to match in PreprocessingConfig.from_mapping, so the two can never
+# silently diverge. mfcc-v1 -> mfcc-v2: pooled MFCC statistics are now computed
+# over real samples only (option D), so feature values change under this bump.
+PREPROCESSING_VERSION = "mfcc-v2"
 
 
 @dataclass(frozen=True)
@@ -85,7 +93,7 @@ class PreprocessingConfig:
 
     audio: AudioConfig = AudioConfig()
     mfcc: MfccConfig = MfccConfig()
-    version: str = "mfcc-v1"
+    version: str = PREPROCESSING_VERSION
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> PreprocessingConfig:
@@ -112,7 +120,13 @@ class PreprocessingConfig:
             fmax=float(mfcc_raw.get("fmax", MfccConfig.fmax)),
             include_delta=bool(mfcc_raw.get("include_delta", MfccConfig.include_delta)),
         )
-        version = str(pre_raw.get("version", cls.version))
+        version = str(pre_raw.get("version", PREPROCESSING_VERSION))
+        if version != PREPROCESSING_VERSION:
+            raise ValueError(
+                f"configs pin preprocessing.version {version!r} but this code produces "
+                f"{PREPROCESSING_VERSION!r}; feature values would not match. Align the "
+                f"config or check out the matching code revision."
+            )
         return cls(audio=audio, mfcc=mfcc, version=version)
 
 
@@ -139,24 +153,51 @@ def load_waveform(source: AudioSource, audio: AudioConfig) -> np.ndarray:
     return np.ascontiguousarray(waveform, dtype=np.float32)
 
 
-def window_waveform(waveform: np.ndarray, audio: AudioConfig) -> np.ndarray:
-    """Split a waveform into non-overlapping fixed-length windows.
+def window_spans(
+    n_samples: int, *, window_samples: int, n_fft: int
+) -> tuple[tuple[int, int], ...]:
+    """Half-open ``(start, stop)`` spans of real samples for one clip.
 
-    Returns an array of shape ``(n_windows, window_samples)``. The trailing
-    partial window is zero-padded, and a clip shorter than one window becomes a
-    single zero-padded window, so every clip yields at least one window.
+    This is the single source of truth for the frozen windowing policy
+    (option D): windows cover real, non-padded samples only, and any trailing
+    remainder shorter than one analysis frame (``n_fft`` samples) is folded into
+    the preceding window instead of being zero-padded or dropped. A clip no
+    longer than one window becomes a single window over its real audio. Every
+    branch yields at least one span, so every clip produces at least one feature
+    vector. The spans are pure integer arithmetic with no audio dependency,
+    which makes the policy exhaustively unit-testable.
+
+    Rules for ``n_samples`` greater than ``window_samples`` (remainder
+    ``r = n_samples % window_samples``):
+
+    - ``r == 0``: exact full windows.
+    - ``0 < r < n_fft``: the final window is extended to absorb the remainder
+      (one fewer window than a naive split).
+    - ``r >= n_fft``: the remainder forms its own final window.
     """
 
-    waveform = np.asarray(waveform, dtype=np.float32).reshape(-1)
-    if waveform.size == 0:
+    if n_samples <= 0:
         raise ValueError("Cannot window an empty waveform")
+    if window_samples <= 0:
+        raise ValueError("window_samples must be a positive integer")
+    if n_fft <= 0:
+        raise ValueError("n_fft must be a positive integer")
 
-    window_samples = audio.window_samples
-    n_windows = max(1, math.ceil(waveform.size / window_samples))
-    padded_length = n_windows * window_samples
-    if waveform.size < padded_length:
-        waveform = np.pad(waveform, (0, padded_length - waveform.size))
-    return waveform.reshape(n_windows, window_samples)
+    if n_samples <= window_samples:
+        return ((0, n_samples),)
+
+    full = n_samples // window_samples
+    remainder = n_samples % window_samples
+    spans = [(i * window_samples, (i + 1) * window_samples) for i in range(full)]
+
+    if remainder == 0:
+        return tuple(spans)
+    if remainder < n_fft:
+        start, _ = spans[-1]
+        spans[-1] = (start, n_samples)  # fold the sub-frame tail into the last window
+    else:
+        spans.append((full * window_samples, n_samples))
+    return tuple(spans)
 
 
 def mfcc_feature_vector(window: np.ndarray, audio: AudioConfig, mfcc: MfccConfig) -> np.ndarray:
@@ -187,13 +228,23 @@ def mfcc_feature_vector(window: np.ndarray, audio: AudioConfig, mfcc: MfccConfig
 def clip_feature_matrix(waveform: np.ndarray, config: PreprocessingConfig) -> np.ndarray:
     """Produce one pooled feature vector per window for a whole clip.
 
-    Returns an array of shape ``(n_windows, feature_dim)``. Downstream code
-    aggregates these window scores into a single clip-level score; the windows
-    are never treated as independent clips.
+    Returns an array of shape ``(n_windows, feature_dim)``. Windows span real
+    samples only, per ``window_spans``; no window is zero-padded, so pooled
+    statistics never see padding. Downstream code aggregates these window scores
+    into a single clip-level score; the windows are never treated as independent
+    clips.
     """
 
-    windows = window_waveform(waveform, config.audio)
-    features = [mfcc_feature_vector(window, config.audio, config.mfcc) for window in windows]
+    waveform = np.asarray(waveform, dtype=np.float32).reshape(-1)
+    spans = window_spans(
+        waveform.size,
+        window_samples=config.audio.window_samples,
+        n_fft=config.mfcc.n_fft,
+    )
+    features = [
+        mfcc_feature_vector(waveform[start:stop], config.audio, config.mfcc)
+        for start, stop in spans
+    ]
     return np.stack(features).astype(np.float32, copy=False)
 
 

@@ -14,6 +14,7 @@ import pytest
 import soundfile as sf
 
 from voice_detector.preprocessing import (
+    PREPROCESSING_VERSION,
     AudioConfig,
     MfccConfig,
     PreprocessingConfig,
@@ -21,7 +22,7 @@ from voice_detector.preprocessing import (
     clip_features_from_source,
     load_waveform,
     mfcc_feature_vector,
-    window_waveform,
+    window_spans,
 )
 
 
@@ -63,50 +64,74 @@ def test_from_mapping_reads_values_and_falls_back() -> None:
     config = PreprocessingConfig.from_mapping(
         {
             "audio": {"sample_rate_hz": 8000, "window_seconds": 2.0},
-            "preprocessing": {"version": "mfcc-test", "mfcc": {"n_mfcc": 13}},
+            "preprocessing": {"version": PREPROCESSING_VERSION, "mfcc": {"n_mfcc": 13}},
         }
     )
     assert config.audio.sample_rate_hz == 8000
     assert config.audio.window_seconds == 2.0
     assert config.mfcc.n_mfcc == 13
     assert config.mfcc.include_delta is True  # fell back to default
-    assert config.version == "mfcc-test"
+    assert config.version == PREPROCESSING_VERSION
 
 
 def test_from_mapping_uses_defaults_when_sections_absent() -> None:
     config = PreprocessingConfig.from_mapping({})
     assert config.audio == AudioConfig()
     assert config.mfcc == MfccConfig()
-    assert config.version == "mfcc-v1"
+    assert config.version == PREPROCESSING_VERSION
 
 
-# --- windowing --------------------------------------------------------------
+def test_from_mapping_rejects_version_mismatch() -> None:
+    # A config that pins a different epoch than this code produces must fail
+    # loudly: its features would not match the code's.
+    with pytest.raises(ValueError, match="preprocessing.version"):
+        PreprocessingConfig.from_mapping({"preprocessing": {"version": "mfcc-v1"}})
 
 
-def test_short_clip_becomes_one_padded_window() -> None:
-    audio = AudioConfig(sample_rate_hz=16000, window_seconds=1.0)  # 16000 samples
-    windows = window_waveform(_sine(0.25, 16000), audio)  # 4000 samples
-    assert windows.shape == (1, 16000)
-    assert np.all(windows[0, 4000:] == 0.0)  # tail is zero-padded
+# --- windowing (option D: real-sample spans, sub-frame tails folded) --------
+
+# window=1000 samples, n_fft=400: large enough to exercise every fold branch
+# with small integers and no audio.
+_W = 1000
+_NFFT = 400
 
 
-def test_exact_multiple_produces_whole_windows_without_padding() -> None:
-    audio = AudioConfig(sample_rate_hz=16000, window_seconds=1.0)
-    windows = window_waveform(_sine(3.0, 16000), audio)
-    assert windows.shape == (3, 16000)
-    assert np.any(windows[-1] != 0.0)  # last window is real audio, not padding
+def _spans(n: int) -> tuple[tuple[int, int], ...]:
+    return window_spans(n, window_samples=_W, n_fft=_NFFT)
 
 
-def test_partial_final_window_is_padded() -> None:
-    audio = AudioConfig(sample_rate_hz=16000, window_seconds=1.0)
-    windows = window_waveform(_sine(2.5, 16000), audio)  # 2.5 windows
-    assert windows.shape == (3, 16000)
-    assert np.all(windows[2, 8000:] == 0.0)
+def test_clip_no_longer_than_one_window_is_a_single_span() -> None:
+    assert _spans(_W) == ((0, _W),)  # exactly one window
+    assert _spans(250) == ((0, 250),)  # shorter than one window: real audio only
+    assert _spans(_NFFT) == ((0, _NFFT),)  # exactly one analysis frame
+
+
+def test_exact_multiple_produces_whole_windows() -> None:
+    assert _spans(2 * _W) == ((0, _W), (_W, 2 * _W))
+
+
+def test_remainder_at_least_a_frame_becomes_its_own_window() -> None:
+    # 2W + r with r >= n_fft -> three spans, the last one the remainder.
+    r = _NFFT + 50
+    assert _spans(2 * _W + r) == ((0, _W), (_W, 2 * _W), (2 * _W, 2 * _W + r))
+
+
+def test_subframe_tail_is_folded_into_the_previous_window() -> None:
+    # 2W + r with 0 < r < n_fft -> two spans; the last absorbs the remainder.
+    r = _NFFT - 1
+    assert _spans(2 * _W + r) == ((0, _W), (_W, 2 * _W + r))
+    # W + r folded -> a single span over the whole clip.
+    assert _spans(_W + r) == ((0, _W + r),)
+
+
+def test_pathological_sub_frame_clip_is_one_span() -> None:
+    # Shorter than a single analysis frame: still exactly one span, no crash.
+    assert _spans(_NFFT - 1) == ((0, _NFFT - 1),)
 
 
 def test_empty_waveform_is_rejected() -> None:
     with pytest.raises(ValueError, match="empty waveform"):
-        window_waveform(np.array([], dtype=np.float32), AudioConfig())
+        window_spans(0, window_samples=_W, n_fft=_NFFT)
 
 
 # --- features ---------------------------------------------------------------
@@ -133,8 +158,27 @@ def test_clip_feature_matrix_is_one_row_per_window() -> None:
         audio=AudioConfig(sample_rate_hz=16000, window_seconds=1.0),
         mfcc=MfccConfig(n_mfcc=20, include_delta=True),
     )
+    # 40000 samples over 16000-sample windows: two full windows plus an 8000
+    # sample remainder (>= n_fft), which becomes its own third window.
     matrix = clip_feature_matrix(_sine(2.5, 16000), config)
     assert matrix.shape == (3, config.mfcc.feature_dim)
+
+
+def test_short_clip_pools_over_real_samples_only() -> None:
+    # A clip shorter than one window yields a single window whose features are
+    # exactly those of the raw real audio: no zero-padding enters the pooled
+    # statistics (this is the point of option D). Also guards the sub-1s clips
+    # the manifest found (issue #14): extraction must process them, not crash.
+    config = PreprocessingConfig(
+        audio=AudioConfig(sample_rate_hz=16000, window_seconds=4.0),
+        mfcc=MfccConfig(n_mfcc=20, include_delta=True),
+    )
+    waveform = _sine(0.1, 16000)  # 1600 samples, far below one 64000-sample window
+    matrix = clip_feature_matrix(waveform, config)
+    assert matrix.shape == (1, config.mfcc.feature_dim)
+    assert np.all(np.isfinite(matrix))
+    expected = mfcc_feature_vector(waveform, config.audio, config.mfcc)
+    assert np.array_equal(matrix[0], expected)
 
 
 def test_features_are_deterministic() -> None:
