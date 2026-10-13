@@ -245,7 +245,7 @@ delivery.
 
   Each slice is reported per attack and pooled. Recorded in #35 and `docs/data.md`.
 - **Metrics.** Per-class precision and recall are added to the required set (#32). Precision depends on class prevalence (about 1:8.8), so it is reported with the prevalence it was measured at and is never presented as transferable.
-- **One machine.** The DL120 Fedora host (44 threads, 32 GB, 270 GB) is used for development, training, evaluation and the demo/presentation. Disk budget and rules are in `docs/environment.md`. It is reached **remotely over SSH** from the owner's laptop for all work, including the demo. Rules:
+- **Develop locally, test and run on the target.** Code is developed on the owner's laptop and pushed. CI runs the full suite on Linux x86_64. The DL120 Fedora host (44 threads, 32 GB, 270 GB) is the **target and demo environment**: the full suite on each pushed slice, data jobs, training, locked evaluation and the demo. A slice is done only when local checks, CI and the host suite pass on the same commit; code is never patched on the host. Disk budget and the loop are in `docs/environment.md`. The host is reached **remotely over SSH**, including for the demo. Rules:
   - long jobs run detached and resumable;
   - services bind to localhost and are reached through an SSH tunnel;
   - to keep the G5 "no network dependence" criterion, the presentation image, frozen bundle and demo clips are exported to the laptop's Docker as a verified offline fallback, with the backup recording as the last resort.

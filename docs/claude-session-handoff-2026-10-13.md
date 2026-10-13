@@ -61,21 +61,24 @@ broad architecture reviews. Do not build Phase 2 items; they are in
 
 ## Environment
 
-- **Primary: the DL120 Fedora host is the single machine** for development,
-  training, evaluation and the demo/presentation (owner, 13 Oct). Run the session
-  there when possible: `uv sync --frozen --all-groups`, then `uv run ruff check .`
-  and `uv run pytest` with the full locked env. Disk budget and rules are in
-  `docs/environment.md`: robustness conditions on the fly, no cached augmentation,
-  ≥30 GB free.
-- **Remote access (owner, 13 Oct):** the owner works on the host over SSH from a
-  laptop, for development, training, evaluation and the demo. Implementation rules:
+- **Development loop (owner, 13 Oct):** develop **locally** on the laptop → push →
+  CI → **test and execute on the DL120 host** (the target and demo environment).
+  - A slice is done only when local checks, CI and the host's full `uv run pytest`
+    are green on the **same commit**, and any real-data output has a run record
+    citing that commit.
+  - Never patch code on the host; fix locally and push.
+  - Steps are in `docs/environment.md`, "Development loop".
+- **Host access (owner, 13 Oct):** remote over SSH from the laptop, for testing,
+  execution and the demo. Disk budget: robustness conditions on the fly, no cached
+  augmentation, ≥30 GB free. Implementation rules:
   - long jobs run detached (`tmux` / `systemd-run --user`) with file logs, and are **resumable**: CNN checkpoints each epoch with optimizer and RNG state; cache writes are atomic;
   - API/UI bind to `localhost` and are reached via an SSH tunnel, with no public ports;
   - when giving the owner a host command, wrap long ones in `tmux new -s <name> '…'`.
 
   Details are in `docs/environment.md`, section "Access".
-- **Optional: dev Mac (Intel x86_64):** cannot install the locked env (no torch or llvmlite
-  wheels). Lint with `uvx ruff@0.16.10 check .`. Test dataset-free modules in an
+- **Local development (laptop, Intel Mac x86_64):** cannot install the locked env
+  (no torch or llvmlite wheels). Make torch-dependent tests skip locally with
+  `pytest.importorskip("torch")`; CI and the host run them. Lint with `uvx ruff@0.16.10 check .`. Test dataset-free modules in an
   isolated env pinned to the lock:
 
   ```bash
@@ -85,7 +88,7 @@ broad architecture reviews. Do not build Phase 2 items; they are in
   Tests importing librosa need `--with llvmlite==0.44.0 --with numba==0.61.2 --with librosa`.
   The first run is slow (cold compile); warm runs take seconds.
 - **DL120 host** (`hpe-dl120gen10-01`; Fedora 44, 44 threads, 30 GB, CPU-only):
-  - runs `uv sync --frozen --all-groups`, the full suite and every data job;
+  - target and demo environment: runs `uv sync --frozen --all-groups`, the full suite on every pushed slice, and every data, training and evaluation job;
   - repo at `~/ai-voice-deepfake-detector`, LA data at `data/raw/LA`, manifest at `artifacts/manifest/` (all git-ignored);
   - the owner runs host and Kaggle/Colab jobs; give exact commands.
 

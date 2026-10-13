@@ -12,9 +12,10 @@ This is the machine where `uv sync --frozen --all-groups` installs cleanly and t
 smoke/lint/test gate passes. It is the recorded compute target for all training,
 validation and locked evaluation.
 
-**Role (owner, 13 October 2026):** this one machine is used for **development,
-training, evaluation and the demo/presentation**. Development and the full test
-suite run here natively. The Intel Mac isolated-env workaround is optional.
+**Role (owner, 13 October 2026):** this host is the **target and demo
+environment**. The full locked test suite, every data job, training, locked
+evaluation and the presentation demo run here. **Code is developed locally** on the
+owner's laptop, pushed, then tested and executed here (development loop below).
 
 - The owner states 32 GB RAM and a 270 GB disk. Setup measured 30 GB usable RAM and
   about 209 GB free. These are consistent: installed versus usable memory, total
@@ -22,8 +23,30 @@ suite run here natively. The Intel Mac isolated-env workaround is optional.
 - Re-measure with `bash scripts/preflight.sh` and `df -h` before the CNN runs and
   before G4.
 
+**Development loop (owner, 13 October 2026).** Code is developed **locally** on the
+laptop. It is tested and executed on **this host, the target and demo environment**.
+Git is the only path between the two:
+
+1. **Local (laptop).** Branch, edit, `uvx ruff@0.16.10 check .`, and run dataset-free
+   tests in the isolated env (command in the resume brief). Tests that need `torch`
+   use `pytest.importorskip("torch")`, so they skip cleanly on the laptop, which
+   cannot install the locked `torch`. Commit and push.
+2. **CI (GitHub Actions).** Every push runs `uv sync --frozen --all-groups`, ruff and
+   the full pytest suite on Linux x86_64, the same platform as the host, without data.
+3. **Target (this host, over SSH).** On the pushed commit:
+   `git fetch && git checkout <branch> && git pull`, then
+   `uv sync --frozen --all-groups && uv run ruff check . && uv run pytest`.
+   Then run the slice's real job, detached, and bring the run record and summary
+   back to the PR.
+4. **Done** means: local checks green, CI green, the host's full suite green **on the
+   same commit**, and real-data outputs (if any) with a run record citing that commit.
+
+Never patch code on the host to make a run work. Fix it locally, push, and pull
+again. That keeps host checkouts clean, so run records honestly report
+`dirty = false`.
+
 **Access (owner, 13 October 2026):** the host is reached **remotely over SSH from the
-owner's laptop** for all work, including the presentation demo. The host is not
+owner's laptop** for testing, execution and the presentation demo. The host is not
 moved. Consequences:
 
 - **Long jobs run detached.** Feature extraction, CNN training and locked scoring
