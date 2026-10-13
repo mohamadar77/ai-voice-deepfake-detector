@@ -438,6 +438,17 @@ def manifest_summary(
                 "below_min": sum(1 for value in durations if value < MIN_DURATION_SECONDS),
                 "above_max": sum(1 for value in durations if value > MAX_DURATION_SECONDS),
             },
+            # Visible per split so a role written outside development, or a
+            # half-written reservation, shows up in the audit summary.
+            "development_role_counts": {
+                "select": sum(1 for row in split_rows if row.get("development_role") == "select"),
+                "threshold": sum(
+                    1 for row in split_rows if row.get("development_role") == "threshold"
+                ),
+                "unassigned": sum(
+                    1 for row in split_rows if row.get("development_role") is None
+                ),
+            },
         }
     return {
         "total_clips": len(rows),
@@ -506,7 +517,13 @@ def build_la_manifest(
     return rows, summary
 
 
-def _git_commit() -> str:
+def git_commit() -> str:
+    """Current Git commit, or ``"unknown"`` outside a repository.
+
+    Public because every record that claims reproducibility (manifest catalog,
+    reservation freeze, run records) has to cite the same commit.
+    """
+
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -519,7 +536,9 @@ def _git_commit() -> str:
     return result.stdout.strip() if result.returncode == 0 else "unknown"
 
 
-def _package_version() -> str:
+def package_version() -> str:
+    """Installed ``voice_detector`` version, or ``"unknown"``."""
+
     try:
         from voice_detector import __version__
     except ImportError:
@@ -543,8 +562,8 @@ def build_catalog_meta(
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "manifest_hash": str(summary.get("manifest_hash")),
         "build_utc": datetime.now(UTC).isoformat(timespec="seconds"),
-        "git_commit": _git_commit(),
-        "package_version": _package_version(),
+        "git_commit": git_commit(),
+        "package_version": package_version(),
         "dataset": DATASET_NAME,
         "license": DATASET_LICENSE,
         "datashare_handle": DATASET_DATASHARE_HANDLE,
@@ -554,6 +573,39 @@ def build_catalog_meta(
         "total_clips": str(summary.get("total_clips")),
         "summary_json": summary_json,
     }
+
+
+def read_manifest_sqlite(
+    path: Path | str,
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """Read a manifest catalog back into rows plus its ``catalog_meta``.
+
+    The reservation freeze needs the built manifest to add ``development_role``
+    without re-reading and re-hashing every audio file (hours over the full LA
+    set), so the catalog -- not the dataset -- is the input. Column order comes
+    from the table itself, so a catalog written by an older schema still reads.
+    ``catalog_meta`` is empty when the table is absent.
+    """
+
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"manifest catalog not found: {path}")
+    conn = sqlite3.connect(str(path))
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = [dict(row) for row in conn.execute("SELECT * FROM clips")]
+        meta: dict[str, str] = {}
+        tables = {
+            name for (name,) in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        if "catalog_meta" in tables:
+            meta = {
+                str(key): str(value)
+                for key, value in conn.execute("SELECT key, value FROM catalog_meta")
+            }
+    finally:
+        conn.close()
+    return rows, meta
 
 
 def write_manifest_csv(
