@@ -177,7 +177,7 @@ The forecast assumes about 32–43 focused hours a week, the plan's own envelope
 ## Open owner inputs
 
 1. **Focused hours per week**, plus any fixed unavailable days before 5 Nov. This determines whether the forecast holds and whether item 2 of the cut list triggers.
-2. ~~The presentation machine~~: the DL120 Fedora host (owner, 13 Oct). Still open: whether it is on-site or reached remotely at the venue.
+2. ~~The presentation machine~~: the DL120 Fedora host, reached **remotely over SSH** for all work and the demo (owner, 13 Oct). Mitigation: detached, resumable jobs; localhost-only services plus an SSH tunnel; an offline fallback image on the laptop's Docker, verified in G4.
 3. ~~A decision on **#37**~~: decided by the owner the same day (see the addendum).
 4. A decision on **#14** (sub-1 s duration gate) before the G2 freeze.
 5. The demo TTS/voice-clone tool for the consented own-voice demo, and its terms.

@@ -245,7 +245,12 @@ delivery.
 
   Each slice is reported per attack and pooled. Recorded in #35 and `docs/data.md`.
 - **Metrics.** Per-class precision and recall are added to the required set (#32). Precision depends on class prevalence (about 1:8.8), so it is reported with the prevalence it was measured at and is never presented as transferable.
-- **One machine.** The DL120 Fedora host (44 threads, 32 GB, 270 GB) is used for development, training, evaluation and the demo/presentation. Disk budget and rules are in `docs/environment.md`. Venue access (on-site vs SSH tunnel) is still to be confirmed; the backup recording is the offline fallback.
+- **One machine.** The DL120 Fedora host (44 threads, 32 GB, 270 GB) is used for development, training, evaluation and the demo/presentation. Disk budget and rules are in `docs/environment.md`. It is reached **remotely over SSH** from the owner's laptop for all work, including the demo. Rules:
+  - long jobs run detached and resumable;
+  - services bind to localhost and are reached through an SSH tunnel;
+  - to keep the G5 "no network dependence" criterion, the presentation image, frozen bundle and demo clips are exported to the laptop's Docker as a verified offline fallback, with the backup recording as the last resort.
+
+  See `docs/environment.md`, "Access".
 - **Working mode.** Issue by issue, with tested code and verifiable outputs; no further broad architecture reviews in Phase 1. The owner picks the review gate (`/consult`, implement then `/code-review`, or none) for each slice.
 
 ### External GPU compute protocol (owner-run Kaggle / Colab)
