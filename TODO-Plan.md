@@ -83,7 +83,7 @@ The first coding target is therefore the data contract and manifest audit, not t
 - [x] Record and lock dependencies for NumPy, Pandas, plotting, audio processing, scikit-learn, PyTorch, FastAPI and Streamlit as needed.
 - [x] Set configurable dataset and artifact paths; provide an example configuration without credentials.
 - [x] Record available CPU, memory, storage and accelerator access.
-- [x] Create milestone Issues and a Project board. **2026-10-11:** GitHub milestones G0–G5 created (G0 closed) and the G1 issue set (#5–#11, plus decision #4) opened and linked under "Current slice". A Projects *board* is still to be added — the current `gh` token lacks the `project` scope; add it in the GitHub UI, or run `gh auth refresh -s project` and re-attempt.
+- [x] Create milestone Issues and a Project board. **2026-10-11:** GitHub milestones G0–G5 created (G0 closed) and the G1 issue set (#5–#11, plus decision #4) opened and linked under "Current slice". **2026-10-13:** Projects board [*AI Voice Deepfake Detector — Delivery* (project #3)](https://github.com/users/mohamadar77/projects/3) added (Todo / In Progress / Done) and linked above.
 
 **Done when:** a fresh checkout can create the environment, import the package and run a small smoke command. The first configuration and setup instructions are committed.
 
@@ -293,6 +293,7 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 | 6 October 2026 | Session handoff recorded | Resume from G0 environment/data blockers and the architecture addendum | Read `docs/architecture-and-delivery-plan.md` handoff before continuing |
 | 11 October 2026 | Final proposal selected and signed off | Original `...Proposal.docx` frozen as sole source of truth (SHA-256 `b16f5124…`); `_Revised.docx` non-authoritative | All future changes recorded in Markdown only; see architecture-plan sign-off |
 | 11 October 2026 | Windowing tail/padding policy frozen — **option D**: pool MFCCs over real (non-padded) samples only; fold sub-frame tails; `<4 s` clip = one window over real audio | Removes zero-pad contamination of pooled MFCC stats (a potential class shortcut); unblocks [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7)/[#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8); bumps `mfcc-v1`→`mfcc-v2` | Implement in #7 with tests (see [#4](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/4)); CNN padding decided separately at G2 |
+| 13 October 2026 | Option D **implemented** ahead of #7 in its own PR (closes [#4](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/4)): pure `window_spans` policy in `preprocessing.py`, `clip_feature_matrix` pools real samples only, `window_waveform` retired, `mfcc-v1`→`mfcc-v2` (code constant `PREPROCESSING_VERSION`, config asserted to match) | Keeps the value-changing policy on a small, pure, exhaustively-tested surface and off the feature-cache I/O review; feature values change under v2 | Feature cache ([#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7)) builds on the frozen v2 next |
 
 ## First actions
 

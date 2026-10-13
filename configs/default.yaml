@@ -14,9 +14,11 @@ audio:
 # Shared preprocessing specification. The same decoder, windowing and feature
 # settings are used for training, locked evaluation and serving. Bump
 # preprocessing_version whenever any value here changes so bundles stay
-# reproducible and comparable.
+# reproducible and comparable. This string must equal PREPROCESSING_VERSION in
+# src/voice_detector/preprocessing.py; a mismatch is rejected at load time.
+# mfcc-v2: pooled MFCC statistics are computed over real samples only (option D).
 preprocessing:
-  version: mfcc-v1
+  version: mfcc-v2
   mfcc:
     n_mfcc: 20
     n_fft: 400        # 25 ms analysis window at 16 kHz
