@@ -558,6 +558,40 @@ def _extract_features(
     return 0
 
 
+def _cnn_pilot(
+    out_dir: Path | None,
+    config_path: Path,
+    batch_sizes: list[int],
+    n_warmup: int,
+    n_timed: int,
+) -> int:
+    """Run the CNN timing pilot on CPU (#10).
+
+    Lazy import keeps cli.py importable without torch.
+    """
+
+    from voice_detector.cnn_pilot import run_timing_pilot
+
+    config = load_config(config_path)
+    if out_dir is None:
+        out_dir = config.paths.artifacts_root / "cnn_pilot"
+
+    record = run_timing_pilot(
+        batch_sizes=batch_sizes,
+        n_warmup=n_warmup,
+        n_timed=n_timed,
+        seed=config.seed,
+    )
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    record_path = out_dir / "cnn_pilot_record.json"
+    payload = json.dumps(record, indent=2, sort_keys=True)
+    _atomic_write_text(record_path, payload)
+    print(payload)
+    return 0
+
+
 def _train_lr(
     manifest_dir: Path | None,
     features_dir: Path | None,
@@ -842,6 +876,45 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="output directory for the LR bundle (default: <artifacts_root>/lr_baseline)",
     )
+    cnn_pilot = subparsers.add_parser(
+        "cnn-pilot",
+        help=(
+            "run a forward/backward timing pilot for the compact log-Mel CNN "
+            "on CPU with synthetic data; produces a timing record with "
+            "extrapolated full-run estimates"
+        ),
+    )
+    cnn_pilot.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/default.yaml"),
+        help="project YAML (seed)",
+    )
+    cnn_pilot.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        help="output directory (default: <artifacts_root>/cnn_pilot)",
+    )
+    cnn_pilot.add_argument(
+        "--batch-sizes",
+        type=int,
+        nargs="+",
+        default=[16, 32, 64],
+        help="batch sizes to benchmark (default: 16 32 64)",
+    )
+    cnn_pilot.add_argument(
+        "--n-warmup",
+        type=int,
+        default=2,
+        help="warmup steps per batch size (default: 2)",
+    )
+    cnn_pilot.add_argument(
+        "--n-timed",
+        type=int,
+        default=10,
+        help="timed steps per batch size (default: 10)",
+    )
     return parser
 
 
@@ -887,6 +960,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.protocol,
             args.frozen_record,
             args.out_dir,
+        )
+    if args.command == "cnn-pilot":
+        return _cnn_pilot(
+            args.out_dir,
+            args.config,
+            args.batch_sizes,
+            args.n_warmup,
+            args.n_timed,
         )
     return 2
 
