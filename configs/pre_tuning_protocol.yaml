@@ -1,0 +1,68 @@
+# Pre-tuning protocol record (issue #31), declared before any development score
+# is computed and committed before #8 runs.
+#
+# This is the frozen answer to "how was the model chosen?", fixed while the
+# numbers did not yet exist. src/voice_detector/pretuning.py loads it and
+# rejects any field that disagrees with the code implementing it, so the record
+# cannot drift from metrics.METRICS_VERSION, metrics.SELECTION_METRIC,
+# metrics.SELECTION_DIRECTION, metrics.THRESHOLD_RULE, scoring.SCORE_DIRECTION
+# or scoring.DECISION_RULE. A configuration flag alone is not enforcement.
+#
+# Scope: selection, aggregation and threshold are the project's general
+# development protocol. lr_budget is the MFCC + Logistic Regression baseline's
+# own budget; the CNN declares its own score convention and budget in #33,
+# because raw scores from different model families are not comparable.
+version: pre-tuning-v1
+declared_on: "2026-10-14"
+
+# Metric definition in force. metrics-v1 EER: tie-grouped ROC with linear
+# interpolation at FNR == FPR (see metrics.compute_eer).
+metrics_version: metrics-v1
+
+# Synthetic speech is the positive class and larger scores mean more synthetic.
+score_direction: higher_more_spoof
+decision_rule: "spoof if score >= threshold, compared in float64"
+
+selection:
+  # Reserved role that model choices may use.
+  development_role: select
+  # Clip-level EER via metrics.evaluate_clip_scores(..., threshold=None), which
+  # is threshold-free, so selection cannot borrow the reserved operating point.
+  metric: clip_eer
+  direction: lower_is_better
+  tie_break:
+    # Within this absolute EER difference the systems are treated as tied. An
+    # engineering tolerance, not a claim of statistical equivalence.
+    eer_tolerance_absolute: 0.005
+    order: [simpler_system, lower_measured_latency]
+
+lr_budget:
+  model: logistic_regression
+  regularization_parameter: C
+  # The declared budget: three regularization values, one decade apart.
+  # Extensive hyperparameter optimization is Phase 2. max_candidates is the
+  # ceiling the loader enforces (and is itself capped by
+  # pretuning.MAX_DECLARED_CANDIDATES), so the budget cannot quietly grow into
+  # a hyperparameter search.
+  max_candidates: 3
+  values: [0.01, 1.0, 100.0]
+  # One fixed class-imbalance policy for all three candidates. LA is about
+  # 1:8.8 bona fide to spoof, so the policy is declared, not tuned.
+  class_weight: balanced
+
+aggregation:
+  # Mean of the per-window Logistic Regression decision function (the raw
+  # margin, not a probability), taken over the option D windows of one clip.
+  window_to_clip: mean_window_decision_function
+  # One score per original clip before any clip-level metric.
+  aggregate_by: clip_id
+
+threshold:
+  # Reserved role, opened only after the candidates are fixed.
+  development_role: threshold
+  # metrics.threshold_at_target_fpr: the lowest threshold whose bona fide
+  # false-positive rate is at most target_fpr.
+  rule: lowest_threshold_with_bonafide_fpr_at_most_target
+  target_fpr: 0.05
+  # score >= threshold means spoof, so a clip tied at the threshold is spoof.
+  ties_count_as: spoof

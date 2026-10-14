@@ -263,6 +263,71 @@ The DL120 CPU host stays the default. The #10 pilot decides whether a GPU is nee
 4. Record GPU model, driver/CUDA, torch version, seeds and the determinism settings used. GPU kernels may be nondeterministic, so record the tolerance.
 5. Pull back the checkpoint, run record and learning curves, with SHA-256 checksums. **Recompute the development predictions on the host** with the shared scorer, and check them against the notebook's predictions within the recorded tolerance before the bundle can be frozen.
 
+### Dated decisions — 14 October 2026 (#31 reservation and pre-tuning record)
+
+- **Development reservation frozen as a rule** (`configs/dev_reservation.yaml`,
+  schema `dev-reservation-v1`, assignment `sha256-rank-v1`). About 25% of the 20
+  development speakers are reserved for `threshold`, the rest go to `select`,
+  rounded half up and clamped so neither role is empty. A speaker's rank is
+  `sha256("<seed>|<speaker_id>")` under a dedicated reservation seed, kept
+  separate from `project.seed` so a training-seed change cannot move a protocol
+  boundary. Chosen over a PRNG shuffle because the shuffling algorithm is not
+  guaranteed stable across library versions, while SHA-256 is fixed by its
+  specification. Implements leakage control 2.
+- **Coverage gates the freeze.** Both roles must hold both classes and all of
+  A01-A06, and every reserved speaker must contribute at least one bona fide
+  clip. A failure refuses the freeze and reports the evidence; the *fraction* is
+  then adjusted, never the rule, and the reason is recorded in the frozen record.
+- **The frozen record is the authoritative membership**
+  (`reports/dev_reservation_frozen.json`): speaker IDs only, with per-role counts
+  by label and attack, per-speaker counts, the manifest hash before and after,
+  and the seed, method and commit. No clip IDs, paths or audio. The manifest's
+  `development_role` column is the git-ignored working copy, and
+  `reservation.verify_frozen_reservation` lets a later slice prove it read the
+  manifest the record was frozen against.
+- **The freeze changes the manifest hash by design**, so it runs on the host
+  **before** the #7 feature extraction (the hazard recorded on #7/#31).
+- **Pre-tuning protocol record declared before any development score existed**
+  (`configs/pre_tuning_protocol.yaml`, dated note in
+  [pre-tuning-protocol.md](pre-tuning-protocol.md)): clip-level EER on
+  `dev_select`; tie-break within 0.005 absolute EER, then the simpler system,
+  then lower measured latency; three LR `C` values `[0.01, 1.0, 100.0]` with one
+  fixed `class_weight = balanced`; mean per-window LR decision function
+  aggregated per `clip_id`; threshold at a 5% bona fide false-positive rate on
+  `dev_threshold`. Implements leakage controls 3 and 4.
+- **The record is enforced, not decorative.** `src/voice_detector/pretuning.py`
+  rejects a record that disagrees with the constant in the module implementing
+  each declared convention — `metrics.METRICS_VERSION`,
+  `metrics.SELECTION_METRIC`, `metrics.SELECTION_DIRECTION`,
+  `metrics.THRESHOLD_RULE`, `scoring.SCORE_DIRECTION`, `scoring.DECISION_RULE`
+  and the reservation role names — and derives the tie rule by asking
+  `scoring.decide_spoof` what it does at the threshold rather than restating it.
+  The candidate budget is bounded by `pretuning.MAX_DECLARED_CANDIDATES`, so it
+  cannot grow into a hyperparameter search. This answers the plan's own rule that
+  a configuration flag is not enforcement. The tie-break order,
+  `window_to_clip` and `regularization_parameter` are still declarations only, as
+  nothing implements them yet; #8 must honour them. Later changes are protocol
+  deviations with dated rows.
+- **Both freeze guards are independent, and the committed record outranks the
+  manifest** (added 14 Oct after the slice review). The manifest is git-ignored
+  and hours to rebuild, so a rebuilt manifest carries no roles to disagree with:
+  `reserve-development` reconciles against `reports/dev_reservation_frozen.json`
+  first and the manifest's role column second, and either disagreement refuses
+  without `--force`. Loading a record re-derives its membership from the seed and
+  fraction it records and requires the roles to be disjoint, so a hand-edited
+  record is rejected although its hashes still agree. A clamped
+  `threshold_fraction` that rounding cannot explain is a coverage failure rather
+  than a silently different reservation, and the post-write self-check now runs
+  against the staged catalog before the first `os.replace`.
+- **Disclosed limitation:** with 5 reserved speakers the operating threshold
+  rests on few speakers. Its achieved false-positive rate holds on this
+  reservation only; the evaluation partition is never consulted to improve it.
+- **Process deviation.** The #31 core reached `main` as a WIP commit (PR #42)
+  without tests, config or CLI. Owner decision, 14 Oct: leave it and finish
+  forward rather than revert, with the completing PR reviewed over the whole
+  slice range so the merged core is still reviewed. One PR per issue remains the
+  standard; this is the recorded exception.
+
 ### Still pending owner decision
 
 - [#14](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/14): sub-1 s duration gate, before the G2 freeze.

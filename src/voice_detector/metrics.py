@@ -43,6 +43,22 @@ from voice_detector.scoring import DECISION_RULE, SCORE_DIRECTION, decide_spoof
 METRICS_VERSION = "metrics-v1"
 POSITIVE_LABEL = "spoof"
 
+# The selection and threshold conventions the pre-tuning record declares, named
+# here beside the code that implements them rather than in the record's loader,
+# so changing the implementation forces the committed declaration to change too
+# (``pretuning.load_pre_tuning_protocol`` rejects a record that disagrees).
+#
+# ``SELECTION_METRIC`` is clip-level EER: ``ClipMetrics.eer``
+# (``SELECTION_METRIC_FIELD``) over one score per original clip, computed with
+# ``threshold=None`` so model selection cannot borrow an operating point from
+# the reserved ``dev_threshold`` speakers.
+SELECTION_METRIC = "clip_eer"
+SELECTION_METRIC_FIELD = "eer"
+SELECTION_DIRECTION = "lower_is_better"
+
+# What ``threshold_at_target_fpr`` implements. Change the two together.
+THRESHOLD_RULE = "lowest_threshold_with_bonafide_fpr_at_most_target"
+
 
 def _as_scores(values: ArrayLike, name: str) -> np.ndarray:
     """Return finite, one-dimensional ``float64`` scores or raise."""

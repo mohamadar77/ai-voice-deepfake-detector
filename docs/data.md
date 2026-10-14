@@ -137,12 +137,63 @@ sample for final clip-level metrics.
 
 ## Development reservation
 
-Freeze development speaker membership before tuning. The proposed reservation is
-approximately 25% of development speakers, adjusted if the available speaker count or
-class/attack coverage makes that infeasible. `select` is used for features, model
-settings and checkpoints. `threshold` is opened only after candidate bundles are
-fixed and sets the operating threshold targeting at most 5% human false positives.
-Record exact counts and the deterministic assignment in the manifest/run record.
+Development speaker membership is frozen before tuning. `select` is used for
+features, model settings and checkpoints. `threshold` is opened only after
+candidate bundles are fixed and sets the operating threshold targeting at most 5%
+human false positives. Every clip of a speaker carries the same role, so no voice
+informs both a model choice and its operating point.
+
+**The rule** (`configs/dev_reservation.yaml`, schema `dev-reservation-v1`,
+implemented in `src/voice_detector/reservation.py`):
+
+- about 25% of the 20 development speakers are reserved for `threshold`
+  (5 speakers) and the rest go to `select` (15), rounded half up and clamped so
+  neither role is empty;
+- a speaker's rank is `sha256("<seed>|<speaker_id>")` with a dedicated
+  reservation seed, and the lowest-ranked speakers are reserved. SHA-256 is
+  fixed by its specification, so the membership reproduces on any Python or
+  NumPy version; a PRNG shuffle does not guarantee that. The seed is kept
+  separate from `project.seed`, so changing a training seed cannot move a frozen
+  protocol boundary;
+- **coverage is checked before the membership may be frozen**: both roles hold
+  both classes and all of A01-A06, and every reserved speaker contributes at
+  least one bona fide clip, since only bona fide clips set the threshold. A
+  failure refuses the freeze; the *fraction* is then adjusted, never the rule,
+  and the reason is recorded.
+
+**Where the numbers live.** The frozen record (`reports/dev_reservation_frozen.json`)
+is the authoritative membership: speaker IDs only, with per-role counts by label
+and attack, per-speaker counts, the manifest hash before and after, and the
+reservation seed, method and commit. It holds no clip IDs, paths or audio. The
+manifest's own `development_role` column is the working copy and is git-ignored.
+
+**The record outranks the manifest, and is enforced that way.** The manifest is
+git-ignored and costs hours to rebuild, so after a rebuild its role column is
+empty and has no membership left to disagree with. `reserve-development`
+therefore reconciles against the committed record *first* and only then against
+the manifest: a re-run that derives a different membership — because the
+fraction or seed changed — is refused on the record alone, so a routine rebuild
+can never let a frozen boundary move silently. Both guards are overridable only
+with `--force`, which is recorded in the catalog's metadata. Loading the record
+re-derives the membership from the seed and fraction the record itself carries
+and checks the roles are disjoint, so a hand-edited record is rejected even
+though its hashes would still agree with the manifest. A role value outside
+`{null, select, threshold}` — `""` from a CSV round-trip, say — is a hard error
+when read back, never silently treated as unassigned.
+
+**The freeze changes the manifest hash by design.** `compute_manifest_hash`
+covers `development_role`, so the role-bearing manifest has a different hash from
+the role-free one (`b172e50c…`). A feature cache or run record therefore cannot
+cite a manifest whose reservation has since moved. For that reason the
+reservation is frozen on the host **before** the #7 feature extraction.
+`reservation.verify_frozen_reservation` lets a later slice prove it is reading
+the manifest the record was frozen against.
+
+**Disclosure.** With 5 reserved speakers the operating threshold rests on few
+speakers. Its achieved false-positive rate holds on this reservation and is not a
+guarantee on other data; the evaluation partition is never consulted to improve
+it. The selection and threshold rules themselves are declared in
+[`pre-tuning-protocol.md`](pre-tuning-protocol.md).
 
 ## G0 exit evidence
 
