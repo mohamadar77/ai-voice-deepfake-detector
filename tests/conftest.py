@@ -8,6 +8,7 @@ across test modules.
 from __future__ import annotations
 
 import hashlib
+import importlib
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,11 @@ from typing import Any
 import pytest
 
 from voice_detector import reservation as r
+
+_has_librosa = importlib.util.find_spec("librosa") is not None
+requires_librosa = pytest.mark.skipif(
+    not _has_librosa, reason="librosa not installed"
+)
 
 # Twenty development speakers, matching the real LA development partition.
 DEV_SPEAKERS = tuple(f"LA_{index:04d}" for index in range(1, 21))
