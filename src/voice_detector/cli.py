@@ -558,6 +558,89 @@ def _extract_features(
     return 0
 
 
+def _train_lr(
+    manifest_dir: Path | None,
+    features_dir: Path | None,
+    config_path: Path,
+    protocol_path: Path,
+    frozen_record_path: Path,
+    out_dir: Path | None,
+) -> int:
+    """Train the MFCC + Logistic Regression baseline and produce a dev report (#8).
+
+    Lazy imports keep cli.py importable without sklearn/joblib on dataset-free
+    environments (CI, laptop smoke tests).
+    """
+
+    from voice_detector.baseline import save_bundle, train_and_select
+    from voice_detector.features import read_split_features
+    from voice_detector.pretuning import load_pre_tuning_protocol
+
+    config = load_config(config_path)
+    if manifest_dir is None:
+        manifest_dir = config.paths.artifacts_root / "manifest"
+    if features_dir is None:
+        features_dir = config.paths.artifacts_root / "features"
+    if out_dir is None:
+        out_dir = config.paths.artifacts_root / "lr_baseline"
+
+    catalog_path = manifest_dir / "manifest.sqlite"
+    rows, meta = read_manifest_sqlite(catalog_path)
+    if not rows:
+        return _refuse(
+            "empty_catalog",
+            catalog=str(catalog_path),
+            hint="rebuild the manifest with build-manifest",
+        )
+
+    frozen_record_raw = json.loads(
+        Path(frozen_record_path).read_text(encoding="utf-8")
+    )
+
+    train_features = read_split_features(features_dir / "features_train.npz")
+    dev_features = read_split_features(features_dir / "features_development.npz")
+
+    protocol = load_pre_tuning_protocol(protocol_path)
+    dev_rows = [row for row in rows if row["official_split"] == "development"]
+
+    run_record = train_and_select(
+        train_features, dev_features, dev_rows, protocol, frozen_record_raw,
+        seed=config.seed,
+    )
+
+    from voice_detector.baseline import train_candidate
+
+    best_C = run_record["selected_C"]
+    best_pipeline = train_candidate(
+        train_features, best_C,
+        class_weight=protocol.lr_budget.class_weight,
+        seed=config.seed,
+    )
+
+    outputs = save_bundle(best_pipeline, run_record, out_dir)
+    print(
+        json.dumps(
+            {
+                "status": "trained",
+                "selected_C": best_C,
+                "threshold": run_record["threshold"]["value"],
+                "dev_full_metrics": {
+                    k: run_record["dev_full_metrics"][k]
+                    for k in (
+                        "eer", "roc_auc", "macro_f1", "balanced_accuracy",
+                        "human_false_positive_rate", "synthetic_detection_rate",
+                    )
+                },
+                "outputs": {k: str(v) for k, v in outputs.items()},
+                "total_seconds": run_record["total_seconds"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="voice-detector")
     parser.add_argument("--version", action="version", version=__version__)
@@ -714,6 +797,51 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="re-extract even when a matching cache already exists",
     )
+
+    train_lr = subparsers.add_parser(
+        "train-lr",
+        help=(
+            "train the MFCC + Logistic Regression baseline on training features, "
+            "select the best C on dev_select, threshold on dev_threshold, and "
+            "produce a versioned dev report (run where features are cached)"
+        ),
+    )
+    train_lr.add_argument(
+        "--manifest-dir",
+        type=Path,
+        default=None,
+        help="directory holding manifest.sqlite (default: <artifacts_root>/manifest)",
+    )
+    train_lr.add_argument(
+        "--features-dir",
+        type=Path,
+        default=None,
+        help="directory holding features_train.npz and features_development.npz",
+    )
+    train_lr.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/default.yaml"),
+        help="project YAML (seed, artifact roots)",
+    )
+    train_lr.add_argument(
+        "--protocol",
+        type=Path,
+        default=Path("configs/pre_tuning_protocol.yaml"),
+        help="pre-tuning protocol record",
+    )
+    train_lr.add_argument(
+        "--frozen-record",
+        type=Path,
+        default=Path("reports/dev_reservation_frozen.json"),
+        help="committed frozen reservation record",
+    )
+    train_lr.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        help="output directory for the LR bundle (default: <artifacts_root>/lr_baseline)",
+    )
     return parser
 
 
@@ -750,6 +878,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.out_dir,
             force=args.force,
             dry_run=args.dry_run,
+        )
+    if args.command == "train-lr":
+        return _train_lr(
+            args.manifest_dir,
+            args.features_dir,
+            args.config,
+            args.protocol,
+            args.frozen_record,
+            args.out_dir,
         )
     return 2
 

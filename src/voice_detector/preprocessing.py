@@ -23,9 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO
 
-import librosa
 import numpy as np
-import soundfile as sf
 
 AudioSource = str | Path | BinaryIO
 
@@ -139,6 +137,8 @@ def load_waveform(source: AudioSource, audio: AudioConfig) -> np.ndarray:
     ``audio.sample_rate_hz`` when the source rate differs.
     """
 
+    import soundfile as sf
+
     data, source_rate = sf.read(source, dtype="float32", always_2d=False)
     waveform = np.asarray(data, dtype=np.float32)
 
@@ -148,6 +148,8 @@ def load_waveform(source: AudioSource, audio: AudioConfig) -> np.ndarray:
         raise ValueError(f"Unexpected decoded audio shape: {waveform.shape}")
 
     if source_rate != audio.sample_rate_hz:
+        import librosa
+
         waveform = librosa.resample(waveform, orig_sr=source_rate, target_sr=audio.sample_rate_hz)
 
     return np.ascontiguousarray(waveform, dtype=np.float32)
@@ -207,6 +209,8 @@ def mfcc_feature_vector(window: np.ndarray, audio: AudioConfig, mfcc: MfccConfig
     ``coeffs`` is the MFCCs stacked with their first-order deltas when
     ``mfcc.include_delta`` is set. Length is always ``mfcc.feature_dim``.
     """
+
+    import librosa
 
     window = np.asarray(window, dtype=np.float32).reshape(-1)
     coeffs = librosa.feature.mfcc(

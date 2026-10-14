@@ -137,6 +137,11 @@ def test_empty_waveform_is_rejected() -> None:
 # --- features ---------------------------------------------------------------
 
 
+_has_librosa = __import__("importlib").util.find_spec("librosa") is not None
+requires_librosa = pytest.mark.skipif(not _has_librosa, reason="librosa not installed")
+
+
+@requires_librosa
 def test_feature_vector_has_fixed_length_and_is_finite() -> None:
     audio = AudioConfig(sample_rate_hz=16000, window_seconds=1.0)
     mfcc = MfccConfig(n_mfcc=20, include_delta=True)
@@ -146,6 +151,7 @@ def test_feature_vector_has_fixed_length_and_is_finite() -> None:
     assert np.all(np.isfinite(vector))
 
 
+@requires_librosa
 def test_feature_vector_length_shrinks_without_deltas() -> None:
     audio = AudioConfig(sample_rate_hz=16000, window_seconds=1.0)
     mfcc = MfccConfig(n_mfcc=13, include_delta=False)
@@ -153,6 +159,7 @@ def test_feature_vector_length_shrinks_without_deltas() -> None:
     assert vector.shape == (26,)
 
 
+@requires_librosa
 def test_clip_feature_matrix_is_one_row_per_window() -> None:
     config = PreprocessingConfig(
         audio=AudioConfig(sample_rate_hz=16000, window_seconds=1.0),
@@ -164,6 +171,7 @@ def test_clip_feature_matrix_is_one_row_per_window() -> None:
     assert matrix.shape == (3, config.mfcc.feature_dim)
 
 
+@requires_librosa
 def test_short_clip_pools_over_real_samples_only() -> None:
     # A clip shorter than one window yields a single window whose features are
     # exactly those of the raw real audio: no zero-padding enters the pooled
@@ -181,6 +189,7 @@ def test_short_clip_pools_over_real_samples_only() -> None:
     assert np.array_equal(matrix[0], expected)
 
 
+@requires_librosa
 def test_features_are_deterministic() -> None:
     config = PreprocessingConfig(
         audio=AudioConfig(sample_rate_hz=16000, window_seconds=1.0),
@@ -208,6 +217,7 @@ def test_load_waveform_averages_channels_to_mono(tmp_path: Path) -> None:
     np.testing.assert_allclose(waveform, (left + right) / 2.0, atol=1e-6)
 
 
+@requires_librosa
 def test_load_waveform_resamples_to_target_rate(tmp_path: Path) -> None:
     path = tmp_path / "eight_k.wav"
     sf.write(path, _sine(1.0, 8000), 8000, subtype="FLOAT")
@@ -217,6 +227,7 @@ def test_load_waveform_resamples_to_target_rate(tmp_path: Path) -> None:
     assert abs(waveform.size - 16000) <= 8  # ~doubled length, modulo resampler edges
 
 
+@requires_librosa
 def test_clip_features_from_flac_source(tmp_path: Path) -> None:
     # FLAC mirrors the real ASVspoof distribution format.
     path = tmp_path / "clip.flac"
