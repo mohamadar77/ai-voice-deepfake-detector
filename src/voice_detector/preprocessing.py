@@ -223,7 +223,14 @@ def mfcc_feature_vector(window: np.ndarray, audio: AudioConfig, mfcc: MfccConfig
         fmax=mfcc.fmax,
     )
     if mfcc.include_delta:
-        coeffs = np.vstack([coeffs, librosa.feature.delta(coeffs)])
+        n_frames = coeffs.shape[1]
+        if n_frames >= 3:
+            delta_width = min(9, n_frames)
+            if delta_width % 2 == 0:
+                delta_width -= 1
+            coeffs = np.vstack([coeffs, librosa.feature.delta(coeffs, width=delta_width)])
+        else:
+            coeffs = np.vstack([coeffs, np.zeros_like(coeffs)])
 
     pooled = np.concatenate([coeffs.mean(axis=1), coeffs.std(axis=1)])
     return pooled.astype(np.float32, copy=False)
