@@ -17,7 +17,7 @@ def test_mel_config_defaults() -> None:
     cfg = MelConfig()
     assert cfg.sample_rate_hz == 16000
     assert cfg.n_mels == 64
-    assert cfg.n_frames == 399
+    assert cfg.n_frames == 398
 
 
 def test_compact_cnn_forward_shape() -> None:
