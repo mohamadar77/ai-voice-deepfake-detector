@@ -1,0 +1,41 @@
+# Speaker-grouped development reservation (issue #31).
+#
+# Splits the ASVspoof 2019 LA development partition into two roles that must not
+# contaminate each other:
+#   select    -> features, hyperparameters, checkpoints, deployment choice
+#   threshold -> the operating threshold only, opened after candidates are frozen
+#
+# Every clip of a speaker takes the same role, so no voice informs both a model
+# choice and its operating point. The rule lives here, never in a CLI default.
+# Freezing the membership rewrites the manifest's development_role column and
+# therefore changes the manifest hash by design.
+#
+# If a coverage requirement below fails, adjust threshold_fraction -- never the
+# rule -- and record why in the frozen record's note and docs/data.md.
+version: dev-reservation-v1
+
+# Assignment rule. A speaker's rank is sha256("<seed>|<speaker_id>"); the
+# lowest-ranked speakers are reserved for the threshold role. SHA-256 is fixed
+# by its specification, so the membership reproduces on any Python or NumPy
+# version, which a PRNG shuffle does not guarantee.
+method: sha256-rank-v1
+
+# Dedicated reservation seed, set on the freeze date (2026-10-14). It is kept
+# separate from project.seed so that changing a training seed can never move a
+# frozen protocol boundary.
+seed: 20261014
+
+# About a quarter of the 20 development speakers: 5 reserved for threshold,
+# 15 for select (architecture plan, leakage control 2). Rounded half up and
+# clamped so neither role is empty.
+threshold_fraction: 0.25
+
+coverage:
+  # Train and development share A01-A06; both roles must cover all six, or a
+  # role cannot speak to the full known-attack set.
+  require_attacks: [A01, A02, A03, A04, A05, A06]
+  # Only bona fide clips set the operating threshold, so every reserved speaker
+  # has to contribute at least this many.
+  min_bonafide_clips_per_threshold_speaker: 1
+  # Clip-level EER and the threshold search both need both classes present.
+  require_both_labels_per_role: true

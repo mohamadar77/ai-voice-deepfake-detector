@@ -266,3 +266,69 @@ def test_sqlite_check_rejects_short_checksum(tmp_path: Path) -> None:
     rows = [_row(checksum_sha256="tooshort")]
     with pytest.raises(sqlite3.IntegrityError):
         m.write_manifest_sqlite(rows, tmp_path / "bad.sqlite", include_local_path=False)
+
+
+def test_sqlite_round_trip_returns_rows_and_meta(tmp_path: Path) -> None:
+    root = _make_la_tree(tmp_path / "LA")
+    rows, summary = m.build_la_manifest(root, enforce_expected_counts=False)
+    meta = m.build_catalog_meta(summary, "{}", with_checksum=True)
+    db_path = m.write_manifest_sqlite(rows, tmp_path / "manifest.sqlite", meta=meta)
+
+    read_rows, read_meta = m.read_manifest_sqlite(db_path)
+    assert len(read_rows) == len(rows)
+    assert read_meta["manifest_hash"] == summary["manifest_hash"]
+    # The reservation keys on this: rows read back must hash identically, so a
+    # role can be added without re-reading or re-hashing any audio.
+    assert m.compute_manifest_hash(read_rows) == m.compute_manifest_hash(rows)
+    # Nullable columns come back as None, not as empty strings.
+    assert all(row["development_role"] is None for row in read_rows)
+    assert all(row["source_id"] is None for row in read_rows)
+    assert all(row["local_path"] for row in read_rows)
+
+
+def test_sqlite_round_trip_without_meta_table(tmp_path: Path) -> None:
+    rows = [_row()]
+    db_path = m.write_manifest_sqlite(rows, tmp_path / "bare.sqlite", include_local_path=False)
+    read_rows, read_meta = m.read_manifest_sqlite(db_path)
+    assert read_meta == {}
+    assert read_rows[0]["clip_id"] == "LA_T_1"
+
+
+def test_reading_an_absent_catalog_raises(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        m.read_manifest_sqlite(tmp_path / "nope.sqlite")
+
+
+def test_summary_counts_development_roles_per_split() -> None:
+    rows = [
+        _row(clip_id="t1", official_split="train"),
+        _row(clip_id="d1", official_split="development", development_role="select"),
+        _row(clip_id="d2", official_split="development", development_role="threshold"),
+        _row(clip_id="d3", official_split="development"),
+    ]
+    summary = m.manifest_summary(rows)
+    assert summary["splits"]["development"]["development_role_counts"] == {
+        "select": 1,
+        "threshold": 1,
+        "unassigned": 1,
+        "other": 0,
+    }
+    assert summary["splits"]["train"]["development_role_counts"]["unassigned"] == 1
+
+
+def test_summary_role_counts_account_for_every_clip() -> None:
+    """A value outside the contract must land in a bucket, not vanish.
+
+    Counting only ``select``, ``threshold`` and ``None`` would let ``""`` from a
+    CSV round-trip, or a typo'd role, be invisible in all three while the audit
+    summary still looked complete.
+    """
+
+    rows = [
+        _row(clip_id="d1", official_split="development", development_role="select"),
+        _row(clip_id="d2", official_split="development", development_role=""),
+        _row(clip_id="d3", official_split="development", development_role="calibration"),
+    ]
+    counts = m.manifest_summary(rows)["splits"]["development"]["development_role_counts"]
+    assert counts == {"select": 1, "threshold": 0, "unassigned": 0, "other": 2}
+    assert sum(counts.values()) == len(rows)

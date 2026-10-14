@@ -439,7 +439,9 @@ def manifest_summary(
                 "above_max": sum(1 for value in durations if value > MAX_DURATION_SECONDS),
             },
             # Visible per split so a role written outside development, or a
-            # half-written reservation, shows up in the audit summary.
+            # half-written reservation, shows up in the audit summary. The four
+            # buckets sum to the split's clip count, so a value outside the
+            # contract (``""`` from a CSV round-trip, a typo) cannot hide.
             "development_role_counts": {
                 "select": sum(1 for row in split_rows if row.get("development_role") == "select"),
                 "threshold": sum(
@@ -447,6 +449,12 @@ def manifest_summary(
                 ),
                 "unassigned": sum(
                     1 for row in split_rows if row.get("development_role") is None
+                ),
+                "other": sum(
+                    1
+                    for row in split_rows
+                    if row.get("development_role") is not None
+                    and row.get("development_role") not in ("select", "threshold")
                 ),
             },
         }
