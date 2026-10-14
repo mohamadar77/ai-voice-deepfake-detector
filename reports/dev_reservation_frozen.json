@@ -1,0 +1,326 @@
+{
+  "achieved_threshold_fraction": 0.25,
+  "coverage": {
+    "failures": [],
+    "per_speaker": [
+      {
+        "development_role": "select",
+        "n_bonafide": 154,
+        "n_clips": 2638,
+        "n_spoof": 2484,
+        "speaker_id": "LA_0069"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 140,
+        "n_clips": 1988,
+        "n_spoof": 1848,
+        "speaker_id": "LA_0070"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 140,
+        "n_clips": 1988,
+        "n_spoof": 1848,
+        "speaker_id": "LA_0071"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 154,
+        "n_clips": 2638,
+        "n_spoof": 2484,
+        "speaker_id": "LA_0072"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 140,
+        "n_clips": 1988,
+        "n_spoof": 1848,
+        "speaker_id": "LA_0073"
+      },
+      {
+        "development_role": "threshold",
+        "n_bonafide": 154,
+        "n_clips": 2638,
+        "n_spoof": 2484,
+        "speaker_id": "LA_0074"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 154,
+        "n_clips": 2638,
+        "n_spoof": 2484,
+        "speaker_id": "LA_0075"
+      },
+      {
+        "development_role": "threshold",
+        "n_bonafide": 140,
+        "n_clips": 1988,
+        "n_spoof": 1848,
+        "speaker_id": "LA_0076"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 154,
+        "n_clips": 2638,
+        "n_spoof": 2484,
+        "speaker_id": "LA_0077"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 154,
+        "n_clips": 2638,
+        "n_spoof": 2484,
+        "speaker_id": "LA_0078"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 77,
+        "n_clips": 77,
+        "n_spoof": 0,
+        "speaker_id": "LA_0099"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 77,
+        "n_clips": 77,
+        "n_spoof": 0,
+        "speaker_id": "LA_0100"
+      },
+      {
+        "development_role": "threshold",
+        "n_bonafide": 77,
+        "n_clips": 77,
+        "n_spoof": 0,
+        "speaker_id": "LA_0101"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 126,
+        "n_clips": 126,
+        "n_spoof": 0,
+        "speaker_id": "LA_0102"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 126,
+        "n_clips": 126,
+        "n_spoof": 0,
+        "speaker_id": "LA_0103"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 126,
+        "n_clips": 126,
+        "n_spoof": 0,
+        "speaker_id": "LA_0104"
+      },
+      {
+        "development_role": "threshold",
+        "n_bonafide": 77,
+        "n_clips": 77,
+        "n_spoof": 0,
+        "speaker_id": "LA_0105"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 126,
+        "n_clips": 126,
+        "n_spoof": 0,
+        "speaker_id": "LA_0106"
+      },
+      {
+        "development_role": "threshold",
+        "n_bonafide": 126,
+        "n_clips": 126,
+        "n_spoof": 0,
+        "speaker_id": "LA_0107"
+      },
+      {
+        "development_role": "select",
+        "n_bonafide": 126,
+        "n_clips": 126,
+        "n_spoof": 0,
+        "speaker_id": "LA_0108"
+      }
+    ],
+    "requirements": {
+      "min_bonafide_clips_per_threshold_speaker": 1,
+      "require_attacks": [
+        "A01",
+        "A02",
+        "A03",
+        "A04",
+        "A05",
+        "A06"
+      ],
+      "require_both_labels_per_role": true
+    },
+    "roles": [
+      {
+        "attacks": [
+          "A01",
+          "A02",
+          "A03",
+          "A04",
+          "A05",
+          "A06"
+        ],
+        "counts_by_label_attack": [
+          {
+            "attack_id": null,
+            "clips": 1974,
+            "label": "bonafide"
+          },
+          {
+            "attack_id": "A01",
+            "clips": 2994,
+            "label": "spoof"
+          },
+          {
+            "attack_id": "A02",
+            "clips": 2994,
+            "label": "spoof"
+          },
+          {
+            "attack_id": "A03",
+            "clips": 2994,
+            "label": "spoof"
+          },
+          {
+            "attack_id": "A04",
+            "clips": 2994,
+            "label": "spoof"
+          },
+          {
+            "attack_id": "A05",
+            "clips": 2994,
+            "label": "spoof"
+          },
+          {
+            "attack_id": "A06",
+            "clips": 2994,
+            "label": "spoof"
+          }
+        ],
+        "missing_attacks": [],
+        "n_bonafide": 1974,
+        "n_clips": 19938,
+        "n_speakers": 15,
+        "n_spoof": 17964,
+        "role": "select",
+        "speakers_below_min_bonafide": []
+      },
+      {
+        "attacks": [
+          "A01",
+          "A02",
+          "A03",
+          "A04",
+          "A05",
+          "A06"
+        ],
+        "counts_by_label_attack": [
+          {
+            "attack_id": null,
+            "clips": 574,
+            "label": "bonafide"
+          },
+          {
+            "attack_id": "A01",
+            "clips": 722,
+            "label": "spoof"
+          },
+          {
+            "attack_id": "A02",
+            "clips": 722,
+            "label": "spoof"
+          },
+          {
+            "attack_id": "A03",
+            "clips": 722,
+            "label": "spoof"
+          },
+          {
+            "attack_id": "A04",
+            "clips": 722,
+            "label": "spoof"
+          },
+          {
+            "attack_id": "A05",
+            "clips": 722,
+            "label": "spoof"
+          },
+          {
+            "attack_id": "A06",
+            "clips": 722,
+            "label": "spoof"
+          }
+        ],
+        "missing_attacks": [],
+        "n_bonafide": 574,
+        "n_clips": 4906,
+        "n_speakers": 5,
+        "n_spoof": 4332,
+        "role": "threshold",
+        "speakers_below_min_bonafide": []
+      }
+    ]
+  },
+  "coverage_ok": true,
+  "disclosure": "5 reserved threshold speaker(s): the operating threshold rests on few speakers, so its achieved false-positive rate holds on this reservation and is not a guarantee on other data. The evaluation partition is never consulted to improve it.",
+  "frozen_utc": "2026-10-14T18:21:09+00:00",
+  "git_commit": "5850e21fc043e7205d782b5c25c469c085995ded",
+  "manifest_hash_after": "b932b8599f7202456b9e9a40b219870540e1bb1d9be5d0393011a764e1a133d1",
+  "manifest_hash_before": "b172e50c3139c3e5e9be9464a67a563a88a90df38c5abdb446d49edf824f1faf",
+  "n_speakers": {
+    "select": 15,
+    "threshold": 5
+  },
+  "package_version": "0.1.0",
+  "schema_version": "dev-reservation-v1",
+  "speakers": {
+    "select": [
+      "LA_0069",
+      "LA_0070",
+      "LA_0071",
+      "LA_0072",
+      "LA_0073",
+      "LA_0075",
+      "LA_0077",
+      "LA_0078",
+      "LA_0099",
+      "LA_0100",
+      "LA_0102",
+      "LA_0103",
+      "LA_0104",
+      "LA_0106",
+      "LA_0108"
+    ],
+    "threshold": [
+      "LA_0074",
+      "LA_0076",
+      "LA_0101",
+      "LA_0105",
+      "LA_0107"
+    ]
+  },
+  "spec": {
+    "coverage": {
+      "min_bonafide_clips_per_threshold_speaker": 1,
+      "require_attacks": [
+        "A01",
+        "A02",
+        "A03",
+        "A04",
+        "A05",
+        "A06"
+      ],
+      "require_both_labels_per_role": true
+    },
+    "method": "sha256-rank-v1",
+    "seed": 20261014,
+    "threshold_fraction": 0.25,
+    "version": "dev-reservation-v1"
+  }
+}
