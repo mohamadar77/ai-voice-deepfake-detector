@@ -21,7 +21,9 @@ from voice_detector.manifest import (
     build_catalog_meta,
     build_la_manifest,
     compute_manifest_hash,
+    git_commit,
     manifest_summary,
+    package_version,
     read_manifest_sqlite,
     write_manifest_csv,
     write_manifest_sqlite,
@@ -404,6 +406,158 @@ def _reserve_development(
     return 0
 
 
+def _extract_features(
+    manifest_dir: Path | None,
+    config_path: Path,
+    splits: Sequence[str],
+    out_dir: Path | None,
+    *,
+    force: bool,
+    dry_run: bool,
+) -> int:
+    """Extract and cache pooled MFCC features for the requested splits (#7).
+
+    Features come from the one shared preprocessing path, so offline and served
+    features cannot diverge. The cache is role-independent (see features.py), so
+    the #31 reservation freeze does not invalidate it. The evaluation split is
+    refused here: extracting its features belongs to the locked #35 flow, never
+    an ad-hoc run.
+    """
+
+    # Imported lazily: features -> preprocessing -> librosa, which the host and
+    # CI have but the dataset-free laptop runs do not. Keeping the import here
+    # lets smoke/build-manifest/reserve-development stay importable without it.
+    import time
+
+    from voice_detector.features import (
+        FEATURE_SCHEMA_VERSION,
+        cache_path,
+        extract_split_features,
+        feature_cache_key,
+        load_cached_if_fresh,
+        write_split_features,
+    )
+    from voice_detector.preprocessing import PreprocessingConfig
+
+    requested = list(dict.fromkeys(splits))  # de-duplicate, keep order
+    if "evaluation" in requested:
+        return _refuse(
+            "evaluation_is_locked",
+            hint=(
+                "the evaluation partition is locked; its features are extracted only inside "
+                "the frozen #35 evaluation flow, never by extract-features. Request "
+                "train/development only"
+            ),
+        )
+    unknown = [split for split in requested if split not in VALID_SPLITS]
+    if unknown:
+        return _refuse(
+            "unknown_split",
+            unknown=unknown,
+            valid=sorted(VALID_SPLITS - {"evaluation"}),
+            hint="request one or more of train, development",
+        )
+
+    config = load_config(config_path)
+    pre_config = PreprocessingConfig.from_mapping(config.raw)
+    if manifest_dir is None:
+        manifest_dir = config.paths.artifacts_root / "manifest"
+    if out_dir is None:
+        out_dir = config.paths.artifacts_root / "features"
+    catalog_path = manifest_dir / "manifest.sqlite"
+
+    rows, meta = read_manifest_sqlite(catalog_path)
+    if not rows:
+        return _refuse(
+            "empty_catalog",
+            catalog=str(catalog_path),
+            hint="this catalog holds no clips; rebuild it with build-manifest",
+        )
+    manifest_hash = meta.get("manifest_hash") or compute_manifest_hash(rows)
+
+    by_split: dict[str, list[dict[str, Any]]] = {split: [] for split in requested}
+    for row in rows:
+        split = str(row["official_split"])
+        if split in by_split:
+            by_split[split].append(row)
+
+    results: list[dict[str, Any]] = []
+    for split in requested:
+        split_rows = by_split[split]
+        if not split_rows:
+            return _refuse(
+                "split_absent_from_manifest",
+                split=split,
+                catalog=str(catalog_path),
+                hint="the manifest has no clips for this split; rebuild it",
+            )
+        destination = cache_path(out_dir, split)
+        key = feature_cache_key(split_rows, pre_config)
+        if dry_run:
+            fresh = load_cached_if_fresh(split_rows, pre_config, destination) is not None
+            results.append(
+                {
+                    "split": split,
+                    "n_clips": len(split_rows),
+                    "cache_key": key,
+                    "output": str(destination),
+                    "cache_fresh": fresh,
+                    "would_reuse": fresh and not force,
+                }
+            )
+            continue
+
+        reused = None if force else load_cached_if_fresh(split_rows, pre_config, destination)
+        if reused is not None:
+            results.append(
+                {
+                    "split": split,
+                    "reused_cache": True,
+                    "n_clips": reused.n_clips,
+                    "n_windows": reused.n_windows,
+                    "feature_dim": reused.feature_dim,
+                    "cache_key": reused.cache_key,
+                    "output": str(destination),
+                    "cache_bytes": destination.stat().st_size,
+                }
+            )
+            continue
+
+        started = time.perf_counter()
+        extracted = extract_split_features(split_rows, pre_config, manifest_hash=manifest_hash)
+        elapsed = time.perf_counter() - started
+        write_split_features(extracted, destination)
+        results.append(
+            {
+                "split": split,
+                "reused_cache": False,
+                "n_clips": extracted.n_clips,
+                "n_windows": extracted.n_windows,
+                "feature_dim": extracted.feature_dim,
+                "cache_key": extracted.cache_key,
+                "output": str(destination),
+                "cache_bytes": destination.stat().st_size,
+                "elapsed_seconds": round(elapsed, 3),
+            }
+        )
+
+    payload = {
+        "status": "planned" if dry_run else "extracted",
+        "feature_schema_version": FEATURE_SCHEMA_VERSION,
+        "preprocessing_version": pre_config.version,
+        "manifest_hash": manifest_hash,
+        "git_commit": git_commit(),
+        "package_version": package_version(),
+        "splits": results,
+    }
+    payload_json = json.dumps(payload, indent=2, sort_keys=True)
+    if not dry_run:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        _atomic_write_text(out_dir / "features_summary.json", payload_json)
+    print(payload_json)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="voice-detector")
     parser.add_argument("--version", action="version", version=__version__)
@@ -518,6 +672,48 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="allow replacing an existing, different frozen reservation",
     )
+
+    extract = subparsers.add_parser(
+        "extract-features",
+        help=(
+            "extract and cache pooled MFCC features for train/development via the manifest "
+            "(run where the audio lives; evaluation is locked)"
+        ),
+    )
+    extract.add_argument(
+        "--manifest-dir",
+        type=Path,
+        default=None,
+        help="directory holding manifest.sqlite (default: <artifacts_root>/manifest)",
+    )
+    extract.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/default.yaml"),
+        help="project YAML (preprocessing settings + default artifact roots)",
+    )
+    extract.add_argument(
+        "--splits",
+        nargs="+",
+        default=["train", "development"],
+        help="official splits to extract (default: train development); evaluation is refused",
+    )
+    extract.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        help="output directory for the feature cache (default: <artifacts_root>/features)",
+    )
+    extract.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="report planned splits, clip counts and cache keys without extracting",
+    )
+    extract.add_argument(
+        "--force",
+        action="store_true",
+        help="re-extract even when a matching cache already exists",
+    )
     return parser
 
 
@@ -545,6 +741,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             note=args.note,
             dry_run=args.dry_run,
             force=args.force,
+        )
+    if args.command == "extract-features":
+        return _extract_features(
+            args.manifest_dir,
+            args.config,
+            args.splits,
+            args.out_dir,
+            force=args.force,
+            dry_run=args.dry_run,
         )
     return 2
 
