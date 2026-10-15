@@ -120,8 +120,12 @@ def train_cnn(
     *,
     seed: int,
     run_label: str = "clean",
+    robustness_config: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, torch.Tensor], tuple[torch.Tensor, torch.Tensor]]:
     """Train the CNN, select best checkpoint, threshold, produce run record.
+
+    When ``robustness_config`` is provided, training augmentation from the
+    frozen robustness spec is applied before random crop each epoch.
 
     Returns (run_record, best_state_dict, (mean, std)).
     """
@@ -156,11 +160,38 @@ def train_cnn(
         if dev_speaker_map.get(str(r["clip_id"]), "") in threshold_speakers
     ]
 
+    augment_fn = None
+    if robustness_config is not None:
+        from voice_detector.augmentation import TrainingAugmentor
+
+        aug_cfg = robustness_config.get("training_augmentation", {})
+        transforms = aug_cfg.get("transforms", {})
+        noise_cfg = transforms.get("noise", {})
+        snr_range = noise_cfg.get("snr_db_range", [10, 30])
+        codec_cfg = transforms.get("codec", {})
+
+        augment_fn = TrainingAugmentor(
+            global_seed=int(robustness_config.get("global_seed", seed)),
+            probability=float(aug_cfg.get("probability", 0.5)),
+            codec_probability=float(codec_cfg.get("probability", 0.5)),
+            noise_probability=float(noise_cfg.get("probability", 0.5)),
+            noise_snr_range=(float(snr_range[0]), float(snr_range[1])),
+            codec_bitrate_kbps=int(codec_cfg.get("bitrate_kbps", 24)),
+            sample_rate=mel_spec.sample_rate_hz,
+        )
+        print(
+            f"Augmentation enabled: p={augment_fn.probability}, "
+            f"codec_p={augment_fn.codec_probability}, "
+            f"noise_p={augment_fn.noise_probability}, "
+            f"snr_range={augment_fn.noise_snr_range}"
+        )
+
     print(f"Computing normalization statistics on {min(2000, len(train_rows))} training clips...")
     mean, std = compute_norm_stats(train_rows, mel_spec, seed=seed)
 
     train_dataset = MelDataset(
         train_rows, mel_spec, training=True, seed=seed, mean=mean, std=std,
+        augment_fn=augment_fn,
     )
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True,
@@ -186,6 +217,7 @@ def train_cnn(
     started = time.perf_counter()
 
     for epoch in range(max_epochs):
+        train_dataset.set_epoch(epoch)
         model.train()
         epoch_loss = 0.0
         n_batches = 0
@@ -309,6 +341,16 @@ def train_cnn(
             "max_epochs": max_epochs,
             "patience": patience,
         },
+        "augmentation": {
+            "enabled": augment_fn is not None,
+            "probability": augment_fn.probability if augment_fn else None,
+            "codec_probability": augment_fn.codec_probability if augment_fn else None,
+            "noise_probability": augment_fn.noise_probability if augment_fn else None,
+            "noise_snr_range": list(augment_fn.noise_snr_range) if augment_fn else None,
+            "codec_bitrate_kbps": augment_fn.codec_bitrate_kbps if augment_fn else None,
+            "epoch_aware_seed": True if augment_fn else None,
+            "robustness_version": robustness_config.get("version") if robustness_config else None,
+        },
         "input_policy": study_config.get("input_policy", {}),
         "normalization": {
             "method": "per_channel_standardize",
@@ -351,12 +393,14 @@ def train_and_save_cnn(
     seed: int,
     run_label: str = "clean",
     out_dir: Path | str,
+    robustness_config: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Path]]:
     """Train, select, threshold, save — returns (run_record, output_paths)."""
 
     run_record, best_state, norm_stats = train_cnn(
         train_rows, dev_rows, frozen_record, study_config,
         seed=seed, run_label=run_label,
+        robustness_config=robustness_config,
     )
 
     mel_spec = MelSpec.from_mapping(study_config)

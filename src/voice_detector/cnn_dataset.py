@@ -10,7 +10,7 @@ only and applied identically to all splits.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -104,6 +104,7 @@ class MelDataset(Dataset):
         seed: int = 20261004,
         mean: torch.Tensor | None = None,
         std: torch.Tensor | None = None,
+        augment_fn: Callable[[np.ndarray, str], np.ndarray] | None = None,
     ) -> None:
         self.rows = list(rows)
         self.mel_spec = mel_spec
@@ -116,6 +117,12 @@ class MelDataset(Dataset):
         )
         self.mean = mean
         self.std = std
+        self.augment_fn = augment_fn
+
+    def set_epoch(self, epoch: int) -> None:
+        """Forward epoch to the augmentor so per-clip seeds vary each epoch."""
+        if self.augment_fn is not None and hasattr(self.augment_fn, "set_epoch"):
+            self.augment_fn.set_epoch(epoch)
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -129,6 +136,10 @@ class MelDataset(Dataset):
             raise ValueError(f"clip {clip_id!r} has no local_path")
 
         waveform = load_waveform(local_path, self._audio_config)
+
+        if self.training and self.augment_fn is not None:
+            waveform = self.augment_fn(waveform, clip_id)
+
         target_len = self.mel_spec.window_samples
 
         if self.training:

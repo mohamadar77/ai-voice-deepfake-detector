@@ -566,6 +566,7 @@ def _train_cnn(
     out_dir: Path | None,
     seed: int | None,
     run_label: str,
+    robustness_config_path: Path | None = None,
 ) -> int:
     """Train the compact log-Mel CNN (#33).
 
@@ -598,12 +599,19 @@ def _train_cnn(
         Path(frozen_record_path).read_text(encoding="utf-8")
     )
 
+    robustness_raw = None
+    if robustness_config_path is not None:
+        robustness_raw = yaml.safe_load(
+            Path(robustness_config_path).read_text(encoding="utf-8")
+        )
+
     train_rows = [r for r in rows if r["official_split"] == "train"]
     dev_rows = [r for r in rows if r["official_split"] == "development"]
 
     run_record, outputs = train_and_save_cnn(
         train_rows, dev_rows, frozen_record_raw, study_raw,
         seed=seed, run_label=run_label, out_dir=out_dir,
+        robustness_config=robustness_raw,
     )
 
     print(
@@ -1038,6 +1046,17 @@ def build_parser() -> argparse.ArgumentParser:
         default="clean",
         help="label for this run (default: clean)",
     )
+    train_cnn.add_argument(
+        "--augmented",
+        action="store_true",
+        help="enable training augmentation from the robustness spec",
+    )
+    train_cnn.add_argument(
+        "--robustness-config",
+        type=Path,
+        default=Path("configs/robustness_spec.yaml"),
+        help="robustness specification YAML (used with --augmented)",
+    )
     return parser
 
 
@@ -1101,6 +1120,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.out_dir,
             args.seed,
             args.run_label,
+            robustness_config_path=args.robustness_config if args.augmented else None,
         )
     return 2
 
