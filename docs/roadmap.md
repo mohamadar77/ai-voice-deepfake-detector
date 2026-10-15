@@ -12,7 +12,7 @@ proposal. Rationale for the current order:
 **The question Phase 1 answers:** *Can we build a reliable AI-generated voice
 detector, and scientifically demonstrate where it succeeds, where it fails, and why?*
 
-## Current position (13 October 2026)
+## Current position (14 October 2026)
 
 **Done:**
 - G0 environment and data gate (DL120 CPU host; ASVspoof 2019 LA acquired and
@@ -22,10 +22,20 @@ detector, and scientifically demonstrate where it succeeds, where it fails, and 
   manifest hash `b172e50c…`).
 - Shared MFCC preprocessing with the frozen option D windowing (PR #30, `mfcc-v2`).
 - FastAPI/Streamlit serving skeleton behind a neutral `Scorer`.
+- Speaker-grouped development reservation and committed frozen record (#31),
+  clip metrics (#32), and role-independent MFCC cache implementation (#7).
+- LR baseline merged in PR #49 and synthetic CNN timing pilot merged in PR #51.
+  PR #49 reports successful host extraction/training; those artifacts were not
+  inspected in the [LR review](lr-baseline-review-2026-10-14.md).
 
-**Not done:** no trained model, no development metrics, no evaluation harness, no
-container. The plan is more mature than the evidence, so the focus is now
-experiments, evidence and delivery.
+**G1 review follow-up:** [#52–#57](lr-baseline-review-2026-10-14.md#findings-and-tracking)
+cover feature/partition validation, frozen-reservation enforcement, complete run
+evidence, coherent bundles, freeze provenance and supported protocol declarations.
+[#58](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/58) completes
+the CNN capacity forecast; [#59](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/59)
+restores laptop test collection. Original completed issues stay closed; new issues
+own the repairs. G1 output acceptance is blocked pending this work. The evaluation
+harness, concrete serving scorer and container remain outstanding.
 
 ## Two phases
 
@@ -42,7 +52,7 @@ The owner picks the review gate for each slice before implementation starts.
 | Pri | Step | Issues | Where it runs | Why it is in this position |
 | --- | --- | --- | --- | --- |
 | P0 | **Protect the evaluation before any tuning.** Merge option D; freeze the development reservation and the pre-tuning record; build the metrics module (EER, ROC AUC, macro F1, balanced accuracy, per-class precision/recall, FPR/detection at a threshold) with known-score tests. | PR #30 (#4), #31, #32 | #32 dataset-free (local); #31 code local, membership run on the host | Tuning on unreserved development data cannot be undone. |
-| P1 | **First real evidence (G1 exit, forecast 16 Oct).** MFCC features and cache; LR baseline development report (tuned on `dev_select`, thresholded on `dev_threshold`, SQLite run record); CNN timing pilot. | #7, #8, #10 | Host | Turns the plan into numbers. The pilot decides between the CPU host and owner-run Kaggle/Colab. |
+| P1 | **Accept reproducible evidence (G1 exit, conditional forecast 16 Oct).** Complete the LR input/protocol/provenance and bundle repairs, audit/archive host development evidence including predictions and SQLite, and complete the configured CNN capacity forecast. | Completed #7/#8/#10; follow-ups #52–#59 | Local fixtures + host verification | Merged code needs validated inputs and retained evidence. The complete pilot forecast decides between the CPU host and owner-run Kaggle/Colab. |
 | P2 | **The evaluation pipeline, early.** Freeze records, prediction store and grouped bootstrap, then a **full rehearsal on `dev_select` with the LR bundle** (no evaluation data). Transform spec, including the silence-trim diagnostic, also rehearsed on development data for mechanics only; parameters are predeclared, never tuned to results. Shortcut-only baseline (duration + silence) on development data. | #35, #34, #6 | Host | Proves that freeze → score → metrics → report works before it matters. The shortcut results are the standout failure analysis. |
 | P3 | **Models and freeze (G2, forecast 22 Oct).** CNN clean and augmented, with the input policy decided first; PCA/K-means fitted on training data with K frozen; thresholds on `dev_threshold`; all-candidate `FROZEN` record. Decide #14. | #33, #36, #35, #14 | Host CPU, or Kaggle/Colab per the external-compute protocol | The freeze must cover every candidate, condition and slice. |
 | P3‖ | **Parallel lane while the CNN trains.** Scorer + offline/API parity; container smoke in the presentation configuration on the DL120 host, which is also the presentation machine; demo set: consented own-voice recordings plus a modern TTS/voice clone (illustrative). | #9, #11 | Local + host + presentation machine | Fills unattended compute time. The demo with modern voices is a planned honest-failure moment. |
@@ -72,6 +82,10 @@ The owner picks the review gate for each slice before implementation starts.
 
 ## Stop/go rules
 
+- Review findings are new linked issues; keep completed originals closed (owner,
+  14 Oct). Resolve #52/#53 before further LR fitting; #9/#35 bundle acceptance
+  depends on the repaired LR record/publication path. #33's compute-route
+  acceptance depends on #58. Fixture-based implementation can continue.
 - The forecast assumes the plan's 32–43 focused hours per week. **The owner's actual
   hours are still unrecorded**; record them, and revise scope or dates if they do
   not support the forecast.

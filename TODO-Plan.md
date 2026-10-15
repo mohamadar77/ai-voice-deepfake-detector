@@ -37,11 +37,13 @@ The owner picks the review gate for each slice before implementation starts.
 | Pri | Issue | Slice | Milestone | TODO § |
 | --- | --- | --- | --- | --- |
 | ✅ | [#4](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/4) / PR #30 | Option D windowing (`mfcc-v2`): **done**, merged 14 Oct; host 73 tests green on `a987ec9` | G1 | §4 |
-| P0 | [#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31) | **Speaker-grouped development reservation + pre-tuning record** (blocks #8): rule, coverage checks, freeze CLI, pre-tuning record and tests done 14 Oct; **host membership freeze outstanding** | G1 | §2/§5 |
+| ✅ | [#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31) | **Speaker-grouped development reservation + pre-tuning record:** merged; host frozen record committed (`81c3cf7`). New integration/provenance repairs tracked in #53/#56; original stays closed. | G1 | §2/§5 |
 | ✅ | [#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32) | **Clip-level metrics module**: **done**, merged via PR #41 on 14 Oct (`/code-review` fixes applied; CI and the host's 111-test suite green on `8f1f6c8`) | G1 | §5/§7 |
-| P1 | [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7) | MFCC feature extraction + cache keyed to manifest/config | G1 | §4 |
-| P1 | [#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8) | MFCC + LR baseline: development report, bundle, run record | G1 | §5 |
-| P1 | [#10](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/10) | CNN timing pilot (decides CPU host vs Kaggle/Colab) | G1 | §4/§6 |
+| ✅ | [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7) | MFCC feature extraction + role-independent cache merged (PR #48); consumer validation repair in #52. | G1 | §4 |
+| ✅ | [#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8) | LR implementation merged (PR #49); host execution reported there. Original stays closed; G1 output acceptance depends on new #52–#57. | G1 | §5 |
+| ✅ | [#10](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/10) | Synthetic CNN timing pilot merged (PR #51). Original stays closed; complete capacity forecast/test follow-ups in #58/#59. | G1 | §4/§6 |
+| P1 | [#52](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/52), [#53](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/53), [#54](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/54), [#55](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/55) | LR follow-ups: validate cache/split and frozen membership before fitting; persist predictions/SQLite/provenance; publish coherent bundles. | G1 | §5 |
+| P1 | [#56](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/56), [#57](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/57), [#58](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/58), [#59](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/59) | Preserve freeze record on restore; reject unsupported protocol declarations; complete capacity forecast; fix conditional test collection. | G1 | §2/§5/§6 |
 | P2 | [#35](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/35) | Evaluation protocol + freeze record; **rehearse end-to-end on `dev_select`** | G2 | §7 |
 | P2 | [#34](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/34) | Robustness + **silence-shortcut** transformation spec | G2 | §8 |
 | P2 | [#6](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/6) | EDA, exclusions, **shortcut-only baseline** | G2 | §3 |
@@ -52,9 +54,15 @@ The owner picks the review gate for each slice before implementation starts.
 | P3‖ | [#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11) | CPU container smoke, incl. presentation machine | G2 lane | §10 |
 | — | [#5](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/5) | Manifest builder (closed) | G1 | §3 |
 
-**Dependency order:** PR #30 (#4) → #7; freeze #31 membership on the host **before** the #7 extraction, because roles change the manifest hash; #31 + #32 → #8 → #9; #8 → #35 rehearsal;
+**Dependency order:** PR #30 (#4) → #7; #31 membership is now frozen. #7's implemented cache key is role-independent, so reservation roles alone do not invalidate features. Validate current feature/config provenance (#52) and frozen catalog membership (#53) before LR fitting; #54–#57 complete the evidence/publication/protocol repairs before #9 acceptance and the #35 LR rehearsal;
 #10 → #33; #34 + #36 + #33 + thresholds → #35 `FROZEN` → G3 locked scoring. #6, #9 and
 #11 run in the G2 parallel lane while the CNN trains unattended.
+
+**Review update — 14 October:** original completed issues remain closed; all repairs
+are tracked by new linked issues (owner instruction). See the
+[LR review and validation limits](docs/lr-baseline-review-2026-10-14.md). #58 gates
+acceptance of #33's compute route. The 16 October G1 forecast is conditional on
+these repairs and host evidence; no milestone date or frozen proposal was changed.
 
 **Moved to Phase 2:** [#38](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/38) (min t-DCF), [#39](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/39) (matched-input control). **Parked:**
 CI/DevEx hardening #15–#29 until core ML is done.
@@ -159,8 +167,13 @@ Depends on: audited manifest.
 
 Depends on: preprocessing.
 
+**14 October review:** implementation is merged and host execution is reported in
+PR #49. Follow-ups #52–#57 own input/protocol guards and complete retained evidence;
+the original #8 remains closed. Leave acceptance checkboxes open until the required
+artifacts and validations exist. Details: [review](docs/lr-baseline-review-2026-10-14.md).
+
 - [ ] Train Logistic Regression using training features only.
-- [ ] Use a small declared development tuning budget and document class imbalance handling. Selection metric, tie-break, LR grid, aggregation and threshold rule are frozen in the pre-tuning record ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)). Tune on `dev_select` only. **The record exists and is enforced** (`configs/pre_tuning_protocol.yaml`, loaded and validated by `src/voice_detector/pretuning.py`; dated note in [`docs/pre-tuning-protocol.md`](docs/pre-tuning-protocol.md)): three `C` values `[0.01, 1.0, 100.0]` under a declared `max_candidates: 3` ceiling, `class_weight=balanced`, clip EER selection, mean window decision function, threshold at 5% bona fide FPR. The loader checks each declared convention against the constant in the module that implements it, and derives the tie rule by asking `scoring.decide_spoof` what it does at the threshold; the tie-break order, `window_to_clip` and `regularization_parameter` remain declarations that #8 must honour, since no code implements them yet (the table in the dated note says which is which). #8 reads the record rather than hardcoding.
+- [ ] Use a small declared development tuning budget and document class imbalance handling. Selection metric, tie-break, LR grid, aggregation and threshold rule are frozen in the pre-tuning record ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)). Tune on `dev_select` only. **The record exists and is enforced** (`configs/pre_tuning_protocol.yaml`, loaded and validated by `src/voice_detector/pretuning.py`; dated note in [`docs/pre-tuning-protocol.md`](docs/pre-tuning-protocol.md)): three `C` values `[0.01, 1.0, 100.0]` under a declared `max_candidates: 3` ceiling, `class_weight=balanced`, clip EER selection, mean window decision function, threshold at 5% bona fide FPR. The loader checks each declared convention against the constant in the module that implements it, and derives the tie rule by asking `scoring.decide_spoof` what it does at the threshold; the merged LR code now implements the committed mean/C/simplicity path. Alternative aggregation/parameter/latency declarations still need refusal checks (#57); see the 14 October review. The current YAML defaults execute correctly.
 - [ ] Save the fitted scaler, classifier, configuration and development predictions.
 - [ ] Compute development macro F1, balanced accuracy, ROC AUC, EER, per-class precision/recall and a confusion matrix with the shared metrics module ([#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32)). Report precision with the prevalence it was measured at.
 - [ ] Select the operating threshold on `dev_threshold` only, after the configuration is fixed. Report both human false alarms and synthetic speech detection.
