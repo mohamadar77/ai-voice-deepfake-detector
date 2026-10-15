@@ -252,8 +252,8 @@ def generate_report(
 
 
 def compute_report_hash(report_path: Path) -> str:
-    digest = hashlib.sha256()
-    with open(report_path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    with open(report_path) as fh:
+        data = json.load(fh)
+    data.pop("generated_utc", None)
+    canonical = json.dumps(data, indent=2, sort_keys=True) + "\n"
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
