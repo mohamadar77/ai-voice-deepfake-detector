@@ -777,15 +777,19 @@ def _eval_score(
                     )
 
                     if condition == "codec_opus_24k":
-                        waveform = codec_transform(waveform, 16000, clip_id, 20261004)
+                        waveform = codec_transform(
+                            waveform, sample_rate=16000, bitrate_kbps=24,
+                        ).waveform
                     elif condition == "noise_20db":
                         waveform = noise_transform(
-                            waveform, 16000, clip_id, 20261004, snr_db=20.0,
-                        )
+                            waveform, snr_db=20.0,
+                            clip_id=clip_id, global_seed=20261004,
+                        ).waveform
                     elif condition == "noise_10db":
                         waveform = noise_transform(
-                            waveform, 16000, clip_id, 20261004, snr_db=10.0,
-                        )
+                            waveform, snr_db=10.0,
+                            clip_id=clip_id, global_seed=20261004,
+                        ).waveform
 
                     features = clip_feature_matrix(waveform, pre_config)
                     window_scores = pipeline.decision_function(features)
