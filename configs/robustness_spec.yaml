@@ -1,0 +1,81 @@
+# Robustness transformation specification (issue #34).
+# Frozen before any robustness scoring. All parameters are predeclared;
+# none are tuned to results.
+
+version: robustness-v1
+declared_on: "2026-10-15"
+
+# --- Global seed -------------------------------------------------------------
+# Per-clip seed: int(sha256(f"{global_seed}|{clip_id}").hexdigest()[:16], 16)
+# Matches the SHA-256 derivation in reservation.py.
+global_seed: 20261004
+
+# --- Evaluation conditions ----------------------------------------------------
+# Applied identically to both classes and the same underlying clips.
+# Each condition is scored independently; the clean baseline is always included.
+conditions:
+  clean:
+    description: "Unmodified waveform — baseline condition."
+
+  codec_opus_24k:
+    description: "Opus codec at 24 kbps — wideband VoIP compression."
+    transform: codec
+    codec: libopus
+    container: ogg
+    bitrate_kbps: 24
+    sample_rate_hz: 16000
+    length_handling: truncate_to_original
+    overlaps_test_conditions: true
+    matched_conditions: [codec_opus_24k]
+
+  noise_20db:
+    description: "Additive white Gaussian noise at 20 dB SNR — mild noise."
+    transform: noise
+    noise_type: awgn
+    snr_db: 20
+    reference: whole_clip_rms
+    clip_range: [-1.0, 1.0]
+    overlaps_test_conditions: true
+    matched_conditions: [noise_20db, noise_10db]
+
+  noise_10db:
+    description: "Additive white Gaussian noise at 10 dB SNR — harsh noise."
+    transform: noise
+    noise_type: awgn
+    snr_db: 10
+    reference: whole_clip_rms
+    clip_range: [-1.0, 1.0]
+    overlaps_test_conditions: true
+    matched_conditions: [noise_20db, noise_10db]
+
+# --- Silence-trim diagnostic --------------------------------------------------
+# NOT a robustness condition. NOT used during training augmentation.
+# Applied to evaluation clips to measure how much the model relies on
+# silence/duration shortcuts after option-D windowing.
+silence_trim:
+  description: "Silence-trim diagnostic — evaluation only."
+  top_db: 30
+  min_duration_seconds: 0.3
+  fallback: keep_original_with_flag
+
+# --- Training augmentation ----------------------------------------------------
+# Applied during CNN augmented runs (issue #33) only.
+# Augmentation is applied BEFORE random crop so codec has full waveform context
+# and noise SNR reference uses full-signal RMS.
+training_augmentation:
+  probability: 0.5
+  epoch_aware_seed: true
+  seed_formula: "derive_clip_seed(clip_id, global_seed) ^ epoch"
+  transforms:
+    codec:
+      probability: 0.5
+      codec: libopus
+      container: ogg
+      bitrate_kbps: 24
+      sample_rate_hz: 16000
+    noise:
+      probability: 0.5
+      noise_type: awgn
+      snr_db_range: [10, 30]
+      reference: whole_clip_rms
+      clip_range: [-1.0, 1.0]
