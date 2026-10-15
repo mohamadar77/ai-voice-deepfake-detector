@@ -141,11 +141,13 @@ def test_noise_zero_rms_returns_unchanged() -> None:
 
 
 def test_noise_class_symmetry() -> None:
-    """Same transform applied regardless of class label (label not an input)."""
-    wav = _sine_wave()
-    r1 = noise_transform(wav, snr_db=20, clip_id="same_clip", global_seed=42)
-    r2 = noise_transform(wav, snr_db=20, clip_id="same_clip", global_seed=42)
-    np.testing.assert_array_equal(r1.waveform, r2.waveform)
+    """Transform signature does not accept a label — class is never an input."""
+    import inspect
+
+    sig = inspect.signature(noise_transform)
+    param_names = set(sig.parameters)
+    assert "label" not in param_names
+    assert "class_label" not in param_names
 
 
 # ---------------------------------------------------------------------------

@@ -17,7 +17,7 @@ import hashlib
 import shutil
 import subprocess
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -311,7 +311,6 @@ class TrainingAugmentor:
     codec_bitrate_kbps: int = 24
     sample_rate: int = 16000
     epoch: int = 0
-    metadata: dict[str, list[str]] = field(default_factory=dict)
 
     def set_epoch(self, epoch: int) -> None:
         self.epoch = epoch
@@ -327,11 +326,11 @@ class TrainingAugmentor:
         transforms were applied is not returned here — the caller can
         reconstruct it from the deterministic seed.
         """
-        seed = derive_clip_seed(clip_id, self.global_seed) ^ self.epoch
+        seed = derive_clip_seed(f"aug|{clip_id}", self.global_seed) ^ self.epoch
         rng = np.random.default_rng(seed)
 
         if rng.random() >= self.probability:
-            return waveform
+            return waveform.copy()
 
         result = waveform
         if rng.random() < self.codec_probability:
