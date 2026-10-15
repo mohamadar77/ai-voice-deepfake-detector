@@ -180,8 +180,8 @@ def test_silence_trim_short_keeps_original() -> None:
 def test_silence_trim_all_silence() -> None:
     wav = np.zeros(16000, dtype=np.float32)
     result = silence_trim(wav, sample_rate=16000, top_db=30, min_duration_seconds=0.3)
-    assert result.kept_original
     assert result.waveform.size == wav.size
+    assert result.samples_removed == 0
 
 
 def test_silence_trim_no_silence() -> None:
