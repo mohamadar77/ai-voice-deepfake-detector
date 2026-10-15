@@ -558,6 +558,23 @@ def _extract_features(
     return 0
 
 
+def _find_run_record(bundle_dir: Path) -> Path | None:
+    """Locate the run record in a bundle, accepting prefixed names."""
+    for name in ("run_record.json", "lr_run_record.json", "cnn_run_record.json"):
+        candidate = bundle_dir / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _infer_model_family(record_filename: str) -> str:
+    if record_filename.startswith("lr_"):
+        return "logistic_regression"
+    if record_filename.startswith("cnn_"):
+        return "cnn"
+    return "unknown"
+
+
 def _eval_freeze(
     manifest_dir: Path | None,
     config_path: Path,
@@ -601,12 +618,12 @@ def _eval_freeze(
                 bundle=str(bundle_dir),
                 hint="each --bundle must be a directory containing a run record and model",
             )
-        run_record_path = bundle_dir / "run_record.json"
-        if not run_record_path.exists():
+        run_record_path = _find_run_record(bundle_dir)
+        if run_record_path is None:
             return _refuse(
                 "run_record_missing",
                 bundle=str(bundle_dir),
-                hint="bundle directory must contain run_record.json",
+                hint="bundle directory must contain *run_record.json",
             )
         run_record = json.loads(run_record_path.read_text(encoding="utf-8"))
         bundle_hash = _hash_directory(bundle_dir)
@@ -618,7 +635,10 @@ def _eval_freeze(
                 hint="run_record.json must contain threshold.value",
             )
         candidate_id = bundle_dir.name
-        model_family = run_record.get("model_family", "unknown")
+        model_family = run_record.get(
+            "model_family",
+            _infer_model_family(run_record_path.name),
+        )
         seed = run_record.get("seed", 0)
         run_label = run_record.get("run_label", candidate_id)
         aggregation = run_record.get("aggregation_rule", "mean_window_decision_function")
@@ -738,7 +758,10 @@ def _eval_score(
                 load_config(config_path).raw,
             )
             bundle_dir = Path(config.paths.artifacts_root) / "lr_baseline"
-            pipeline = joblib.load(bundle_dir / "pipeline.joblib")
+            model_path = bundle_dir / "lr_pipeline.joblib"
+            if not model_path.exists():
+                model_path = bundle_dir / "pipeline.joblib"
+            pipeline = joblib.load(model_path)
 
             for condition in record.conditions:
                 pred_rows: list[PredictionRow] = []
