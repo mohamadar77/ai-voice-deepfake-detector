@@ -751,8 +751,8 @@ def _eval_score(
         if candidate.model_family == "logistic_regression":
             import joblib
 
-            from voice_detector.features import extract_clip_features
-            from voice_detector.preprocessing import PreprocessingConfig
+            from voice_detector.manifest import resolve_local_path
+            from voice_detector.preprocessing import PreprocessingConfig, clip_feature_matrix
 
             pre_config = PreprocessingConfig.from_mapping(
                 load_config(config_path).raw,
@@ -771,8 +771,6 @@ def _eval_score(
                     if not local_path:
                         continue
 
-                    from voice_detector.manifest import resolve_local_path
-
                     audio_config = AudioConfig(sample_rate_hz=16000)
                     waveform = load_waveform(
                         resolve_local_path(local_path), audio_config,
@@ -789,7 +787,7 @@ def _eval_score(
                             waveform, 16000, clip_id, 20261004, snr_db=10.0,
                         )
 
-                    features = extract_clip_features(waveform, pre_config)
+                    features = clip_feature_matrix(waveform, pre_config)
                     window_scores = pipeline.decision_function(features)
                     clip_score = float(window_scores.mean())
                     n_windows = len(window_scores)
