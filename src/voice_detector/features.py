@@ -32,6 +32,7 @@ from typing import Any
 
 import numpy as np
 
+from voice_detector.manifest import resolve_local_path
 from voice_detector.preprocessing import PreprocessingConfig, clip_features_from_source
 
 # Feature cache epoch. Bump when the *cache layout or key formula* changes in a
@@ -183,7 +184,7 @@ def extract_split_features(
                 f"clip {row['clip_id']!r} has no local_path; rebuild the manifest where the "
                 "audio lives before extracting features"
             )
-        matrix = clip_features_from_source(local_path, config)
+        matrix = clip_features_from_source(resolve_local_path(local_path), config)
         if matrix.ndim != 2 or matrix.shape[1] != feature_dim:
             raise ValueError(
                 f"clip {row['clip_id']!r} produced features of shape {matrix.shape}, "

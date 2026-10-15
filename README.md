@@ -104,6 +104,11 @@ uv run voice-detector build-manifest --config configs/default.yaml
 ```
 
 `--la-root` still overrides the environment variable when passed explicitly.
+Manifest rows store each clip's audio path relative to that root, so the same
+`VOICE_DETECTOR_LA_ROOT` variable also has to be set (not just for
+`build-manifest`) whenever a later command reads the audio itself —
+`extract-features`, `train-lr`, `cnn-pilot`, and `train-cnn` — unless it is run
+with its working directory already at the LA root.
 
 The local `data/` and `artifacts/` directories are intentionally excluded from version control except for their documentation files. Do not commit audio, extracted features, checkpoints, databases, credentials, or uploaded recordings.
 

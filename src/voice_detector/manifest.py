@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import os
 import sqlite3
 import subprocess
 from collections import Counter, defaultdict
@@ -226,6 +227,29 @@ def clip_audio_path(la_root: Path | str, official_split: str, clip_id: str) -> P
     if official_split not in SPLIT_AUDIO_SUBDIR:
         raise ValueError(f"official_split must be one of {sorted(SPLIT_AUDIO_SUBDIR)}")
     return Path(la_root) / SPLIT_AUDIO_SUBDIR[official_split] / "flac" / f"{clip_id}{AUDIO_SUFFIX}"
+
+
+LA_ROOT_ENV_VAR = "VOICE_DETECTOR_LA_ROOT"
+
+
+def resolve_local_path(local_path: Path | str) -> Path:
+    """Resolve a manifest ``local_path`` to an openable audio path.
+
+    ``local_path`` is recorded relative to the ``la_root`` the manifest was
+    built from (see :func:`build_manifest_rows`). An absolute path is returned
+    unchanged. A relative path is joined with the ``VOICE_DETECTOR_LA_ROOT``
+    environment variable when it is set, so feature extraction and training
+    can run from the repository without symlinking the extracted dataset into
+    the working tree; with no such variable, the relative path is returned
+    as-is (resolved against the process's current working directory, as
+    before).
+    """
+
+    path = Path(local_path)
+    if path.is_absolute():
+        return path
+    la_root = os.environ.get(LA_ROOT_ENV_VAR)
+    return Path(la_root) / path if la_root else path
 
 
 def _manifest_row(
