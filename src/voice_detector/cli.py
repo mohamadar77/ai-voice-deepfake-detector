@@ -558,6 +558,79 @@ def _extract_features(
     return 0
 
 
+def _train_cnn(
+    manifest_dir: Path | None,
+    config_path: Path,
+    study_config_path: Path,
+    frozen_record_path: Path,
+    out_dir: Path | None,
+    seed: int | None,
+    run_label: str,
+) -> int:
+    """Train the compact log-Mel CNN (#33).
+
+    Lazy imports keep cli.py importable without torch.
+    """
+
+    import yaml
+
+    from voice_detector.cnn_train import train_and_save_cnn
+
+    config = load_config(config_path)
+    if manifest_dir is None:
+        manifest_dir = config.paths.artifacts_root / "manifest"
+    if out_dir is None:
+        out_dir = config.paths.artifacts_root / "cnn_study" / run_label
+    if seed is None:
+        seed = config.seed
+
+    catalog_path = manifest_dir / "manifest.sqlite"
+    rows, meta = read_manifest_sqlite(catalog_path)
+    if not rows:
+        return _refuse(
+            "empty_catalog",
+            catalog=str(catalog_path),
+            hint="rebuild the manifest with build-manifest",
+        )
+
+    study_raw = yaml.safe_load(Path(study_config_path).read_text(encoding="utf-8"))
+    frozen_record_raw = json.loads(
+        Path(frozen_record_path).read_text(encoding="utf-8")
+    )
+
+    train_rows = [r for r in rows if r["official_split"] == "train"]
+    dev_rows = [r for r in rows if r["official_split"] == "development"]
+
+    run_record, outputs = train_and_save_cnn(
+        train_rows, dev_rows, frozen_record_raw, study_raw,
+        seed=seed, run_label=run_label, out_dir=out_dir,
+    )
+
+    print(
+        json.dumps(
+            {
+                "status": "trained",
+                "run_label": run_label,
+                "best_epoch": run_record["best_epoch"],
+                "total_epochs": run_record["total_epochs"],
+                "threshold": run_record["threshold"]["value"],
+                "dev_full_metrics": {
+                    k: run_record["dev_full_metrics"][k]
+                    for k in (
+                        "eer", "roc_auc", "macro_f1", "balanced_accuracy",
+                        "human_false_positive_rate", "synthetic_detection_rate",
+                    )
+                },
+                "outputs": {k: str(v) for k, v in outputs.items()},
+                "total_seconds": run_record["total_seconds"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
 def _cnn_pilot(
     out_dir: Path | None,
     config_path: Path,
@@ -915,6 +988,56 @@ def build_parser() -> argparse.ArgumentParser:
         default=10,
         help="timed steps per batch size (default: 10)",
     )
+
+    train_cnn = subparsers.add_parser(
+        "train-cnn",
+        help=(
+            "train the compact log-Mel CNN on training audio, select the best "
+            "epoch on dev_select by clip-level EER, threshold on dev_threshold, "
+            "and produce a versioned run record (run where audio and manifest live)"
+        ),
+    )
+    train_cnn.add_argument(
+        "--manifest-dir",
+        type=Path,
+        default=None,
+        help="directory holding manifest.sqlite (default: <artifacts_root>/manifest)",
+    )
+    train_cnn.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/default.yaml"),
+        help="project YAML (seed, artifact roots)",
+    )
+    train_cnn.add_argument(
+        "--study-config",
+        type=Path,
+        default=Path("configs/cnn_study.yaml"),
+        help="CNN study configuration (mel, architecture, training, budget)",
+    )
+    train_cnn.add_argument(
+        "--frozen-record",
+        type=Path,
+        default=Path("reports/dev_reservation_frozen.json"),
+        help="committed frozen reservation record",
+    )
+    train_cnn.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        help="output directory (default: <artifacts_root>/cnn_study/<run_label>)",
+    )
+    train_cnn.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="random seed (default: from study config seeds[0] or project config)",
+    )
+    train_cnn.add_argument(
+        "--run-label",
+        default="clean",
+        help="label for this run (default: clean)",
+    )
     return parser
 
 
@@ -968,6 +1091,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.batch_sizes,
             args.n_warmup,
             args.n_timed,
+        )
+    if args.command == "train-cnn":
+        return _train_cnn(
+            args.manifest_dir,
+            args.config,
+            args.study_config,
+            args.frozen_record,
+            args.out_dir,
+            args.seed,
+            args.run_label,
         )
     return 2
 
