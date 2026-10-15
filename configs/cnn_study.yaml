@@ -1,0 +1,80 @@
+# CNN study configuration (issue #33).
+# Declared before any CNN training run. All CNN-specific choices live here;
+# the general development protocol (selection, threshold, aggregation) is
+# inherited from pre_tuning_protocol.yaml.
+
+version: cnn-study-v1
+declared_on: "2026-10-14"
+
+# --- Log-Mel spectrogram (CNN input) -----------------------------------------
+# Shared with the timing pilot's MelConfig; versioned here as the CNN's
+# feature contract. Bump mel_version whenever any value changes.
+mel:
+  mel_version: mel-v1
+  sample_rate_hz: 16000
+  n_fft: 400          # 25 ms analysis window
+  hop_length: 160     # 10 ms hop
+  n_mels: 64
+  fmin: 20.0
+  fmax: 8000.0
+  window_seconds: 4.0  # fixed-length analysis window
+
+# --- CNN input policy --------------------------------------------------------
+# Decided before training per #33 definition-of-done item 1.
+#
+# Training: random crop from clips longer than window_seconds; repeat-pad
+# clips shorter than window_seconds (no zero-padding, which would reintroduce
+# the silence/duration shortcut that option D removed).
+#
+# Evaluation: deterministic windows from window_spans (option D), each window
+# repeat-padded to window_samples if shorter than n_fft. Per-window logits
+# aggregated to one clip score via mean.
+input_policy:
+  short_clip_handling: repeat_pad
+  training_crop: random_crop
+  eval_windowing: option_d_deterministic
+  eval_aggregation: mean_window_logit
+
+# --- Normalization -----------------------------------------------------------
+# Per-channel (per mel bin) mean and std, fitted on training data only.
+# Applied to train, dev, and eval identically.
+normalization:
+  method: per_channel_standardize
+  fit_on: train
+
+# --- Architecture ------------------------------------------------------------
+architecture:
+  name: CompactMelCNN
+  conv_channels: [16, 32, 64]
+  kernel_size: 3
+  pool_size: 2
+  n_classes: 2
+
+# --- Training ----------------------------------------------------------------
+training:
+  loss: cross_entropy
+  class_weight: balanced
+  optimizer: adam
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  batch_size: 32
+  max_epochs: 20
+  patience: 5            # early stopping on dev_select EER
+  num_workers: 4
+  pin_memory: true
+
+# --- Budget ------------------------------------------------------------------
+# The CNN declares its own budget separately from the LR baseline's.
+# One architecture, clean + augmented runs, up to 2 seed pairs.
+budget:
+  max_runs: 4            # clean x 2 seeds + augmented x 2 seeds
+  max_device_hours_per_run: 12.0
+  max_device_hours_total: 48.0
+  seeds: [20261004, 20261005]
+
+# --- Checkpoint selection ----------------------------------------------------
+# Same protocol as LR: dev_select only, clip-level EER, lower is better.
+checkpoint_selection:
+  development_role: select
+  metric: clip_eer
+  direction: lower_is_better
