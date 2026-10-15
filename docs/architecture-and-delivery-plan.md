@@ -373,3 +373,28 @@ Resume from this state in the next Codex session:
 - Existing requested architecture session `01a11265-c108-7150-930c-ea044f6bbbbf` was unavailable through the agent interface; do not claim its review was received.
 
 Continue by reading this handoff, `docs/data.md`, `TODO-Plan.md` and `AGENTS.md` before taking actions. Treat this section as a checkpoint, not as evidence that the listed future work is complete.
+
+## Dated review follow-up — 14 October 2026
+
+The [LR baseline review](lr-baseline-review-2026-10-14.md) examined `6b02432`,
+including merged LR PR #49 and CNN pilot PR #51. PR #49 reports successful host
+execution; this review did not inspect the host artifacts or final predictions.
+The default label direction, aggregation, fixed class weighting and EER-zero fix
+are correct. G1 output acceptance needs the new review follow-ups #52–#59.
+
+- **Owner tracking decision:** keep completed issues closed. Create new related
+  repair issues under the matching milestone; #8, #10 and #31 stay closed.
+- **Acceptance impact:** #52/#53 guard feature provenance and frozen membership
+  before LR fitting. #54–#57 complete retained run evidence, coherent bundle
+  publication, reservation provenance and supported protocol enforcement. These
+  gate accepting the LR bundle for #9 parity and the #35 development rehearsal.
+- **Capacity impact:** #58 completes the configured forecast with the planning
+  margin before accepting #33's compute route; #59 fixes laptop test collection.
+  Fixture-based development can continue while the follow-ups are resolved.
+- **Schedule:** retain the existing 16/22/27 October forecasts, with G1 conditional
+  on the follow-up repairs and host verification. No date extension or scope cut
+  is inferred from the review. Owner focused-hour capacity remains unrecorded.
+- **Proposal commitment:** this enforces the existing partition, reproducibility,
+  coherent-inference and resource-gate requirements. No proposal deviation is
+  introduced and the frozen proposal bytes remain unchanged. Audit and preserve
+  prior evidence; document any necessary reconstruction or invalidation.
