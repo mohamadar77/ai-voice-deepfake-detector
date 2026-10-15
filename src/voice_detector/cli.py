@@ -793,8 +793,12 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument(
         "--la-root",
         type=Path,
-        required=True,
-        help="extracted ASVspoof 2019 LA root (contains ASVspoof2019_LA_cm_protocols/ etc.)",
+        default=os.environ.get("VOICE_DETECTOR_LA_ROOT"),
+        required="VOICE_DETECTOR_LA_ROOT" not in os.environ,
+        help=(
+            "extracted ASVspoof 2019 LA root (contains ASVspoof2019_LA_cm_protocols/ etc.); "
+            "defaults to the VOICE_DETECTOR_LA_ROOT environment variable"
+        ),
     )
     build.add_argument(
         "--config",
