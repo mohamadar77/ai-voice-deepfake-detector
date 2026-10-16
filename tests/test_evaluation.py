@@ -155,15 +155,27 @@ class TestPersistence:
         assert loaded.candidates[0].candidate_id == frozen.candidates[0].candidate_id
         assert loaded.bootstrap.n_resamples == frozen.bootstrap.n_resamples
 
-    def test_save_refuses_silent_overwrite(self, tmp_path: Path):
+    def test_save_allows_forward_transition(self, tmp_path: Path):
         draft = _draft_record()
         frozen = freeze_record(draft)
         path = tmp_path / "freeze.json"
         save_freeze_record(frozen, path)
 
         scored = mark_scored(frozen, "hash")
+        save_freeze_record(scored, path)
+
+        loaded = load_freeze_record(path)
+        assert loaded.state == FreezeState.SCORED.value
+
+    def test_save_refuses_backward_transition(self, tmp_path: Path):
+        draft = _draft_record()
+        frozen = freeze_record(draft)
+        scored = mark_scored(frozen, "hash")
+        path = tmp_path / "freeze.json"
+        save_freeze_record(scored, path)
+
         with pytest.raises(ValueError, match="refusing to overwrite"):
-            save_freeze_record(scored, path)
+            save_freeze_record(frozen, path)
 
     def test_save_allows_idempotent_rewrite(self, tmp_path: Path):
         draft = _draft_record()

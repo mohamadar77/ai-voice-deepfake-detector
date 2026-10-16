@@ -404,11 +404,18 @@ def save_freeze_record(record: FreezeRecord, path: Path) -> Path:
     if path.exists():
         with open(path) as fh:
             existing = json.load(fh)
-        if existing.get("state") != record.state:
+        existing_state = existing.get("state", "")
+        new_state = record.state
+        forward = list(_VALID_TRANSITIONS.items())
+        is_forward = any(
+            old.value == existing_state and new.value == new_state
+            for old, new in forward
+        )
+        if existing_state != new_state and not is_forward:
             raise ValueError(
-                f"refusing to overwrite {path.name} (state={existing['state']!r}) "
-                f"with a record in state={record.state!r}; "
-                "only idempotent rewrites of the same state are allowed"
+                f"refusing to overwrite {path.name} (state={existing_state!r}) "
+                f"with a record in state={new_state!r}; "
+                "only idempotent rewrites or forward transitions are allowed"
             )
 
     path.parent.mkdir(parents=True, exist_ok=True)
