@@ -196,7 +196,10 @@ def generate_report(
             ]
 
             if not cond_preds:
-                continue
+                raise ValueError(
+                    f"no predictions for candidate {candidate.candidate_id!r} "
+                    f"under condition {condition!r}; refusing to report a partial matrix"
+                )
 
             clip_ids = [p.clip_id for p in cond_preds]
             labels = [p.label for p in cond_preds]

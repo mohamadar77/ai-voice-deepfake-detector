@@ -70,13 +70,40 @@ class MelSpec:
 LABEL_MAP = {"bonafide": 0, "spoof": 1}
 
 
-def _repeat_pad(waveform: np.ndarray, target_len: int) -> np.ndarray:
-    """Repeat-pad a waveform to target_len samples (no zero-padding)."""
+def repeat_pad(waveform: np.ndarray, target_len: int) -> np.ndarray:
+    """Repeat-pad a waveform to target_len samples (no zero-padding).
+
+    Longer input is truncated to ``target_len``; this drops the folded tail
+    that ``window_spans`` may append to the last window.
+    """
 
     if waveform.size >= target_len:
         return waveform[:target_len]
     repeats = (target_len // waveform.size) + 1
     return np.tile(waveform, repeats)[:target_len]
+
+
+_repeat_pad = repeat_pad
+
+
+def segment_to_spectrogram(
+    segment: np.ndarray,
+    mel_transform: torch.nn.Module,
+    mean: torch.Tensor | None,
+    std: torch.Tensor | None,
+) -> torch.Tensor:
+    """One fixed-length segment to a normalized log-Mel tensor ``(1, n_mels, n_frames)``.
+
+    The single definition of the numerics shared by training evaluation and
+    ``eval-score``. Keep the operation order: mel, log of the clamped mel, then
+    per-channel standardization with ``std`` clamped at 1e-6.
+    """
+
+    mel = mel_transform(torch.from_numpy(segment))
+    log_mel = torch.log(mel.clamp(min=1e-9))
+    if mean is not None and std is not None:
+        log_mel = (log_mel - mean.unsqueeze(-1)) / std.unsqueeze(-1).clamp(min=1e-6)
+    return log_mel.unsqueeze(0)
 
 
 def _random_crop(waveform: np.ndarray, target_len: int, rng: np.random.Generator) -> np.ndarray:
@@ -92,8 +119,9 @@ class MelDataset(Dataset):
     """Per-clip dataset: one log-Mel spectrogram per clip.
 
     In training mode, long clips are randomly cropped and short clips are
-    repeat-padded. In eval mode, option-D deterministic windows are used and
-    each window is a separate item (use ``eval_dataset`` to build one).
+    repeat-padded. With ``training=False`` only the first ``window_seconds`` of
+    each clip is used; it is not a scoring path. Use ``EvalWindowDataset`` for
+    option-D deterministic windows.
     """
 
     def __init__(
@@ -216,17 +244,12 @@ class EvalWindowDataset(Dataset):
             )
         waveform = self._waveform_cache[local_path]
         segment = waveform[start:stop]
-        segment = _repeat_pad(segment, self.mel_spec.window_samples)
-
-        tensor = torch.from_numpy(segment)
-        mel = self._mel_transform(tensor)
-        log_mel = torch.log(mel.clamp(min=1e-9))
-
-        if self.mean is not None and self.std is not None:
-            log_mel = (log_mel - self.mean.unsqueeze(-1)) / self.std.unsqueeze(-1).clamp(min=1e-6)
+        segment = repeat_pad(segment, self.mel_spec.window_samples)
 
         return {
-            "spectrogram": log_mel.unsqueeze(0),
+            "spectrogram": segment_to_spectrogram(
+                segment, self._mel_transform, self.mean, self.std
+            ),
             "label": label,
             "clip_id": clip_id,
         }

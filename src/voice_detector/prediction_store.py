@@ -131,6 +131,46 @@ def write_predictions(
         conn.close()
 
 
+def completed_pairs(path: Path) -> dict[tuple[str, str], int]:
+    """Row count per (candidate_id, condition) already in the store."""
+
+    conn = sqlite3.connect(path)
+    try:
+        cursor = conn.execute(
+            "SELECT candidate_id, condition, COUNT(*) FROM predictions "
+            "GROUP BY candidate_id, condition"
+        )
+        return {(row[0], row[1]): int(row[2]) for row in cursor.fetchall()}
+    finally:
+        conn.close()
+
+
+def get_metadata(path: Path) -> dict[str, str]:
+    conn = sqlite3.connect(path)
+    try:
+        return {k: v for k, v in conn.execute("SELECT key, value FROM metadata")}
+    finally:
+        conn.close()
+
+
+def set_metadata_once(path: Path, key: str, value: str) -> None:
+    """Write a metadata value; refuse to change one that is already set."""
+
+    conn = sqlite3.connect(path)
+    try:
+        row = conn.execute("SELECT value FROM metadata WHERE key = ?", (key,)).fetchone()
+        if row is not None:
+            if row[0] != value:
+                raise ValueError(
+                    f"store metadata {key!r} is already set to a different value"
+                )
+            return
+        conn.execute("INSERT INTO metadata (key, value) VALUES (?, ?)", (key, value))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def read_predictions(
     path: Path,
     *,

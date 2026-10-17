@@ -116,6 +116,28 @@ class FreezeRecord:
         return d
 
 
+_MUTABLE_FIELDS = (
+    "state",
+    "created_utc",
+    "frozen_utc",
+    "scored_utc",
+    "reported_utc",
+    "predictions_hash",
+    "report_hash",
+)
+
+
+def freeze_identity_hash(record: FreezeRecord) -> str:
+    """Hash of the immutable protocol content, stable across state transitions.
+
+    Excludes the lifecycle state, timestamps and result hashes, so the value
+    computed at scoring time can be recomputed from the SCORED or REPORTED record.
+    """
+
+    content = {k: v for k, v in record.as_dict().items() if k not in _MUTABLE_FIELDS}
+    return hashlib.sha256(json.dumps(content, sort_keys=True).encode("utf-8")).hexdigest()
+
+
 def _now_utc() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -146,7 +168,9 @@ def _hash_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _hash_directory(directory: Path) -> str:
+def hash_directory(directory: Path) -> str:
+    """SHA-256 over every file's relative path and bytes, in sorted order."""
+
     digest = hashlib.sha256()
     for path in sorted(directory.rglob("*")):
         if path.is_file():
@@ -391,7 +415,7 @@ def verify_freeze_against_artifacts(
             raise ValueError(
                 f"candidate bundle directory not found: {candidate_dir}"
             )
-        actual_hash = _hash_directory(candidate_dir)
+        actual_hash = hash_directory(candidate_dir)
         if actual_hash != candidate.bundle_hash:
             raise ValueError(
                 f"bundle hash mismatch for {candidate.candidate_id!r}: "
