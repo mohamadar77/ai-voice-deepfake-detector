@@ -400,7 +400,18 @@ def verify_freeze_against_artifacts(
             )
 
 
+def _content_hash(record_dict: dict) -> str:
+    stable = {k: v for k, v in record_dict.items()
+              if k not in ("created_utc", "frozen_utc", "scored_utc", "reported_utc")}
+    return hashlib.sha256(
+        json.dumps(stable, sort_keys=True).encode()
+    ).hexdigest()
+
+
 def save_freeze_record(record: FreezeRecord, path: Path) -> Path:
+    data = record.as_dict()
+    text = json.dumps(data, indent=2, sort_keys=True) + "\n"
+
     if path.exists():
         with open(path) as fh:
             existing = json.load(fh)
@@ -411,7 +422,13 @@ def save_freeze_record(record: FreezeRecord, path: Path) -> Path:
             old.value == existing_state and new.value == new_state
             for old, new in forward
         )
-        if existing_state != new_state and not is_forward:
+        if existing_state == new_state:
+            if _content_hash(existing) != _content_hash(data):
+                raise ValueError(
+                    f"refusing to overwrite {path.name} (state={existing_state!r}) "
+                    "with different content; a frozen record is immutable"
+                )
+        elif not is_forward:
             raise ValueError(
                 f"refusing to overwrite {path.name} (state={existing_state!r}) "
                 f"with a record in state={new_state!r}; "
@@ -419,8 +436,6 @@ def save_freeze_record(record: FreezeRecord, path: Path) -> Path:
             )
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = record.as_dict()
-    text = json.dumps(data, indent=2, sort_keys=True) + "\n"
 
     tmp = path.with_suffix(".tmp")
     tmp.write_text(text, encoding="utf-8")

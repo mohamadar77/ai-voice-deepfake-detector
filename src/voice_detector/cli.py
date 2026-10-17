@@ -702,13 +702,23 @@ def _eval_score(
     CNN bundles are available.
     """
 
-    from voice_detector.evaluation import load_freeze_record as load_eval_record
+    import hashlib
+
+    import numpy as np
+
+    from voice_detector.evaluation import (
+        load_freeze_record as load_eval_record,
+    )
+    from voice_detector.evaluation import (
+        verify_freeze_against_artifacts,
+    )
     from voice_detector.prediction_store import (
         PredictionRow,
         compute_predictions_hash,
         create_prediction_store,
         write_predictions,
     )
+    from voice_detector.scoring import decide_spoof
 
     config = load_config(config_path)
     if manifest_dir is None:
@@ -731,6 +741,10 @@ def _eval_score(
             hint="the evaluation record must be in FROZEN state to score",
         )
 
+    config_dir = Path(config_path).parent
+    bundle_root = Path(config.paths.artifacts_root)
+    verify_freeze_against_artifacts(record, rows, config_dir, bundle_root)
+
     split_rows = [r for r in rows if r["official_split"] == partition]
     if not split_rows:
         return _refuse(
@@ -740,10 +754,23 @@ def _eval_score(
         )
 
     create_prediction_store(store_path)
-    freeze_hash = record.manifest_hash
+    freeze_hash = hashlib.sha256(
+        json.dumps(record.as_dict(), sort_keys=True).encode()
+    ).hexdigest()
 
     from voice_detector.augmentation import codec_transform, noise_transform
     from voice_detector.preprocessing import AudioConfig, load_waveform
+
+    robustness_spec_path = config_dir / "robustness_spec.yaml"
+    robustness_spec: dict = {}
+    if robustness_spec_path.exists():
+        import yaml
+
+        robustness_spec = yaml.safe_load(
+            robustness_spec_path.read_text(encoding="utf-8")
+        )
+    spec_global_seed = int(robustness_spec.get("global_seed", 20261004))
+    spec_conditions = robustness_spec.get("conditions", {})
 
     scored_pairs: list[str] = []
 
@@ -757,7 +784,7 @@ def _eval_score(
             pre_config = PreprocessingConfig.from_mapping(
                 load_config(config_path).raw,
             )
-            bundle_dir = Path(config.paths.artifacts_root) / "lr_baseline"
+            bundle_dir = bundle_root / candidate.candidate_id
             model_path = bundle_dir / "lr_pipeline.joblib"
             if not model_path.exists():
                 model_path = bundle_dir / "pipeline.joblib"
@@ -765,6 +792,7 @@ def _eval_score(
 
             for condition in record.conditions:
                 pred_rows: list[PredictionRow] = []
+                cond_spec = spec_conditions.get(condition, {})
                 for row in split_rows:
                     clip_id = str(row["clip_id"])
                     local_path = row.get("local_path")
@@ -776,29 +804,25 @@ def _eval_score(
                         resolve_local_path(local_path), audio_config,
                     )
 
-                    if condition == "codec_opus_24k":
+                    transform = cond_spec.get("transform")
+                    if transform == "codec":
                         waveform = codec_transform(
-                            waveform, sample_rate=16000, bitrate_kbps=24,
+                            waveform,
+                            sample_rate=cond_spec.get("sample_rate_hz", 16000),
+                            bitrate_kbps=cond_spec.get("bitrate_kbps", 24),
                         ).waveform
-                    elif condition == "noise_20db":
+                    elif transform == "noise":
                         waveform = noise_transform(
-                            waveform, snr_db=20.0,
-                            clip_id=clip_id, global_seed=20261004,
-                        ).waveform
-                    elif condition == "noise_10db":
-                        waveform = noise_transform(
-                            waveform, snr_db=10.0,
-                            clip_id=clip_id, global_seed=20261004,
+                            waveform,
+                            snr_db=float(cond_spec["snr_db"]),
+                            clip_id=clip_id,
+                            global_seed=spec_global_seed,
                         ).waveform
 
                     features = clip_feature_matrix(waveform, pre_config)
                     window_scores = pipeline.decision_function(features)
                     clip_score = float(window_scores.mean())
                     n_windows = len(window_scores)
-
-                    import numpy as np
-
-                    from voice_detector.scoring import decide_spoof
 
                     decision = bool(
                         decide_spoof(np.array([clip_score]), candidate.threshold)[0]
