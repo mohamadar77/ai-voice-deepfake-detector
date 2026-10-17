@@ -182,7 +182,17 @@ def generate_report(
     *,
     output_dir: Path,
     bootstrap_spec: BootstrapSpec | None = None,
+    primary_partition: str | None = None,
+    provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Build the evaluation report.
+
+    ``primary_partition`` selects the partition whose clips form each result's
+    ``overall_metrics`` (the locked report uses ``evaluation``). Slices select
+    their own partition, so a development store passed alongside the evaluation
+    store supplies the development slices. ``provenance`` is copied into the report.
+    """
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     results: list[dict[str, Any]] = []
@@ -194,16 +204,20 @@ def generate_report(
                 if p.candidate_id == candidate.candidate_id
                 and p.condition == condition
             ]
+            primary_preds = [
+                p for p in cond_preds
+                if primary_partition is None or p.official_split == primary_partition
+            ]
 
-            if not cond_preds:
+            if not primary_preds:
                 raise ValueError(
                     f"no predictions for candidate {candidate.candidate_id!r} "
                     f"under condition {condition!r}; refusing to report a partial matrix"
                 )
 
-            clip_ids = [p.clip_id for p in cond_preds]
-            labels = [p.label for p in cond_preds]
-            scores = np.array([p.clip_score for p in cond_preds], dtype=np.float64)
+            clip_ids = [p.clip_id for p in primary_preds]
+            labels = [p.label for p in primary_preds]
+            scores = np.array([p.clip_score for p in primary_preds], dtype=np.float64)
 
             overall_metrics = evaluate_clip_scores(
                 clip_ids, labels, scores,
@@ -244,6 +258,8 @@ def generate_report(
         "n_candidates": len(freeze_record.candidates),
         "n_conditions": len(freeze_record.conditions),
         "n_slices": len(freeze_record.slices),
+        "primary_partition": primary_partition,
+        "provenance": provenance or {},
         "results": results,
     }
 

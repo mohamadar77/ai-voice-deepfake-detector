@@ -29,6 +29,7 @@ from voice_detector.prediction_store import (
     completed_pairs,
     compute_predictions_hash,
     create_prediction_store,
+    get_metadata,
     set_metadata_once,
     validate_prediction_completeness,
     write_predictions,
@@ -51,12 +52,23 @@ class UnsupportedModelFamily(ValueError):
     """A candidate's model family or run record schema has no registered scorer."""
 
 
+class ParityFailedError(ValueError):
+    """Development parity with the bundle's recorded metrics failed."""
+
+
 class ScoringPreflightError(ValueError):
     """The scoring inputs are incomplete or inconsistent; nothing was written."""
 
 
 class StoreStateError(ValueError):
-    """The prediction store is not in a state this run may continue from."""
+    """The prediction store is not in a state this run may continue from.
+
+    ``reason`` is a short machine-readable code for the CLI's JSON refusal.
+    """
+
+    def __init__(self, message: str, reason: str = "store_state") -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +224,9 @@ def load_robustness_spec(path: Path, *, required: Sequence[str]) -> RobustnessSp
     seed = raw.get("global_seed")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise ScoringPreflightError("robustness spec needs an integer global_seed")
-    conditions = raw.get("conditions") or {}
+    conditions = dict(raw.get("conditions") or {})
+    if "silence_trim" in required:
+        conditions["silence_trim"] = _silence_trim_condition(raw.get("silence_trim"))
 
     for name in required:
         spec = conditions.get(name)
@@ -226,6 +240,8 @@ def load_robustness_spec(path: Path, *, required: Sequence[str]) -> RobustnessSp
             _require_values(name, spec, {"codec": "libopus", "container": "ogg"})
             _require_int(name, spec, "bitrate_kbps")
             _require_int(name, spec, "sample_rate_hz")
+        elif transform == "silence_trim":
+            pass  # validated in _silence_trim_condition
         elif transform == "noise":
             _require_values(
                 name,
@@ -245,6 +261,26 @@ def load_robustness_spec(path: Path, *, required: Sequence[str]) -> RobustnessSp
         global_seed=seed,
         conditions={name: dict(conditions[name]) for name in required},
     )
+
+
+def _silence_trim_condition(section: Any) -> dict[str, Any]:
+    """The frozen silence-trim diagnostic, declared under ``silence_trim:`` in the spec."""
+
+    if not isinstance(section, dict):
+        raise ScoringPreflightError("robustness spec has no silence_trim section")
+    for key in ("top_db", "min_duration_seconds"):
+        value = section.get(key)
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            raise ScoringPreflightError(f"silence_trim needs a numeric {key}")
+    if section.get("fallback") != "keep_original_with_flag":
+        raise ScoringPreflightError(
+            "silence_trim.fallback must be keep_original_with_flag, the implemented behaviour"
+        )
+    return {
+        "transform": "silence_trim",
+        "top_db": float(section["top_db"]),
+        "min_duration_seconds": float(section["min_duration_seconds"]),
+    }
 
 
 def _require_values(name: str, spec: Mapping[str, Any], expected: Mapping[str, Any]) -> None:
@@ -267,6 +303,7 @@ class ConditionedWaveform:
     waveform: np.ndarray
     n_clipped: int = 0
     samples_delta: int = 0
+    kept_original: bool = False
 
 
 def apply_condition(
@@ -277,6 +314,8 @@ def apply_condition(
     spec: RobustnessSpec,
     codec_fn: Callable[..., Any] | None = None,
     noise_fn: Callable[..., Any] | None = None,
+    trim_fn: Callable[..., Any] | None = None,
+    sample_rate_hz: int | None = None,
 ) -> ConditionedWaveform:
     """Apply one frozen condition to a whole decoded clip, before any windowing.
 
@@ -310,6 +349,18 @@ def apply_condition(
             global_seed=spec.global_seed,
         )
         return ConditionedWaveform(noise.waveform, n_clipped=int(noise.n_clipped))
+    if transform == "silence_trim":
+        if sample_rate_hz is None:
+            raise ScoringPreflightError("silence_trim needs the decode sample rate")
+        if trim_fn is None:
+            from voice_detector.augmentation import silence_trim as trim_fn
+        trim = trim_fn(
+            waveform,
+            sample_rate=int(sample_rate_hz),
+            top_db=float(cond["top_db"]),
+            min_duration_seconds=float(cond["min_duration_seconds"]),
+        )
+        return ConditionedWaveform(trim.waveform, kept_original=bool(trim.kept_original))
     raise ScoringPreflightError(f"condition {condition!r} has unsupported transform {transform!r}")
 
 
@@ -502,9 +553,17 @@ def score_partition(
     max_clips: int | None = None,
     codec_fn: Callable[..., Any] | None = None,
     noise_fn: Callable[..., Any] | None = None,
+    trim_fn: Callable[..., Any] | None = None,
+    provenance: Mapping[str, str] | None = None,
+    after_condition: Callable[[str], None] | None = None,
     progress: Callable[[str], None] | None = None,
 ) -> ScoringSummary:
-    """Score every clip of ``partition`` under every condition for every candidate."""
+    """Score every clip of ``partition`` under every condition for every candidate.
+
+    ``provenance`` (scoring commit, library versions) is pinned in the store, and a
+    resumed run must match it. ``after_condition`` runs after each condition is
+    committed (or found complete on resume) and may raise to abort the run.
+    """
 
     if max_clips is not None and partition != "development":
         raise ScoringPreflightError("--max-clips is only allowed on the development partition")
@@ -530,13 +589,26 @@ def score_partition(
             f"prediction store {store_path} already holds {len(existing)} scored "
             "(candidate, condition) pairs; use a fresh --store or pass --resume"
         )
+    pinned = {
+        "freeze_identity": freeze_identity,
+        "partition": partition,
+        "subset": subset,
+        **{f"provenance_{k}": v for k, v in (provenance or {}).items()},
+    }
+    if existing:
+        absent = [k for k in pinned if k not in get_metadata(store_path)]
+        if absent:
+            raise StoreStateError(
+                f"store {store_path} lacks provenance {absent}; it was not written by this "
+                "scoring code and cannot be resumed",
+                reason="store_without_provenance",
+            )
     create_prediction_store(store_path)
     try:
-        set_metadata_once(store_path, "freeze_identity", freeze_identity)
-        set_metadata_once(store_path, "partition", partition)
-        set_metadata_once(store_path, "subset", subset)
+        for key, value in pinned.items():
+            set_metadata_once(store_path, key, value)
     except ValueError as exc:
-        raise StoreStateError(str(exc)) from exc
+        raise StoreStateError(str(exc), reason="store_mismatch") from exc
 
     n_clips = len(clips)
     summary = ScoringSummary(complete=False, partition=partition, n_clips=n_clips)
@@ -549,6 +621,8 @@ def score_partition(
                     f"condition {condition!r} has a partial row count in the store"
                 )
             summary.skipped_pairs.extend(f"{c}/{condition}" for c in candidate_ids)
+            if after_condition is not None:
+                after_condition(condition)
             continue
         if any(done):
             raise StoreStateError(
@@ -560,6 +634,7 @@ def score_partition(
         pred_rows: list[PredictionRow] = []
         n_clipped = 0
         shorter = 0
+        kept_original = 0
         for row in clips:
             clip_id = str(row["clip_id"])
             try:
@@ -571,9 +646,12 @@ def score_partition(
                     spec=spec,
                     codec_fn=codec_fn,
                     noise_fn=noise_fn,
+                    trim_fn=trim_fn,
+                    sample_rate_hz=sample_rate,
                 )
                 n_clipped += conditioned.n_clipped
                 shorter += int(conditioned.samples_delta < 0)
+                kept_original += int(conditioned.kept_original)
                 scored = {
                     c: scorers[c].score_waveform(conditioned.waveform) for c in candidate_ids
                 }
@@ -613,6 +691,7 @@ def score_partition(
         summary.diagnostics[condition] = {
             "noise_samples_clipped": n_clipped,
             "codec_outputs_shorter_than_input": shorter,
+            "silence_trim_kept_original": kept_original,
         }
         summary.scored_pairs.extend(f"{c}/{condition}" for c in candidate_ids)
         if progress is not None:
@@ -620,6 +699,8 @@ def score_partition(
                 f"{condition}: {n_clips} clips x {len(candidate_ids)} candidates "
                 f"in {elapsed:.1f}s"
             )
+        if after_condition is not None:
+            after_condition(condition)
 
     summary.missing = validate_prediction_completeness(
         store_path, [str(r["clip_id"]) for r in clips], list(candidate_ids), list(conditions)
@@ -629,19 +710,44 @@ def score_partition(
     return summary
 
 
+@dataclass(frozen=True)
+class ParityTolerances:
+    """Frozen dev-parity tolerances, read from ``evaluation_protocol.yaml``."""
+
+    roc_auc_abs: float
+    eer_abs: float
+    max_abs_confusion_delta_total: int
+
+    @classmethod
+    def from_spec(cls, spec: Mapping[str, Any]) -> ParityTolerances:
+        section = spec.get("dev_parity")
+        if not isinstance(section, Mapping):
+            raise ScoringPreflightError("evaluation protocol has no dev_parity section")
+        try:
+            return cls(
+                roc_auc_abs=float(section["roc_auc_abs_tolerance"]),
+                eer_abs=float(section["eer_abs_tolerance"]),
+                max_abs_confusion_delta_total=int(section["max_abs_confusion_delta_total"]),
+            )
+        except KeyError as exc:
+            raise ScoringPreflightError(f"dev_parity section is missing {exc}") from exc
+
+
 def dev_parity(
     store_path: Path,
     bundle_root: Path,
     candidate_ids: Sequence[str],
+    tolerances: ParityTolerances,
 ) -> dict[str, dict[str, Any]]:
     """Compare clean development predictions with each bundle's recorded dev metrics.
 
     A wiring oracle for the development partition only: it catches wrong
     normalization, windowing, score direction or mel settings that unit tests
-    with random weights cannot. Expect equal ``n_clips``, ROC AUC within 1e-5
-    and EER within 1e-4. At the frozen threshold a single boundary clip may
-    differ by one (``confusion_delta``) because batch composition can shift a
-    score by about 1e-6.
+    with random weights cannot. A candidate fails when it has no recorded
+    metrics or no predictions (``checked`` false), or when it is outside
+    ``tolerances``. At the frozen threshold a single boundary clip may differ
+    by one (``confusion_delta``) because batch composition can shift a score by
+    about 1e-6.
     """
 
     from voice_detector.metrics import evaluate_clip_scores
@@ -655,7 +761,7 @@ def dev_parity(
             store_path, candidate_id=candidate_id, condition="clean", official_split="development"
         )
         if not expected or not rows:
-            report[candidate_id] = {"checked": False}
+            report[candidate_id] = {"checked": False, "within_tolerance": False}
             continue
         got = evaluate_clip_scores(
             [r.clip_id for r in rows],
@@ -678,9 +784,76 @@ def dev_parity(
             "confusion_delta": confusion_delta,
             "within_tolerance": bool(
                 got["n_clips"] == expected["n_clips"]
-                and auc_delta <= 1e-5
-                and eer_delta <= 1e-4
-                and sum(abs(v) for v in confusion_delta.values()) <= 2
+                and auc_delta <= tolerances.roc_auc_abs
+                and eer_delta <= tolerances.eer_abs
+                and sum(abs(v) for v in confusion_delta.values())
+                <= tolerances.max_abs_confusion_delta_total
             ),
         }
     return report
+
+
+def parity_passed(report: Mapping[str, Mapping[str, Any]]) -> bool:
+    return bool(report) and all(r.get("within_tolerance") for r in report.values())
+
+
+def check_store_for_report(
+    store_path: Path,
+    record: FreezeRecord,
+    *,
+    partition: str,
+    require_parity: bool = False,
+) -> dict[str, str]:
+    """Validate a prediction store before it feeds a report or an evaluation run.
+
+    The store must exist, have been scored under this freeze record (by identity
+    hash) for ``partition`` over a full (non-subset) clip set, hold the same clips
+    for every candidate x condition, and, if requested, carry a passed dev parity.
+    Returns the store metadata.
+    """
+
+    from voice_detector.evaluation import freeze_identity_hash
+
+    store_path = Path(store_path)
+    if not store_path.is_file():
+        raise StoreStateError(f"store not found: {store_path}", reason="store_not_found")
+    meta = get_metadata(store_path)
+    if meta.get("freeze_identity") != freeze_identity_hash(record):
+        raise StoreStateError(
+            f"{store_path} was not scored under this freeze record", reason="store_freeze_mismatch"
+        )
+    if meta.get("partition") != partition:
+        raise StoreStateError(
+            f"{store_path} holds partition {meta.get('partition')!r}, expected {partition!r}",
+            reason="store_partition_mismatch",
+        )
+    if meta.get("subset") != "full":
+        raise StoreStateError(
+            f"{store_path} is a smoke subset ({meta.get('subset')!r})", reason="subset_store"
+        )
+    counts = completed_pairs(store_path)
+    expected = {(c.candidate_id, cond) for c in record.candidates for cond in record.conditions}
+    missing = sorted(expected - set(counts))
+    if missing or len({counts[p] for p in expected}) > 1:
+        raise StoreStateError(
+            f"{store_path} does not hold the same clips for every candidate x condition; "
+            f"missing {[f'{c}/{k}' for c, k in missing]}",
+            reason="incomplete_store",
+        )
+    if require_parity and meta.get("dev_parity") != "passed":
+        raise StoreStateError(
+            f"{store_path} has no passed development parity", reason="parity_not_passed"
+        )
+    return meta
+
+
+def check_bundle_files(descriptor: BundleDescriptor, bundle_dir: Path) -> None:
+    """The model files a scorer needs must exist before a bundle can be frozen."""
+
+    needed = {
+        "logistic_regression": ["lr_pipeline.joblib"],
+        "cnn": ["cnn_checkpoint.pt", "cnn_norm_stats.pt"],
+    }[descriptor.model_family]
+    absent = [name for name in needed if not (Path(bundle_dir) / name).is_file()]
+    if absent:
+        raise ScoringPreflightError(f"bundle {descriptor.candidate_id!r} is missing {absent}")

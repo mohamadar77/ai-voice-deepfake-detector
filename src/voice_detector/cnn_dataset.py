@@ -41,6 +41,13 @@ class MelSpec:
 
     @property
     def n_frames(self) -> int:
+        """Nominal non-centered frame count, ``(window - n_fft) // hop + 1``.
+
+        The transform uses torchaudio's default ``center=True`` and emits
+        ``1 + window // hop`` frames, so this is not the real spectrogram width.
+        ``CompactMelCNN`` ignores it (adaptive pooling); do not size tensors from it.
+        """
+
         return (self.window_samples - self.n_fft) // self.hop_length + 1
 
     def transform(self) -> torchaudio.transforms.MelSpectrogram:

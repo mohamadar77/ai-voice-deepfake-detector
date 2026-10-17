@@ -182,8 +182,9 @@ def test_clip_score_does_not_depend_on_other_clips(bundle):
      np.array([0.0, np.nan, 0.1], dtype=np.float32)],
 )
 def test_invalid_waveform_is_rejected(bundle, bad):
+    scorer = load_cnn_scorer(bundle[0])
     with pytest.raises(ValueError):
-        load_cnn_scorer(bundle[0]).score_waveform(bad)
+        scorer.score_waveform(bad)
 
 
 def test_float64_input_is_coerced(bundle):
@@ -199,7 +200,8 @@ def test_segment_to_spectrogram_matches_manual_ops():
     expected = torch.log(mel(torch.from_numpy(seg)).clamp(min=1e-9))
     expected = (expected - mean.unsqueeze(-1)) / std.unsqueeze(-1).clamp(min=1e-6)
     out = segment_to_spectrogram(seg, mel, mean, std)
-    assert out.shape == (1, _MEL.n_mels, _MEL.n_frames)
+    # torchaudio centers frames, so the width is 1 + window // hop, not MelSpec.n_frames
+    assert out.shape == (1, _MEL.n_mels, 1 + _WINDOW // _MEL.hop_length)
     assert torch.equal(out[0], expected)
 
 
@@ -243,13 +245,14 @@ def test_loads_use_weights_only(bundle, monkeypatch):
     assert seen == [True, True]
 
 
+class _Payload:
+    """Module-level so torch.save can pickle it; weights_only loads must reject it."""
+
+
 def test_pickled_objects_are_rejected(bundle):
     directory = bundle[0]
 
-    class Payload:
-        pass
-
-    torch.save(Payload(), directory / "cnn_checkpoint.pt")
+    torch.save(_Payload(), directory / "cnn_checkpoint.pt")
     with pytest.raises(Exception, match="(?i)weights|unpickl|Payload"):
         load_cnn_scorer(directory)
 

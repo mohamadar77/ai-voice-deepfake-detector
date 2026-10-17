@@ -12,13 +12,17 @@ import yaml
 from test_evaluation import _candidate, _draft_record
 
 from voice_detector.eval_scoring import (
+    ParityTolerances,
     ScoringPreflightError,
     StoreStateError,
     UnsupportedModelFamily,
     apply_condition,
+    check_bundle_files,
     check_mel_matches_study,
+    check_store_for_report,
     describe_bundle,
     load_robustness_spec,
+    parity_passed,
     score_partition,
     validate_scoring_rows,
 )
@@ -176,7 +180,13 @@ _SPEC: dict[str, Any] = {
         },
     },
 }
+_SPEC["silence_trim"] = {
+    "top_db": 30,
+    "min_duration_seconds": 0.3,
+    "fallback": "keep_original_with_flag",
+}
 _ALL = ["clean", "codec_opus_24k", "noise_20db", "noise_10db"]
+_ALL5 = [*_ALL, "silence_trim"]
 
 
 def _spec_file(tmp_path: Path, mutate=None) -> Path:
@@ -236,6 +246,52 @@ class TestRobustnessSpec:
         path = _spec_file(tmp_path, lambda r: r["conditions"]["noise_20db"].pop("snr_db"))
         with pytest.raises(ScoringPreflightError, match="snr_db"):
             load_robustness_spec(path, required=_ALL)
+
+
+class TestSilenceTrimCondition:
+    def test_loads_from_the_silence_trim_section(self, tmp_path: Path):
+        spec = load_robustness_spec(_spec_file(tmp_path), required=_ALL5)
+        assert spec.conditions["silence_trim"] == {
+            "transform": "silence_trim",
+            "top_db": 30.0,
+            "min_duration_seconds": 0.3,
+        }
+
+    def test_missing_section_is_refused(self, tmp_path: Path):
+        path = _spec_file(tmp_path, lambda r: r.pop("silence_trim"))
+        with pytest.raises(ScoringPreflightError, match="silence_trim"):
+            load_robustness_spec(path, required=_ALL5)
+
+    def test_other_fallback_is_refused(self, tmp_path: Path):
+        path = _spec_file(tmp_path, lambda r: r["silence_trim"].update(fallback="drop_clip"))
+        with pytest.raises(ScoringPreflightError, match="fallback"):
+            load_robustness_spec(path, required=_ALL5)
+
+    def test_apply_uses_frozen_parameters_and_flags_fallback(self, tmp_path: Path):
+        spec = load_robustness_spec(_spec_file(tmp_path), required=_ALL5)
+        seen: dict[str, Any] = {}
+
+        class _Trim:
+            waveform = np.zeros(2, dtype=np.float32)
+            kept_original = True
+
+        def trim_fn(wave, **kw):
+            seen.update(kw)
+            return _Trim()
+
+        out = apply_condition(
+            np.zeros(8, dtype=np.float32), clip_id="c", condition="silence_trim", spec=spec,
+            trim_fn=trim_fn, sample_rate_hz=16000,
+        )
+        assert seen == {"sample_rate": 16000, "top_db": 30.0, "min_duration_seconds": 0.3}
+        assert out.kept_original
+
+    def test_apply_needs_the_sample_rate(self, tmp_path: Path):
+        spec = load_robustness_spec(_spec_file(tmp_path), required=_ALL5)
+        with pytest.raises(ScoringPreflightError, match="sample rate"):
+            apply_condition(
+                np.zeros(8, dtype=np.float32), clip_id="c", condition="silence_trim", spec=spec,
+            )
 
 
 class _NoiseResult:
@@ -422,6 +478,7 @@ def _run(tmp_path: Path, store: str = "p.db", **over: Any):
         "path_exists": _always,
         "codec_fn": env.codec,
         "noise_fn": env.noise,
+        "provenance": {"git_commit": "abc", "torch_threads": "4"},
     }
     kwargs.update(over)
     rows = over.pop("rows", None) or [_row(i) for i in range(4)]
@@ -504,6 +561,71 @@ class TestScorePartition:
         with pytest.raises(StoreStateError, match="partition"):
             _run(tmp_path, resume=True, partition="evaluation", rows=rows)
 
+    def test_resume_into_other_scoring_code_is_refused(self, tmp_path: Path):
+        _run(tmp_path)
+        with pytest.raises(StoreStateError, match="provenance_git_commit"):
+            _run(tmp_path, resume=True, provenance={"git_commit": "def", "torch_threads": "4"})
+
+    def test_resume_into_store_without_provenance_is_refused_untouched(self, tmp_path: Path):
+        from voice_detector.prediction_store import PredictionRow, write_predictions
+
+        store = create_prediction_store(tmp_path / "legacy.db")
+        write_predictions(
+            store,
+            [PredictionRow(
+                clip_id="LA_D_000", candidate_id="a", condition="clean", clip_score=0.1,
+                label="bonafide", speaker_id="s", attack_id=None, official_split="development",
+                duration_seconds=1.0, n_windows=1, threshold=0.2, decision=False,
+            )],
+            freeze_record_hash="old",
+        )
+        with pytest.raises(StoreStateError, match="provenance") as info:
+            _run(tmp_path, store="legacy.db", resume=True)
+        assert info.value.reason == "store_without_provenance"
+        assert "freeze_identity" not in get_metadata(store)
+
+    def test_after_condition_runs_after_each_commit_and_can_abort(self, tmp_path: Path):
+        seen: list[tuple[str, int]] = []
+
+        def hook(condition: str) -> None:
+            seen.append((condition, sum(completed_pairs(tmp_path / "p.db").values())))
+
+        _run(tmp_path, after_condition=hook)
+        assert [c for c, _ in seen] == _ALL
+        assert [n for _, n in seen] == [8, 16, 24, 32]
+
+        def abort(condition: str) -> None:
+            raise RuntimeError("stop")
+
+        with pytest.raises(RuntimeError, match="stop"):
+            _run(tmp_path, store="q.db", after_condition=abort)
+        assert {cond for _, cond in completed_pairs(tmp_path / "q.db")} == {"clean"}
+
+    def test_after_condition_also_runs_for_conditions_skipped_on_resume(self, tmp_path: Path):
+        _run(tmp_path)
+        seen: list[str] = []
+        _run(tmp_path, resume=True, after_condition=seen.append)
+        assert seen == _ALL
+
+    def test_silence_trim_condition_is_scored_and_diagnosed(self, tmp_path: Path):
+        class _Trim:
+            def __init__(self, wave):
+                self.waveform = wave[:-4]
+                self.kept_original = int(wave[0] * 10) % 2 == 0
+
+        spec = load_robustness_spec(_spec_file(tmp_path), required=_ALL5)
+        env = _Env()
+        scorers = {"a": _StubScorer(threshold=0.2), "b": _StubScorer(threshold=0.2)}
+        summary = score_partition(
+            [_row(i) for i in range(4)], ["a", "b"], _ALL5, scorers, spec,
+            partition="development", store_path=tmp_path / "t.db", freeze_identity="i",
+            decode=env.decode, path_exists=_always, codec_fn=env.codec, noise_fn=env.noise,
+            trim_fn=lambda wave, **kw: _Trim(wave),
+        )
+        assert summary.complete
+        assert summary.diagnostics["silence_trim"]["silence_trim_kept_original"] == 2
+        assert len(read_predictions(tmp_path / "t.db", condition="silence_trim")) == 8
+
     def test_max_clips_is_development_only_and_recorded(self, tmp_path: Path):
         summary, _, _ = _run(tmp_path, max_clips=2)
         assert summary.n_clips == 2
@@ -571,6 +693,9 @@ class TestFreezeIdentity:
         assert freeze_identity_hash(base) != freeze_identity_hash(other)
 
 
+_TOL = ParityTolerances(roc_auc_abs=1e-5, eer_abs=1e-4, max_abs_confusion_delta_total=2)
+
+
 class TestDevParity:
     def _store(self, tmp_path: Path, scores: list[float], labels: list[str]) -> Path:
         from voice_detector.prediction_store import PredictionRow, write_predictions
@@ -607,7 +732,7 @@ class TestDevParity:
         labels = ["bonafide", "bonafide", "spoof", "spoof", "spoof", "bonafide"]
         _bundle(tmp_path, "lr_baseline", "lr_run_record.json", self._record(scores, labels))
         store = self._store(tmp_path, scores, labels)
-        out = dev_parity(store, tmp_path, ["lr_baseline"])["lr_baseline"]
+        out = dev_parity(store, tmp_path, ["lr_baseline"], _TOL)["lr_baseline"]
         assert out["checked"] and out["within_tolerance"]
         assert out["confusion_delta"] == {"tn": 0, "fp": 0, "fn": 0, "tp": 0}
 
@@ -618,5 +743,101 @@ class TestDevParity:
         labels = ["bonafide", "bonafide", "spoof", "spoof", "spoof", "bonafide"]
         _bundle(tmp_path, "lr_baseline", "lr_run_record.json", self._record(scores, labels))
         store = self._store(tmp_path, [-s for s in scores], labels)
-        out = dev_parity(store, tmp_path, ["lr_baseline"])["lr_baseline"]
+        out = dev_parity(store, tmp_path, ["lr_baseline"], _TOL)["lr_baseline"]
         assert not out["within_tolerance"]
+
+    def test_unchecked_candidate_fails_the_gate(self, tmp_path: Path):
+        from voice_detector.eval_scoring import dev_parity
+
+        record = _lr_record()  # no dev_full_metrics recorded
+        _bundle(tmp_path, "lr_baseline", "lr_run_record.json", record)
+        store = self._store(tmp_path, [-1.0, 1.0], ["bonafide", "spoof"])
+        report = dev_parity(store, tmp_path, ["lr_baseline"], _TOL)
+        assert report["lr_baseline"]["checked"] is False
+        assert not parity_passed(report)
+
+    def test_gate_needs_every_candidate(self):
+        assert parity_passed({"a": {"within_tolerance": True}})
+        mixed = {"a": {"within_tolerance": True}, "b": {"within_tolerance": False}}
+        assert not parity_passed(mixed)
+        assert not parity_passed({})
+
+    def test_tolerances_come_from_the_protocol_yaml(self):
+        spec = yaml.safe_load(Path("configs/evaluation_protocol.yaml").read_text())
+        tol = ParityTolerances.from_spec(spec)
+        assert (tol.roc_auc_abs, tol.eer_abs, tol.max_abs_confusion_delta_total) == (
+            1e-5, 1e-4, 2,
+        )
+        with pytest.raises(ScoringPreflightError, match="dev_parity"):
+            ParityTolerances.from_spec({})
+
+
+class TestBundleFiles:
+    def test_missing_model_files_are_reported(self, tmp_path: Path):
+        bundle = _bundle(tmp_path, "cnn_a", "cnn_run_record.json", _cnn_record())
+        descriptor = describe_bundle(bundle)
+        with pytest.raises(ScoringPreflightError, match="cnn_checkpoint.pt"):
+            check_bundle_files(descriptor, bundle)
+        (bundle / "cnn_checkpoint.pt").write_bytes(b"x")
+        (bundle / "cnn_norm_stats.pt").write_bytes(b"x")
+        check_bundle_files(descriptor, bundle)
+
+    def test_lr_needs_its_pipeline(self, tmp_path: Path):
+        bundle = _bundle(tmp_path, "lr_a", "lr_run_record.json", _lr_record())
+        with pytest.raises(ScoringPreflightError, match="lr_pipeline.joblib"):
+            check_bundle_files(describe_bundle(bundle), bundle)
+
+
+class TestCheckStoreForReport:
+    def _store(self, tmp_path: Path, *, partition="evaluation", subset="full", parity=None,
+               identity=None, complete=True) -> Path:
+        from voice_detector.evaluation import freeze_identity_hash
+        from voice_detector.prediction_store import PredictionRow, write_predictions
+
+        record = freeze_record(_draft_record())
+        store = create_prediction_store(tmp_path / f"{partition}.db")
+        set_metadata_once(store, "freeze_identity", identity or freeze_identity_hash(record))
+        set_metadata_once(store, "partition", partition)
+        set_metadata_once(store, "subset", subset)
+        if parity:
+            set_metadata_once(store, "dev_parity", parity)
+        if complete:
+            write_predictions(
+                store,
+                [PredictionRow(
+                    clip_id="c0", candidate_id="lr_C1.0", condition="clean", clip_score=0.0,
+                    label="bonafide", speaker_id="s", attack_id=None, official_split=partition,
+                    duration_seconds=1.0, n_windows=1, threshold=0.5, decision=False,
+                )],
+                freeze_record_hash="h",
+            )
+        return store
+
+    def test_accepts_a_complete_matching_store(self, tmp_path: Path):
+        record = freeze_record(_draft_record())
+        meta = check_store_for_report(self._store(tmp_path), record, partition="evaluation")
+        assert meta["subset"] == "full"
+
+    @pytest.mark.parametrize(
+        ("kwargs", "reason"),
+        [
+            ({"identity": "other"}, "store_freeze_mismatch"),
+            ({"partition": "development"}, "store_partition_mismatch"),
+            ({"subset": "max_clips=3"}, "subset_store"),
+            ({"complete": False}, "incomplete_store"),
+        ],
+    )
+    def test_refusals(self, tmp_path: Path, kwargs, reason):
+        record = freeze_record(_draft_record())
+        with pytest.raises(StoreStateError) as info:
+            check_store_for_report(self._store(tmp_path, **kwargs), record, partition="evaluation")
+        assert info.value.reason == reason
+
+    def test_parity_is_required_when_asked(self, tmp_path: Path):
+        record = freeze_record(_draft_record())
+        store = self._store(tmp_path, partition="development")
+        with pytest.raises(StoreStateError) as info:
+            check_store_for_report(store, record, partition="development", require_parity=True)
+        assert info.value.reason == "parity_not_passed"
+        set_metadata_once(store, "dev_parity", "passed")
+        check_store_for_report(store, record, partition="development", require_parity=True)
