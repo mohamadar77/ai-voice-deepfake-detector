@@ -227,3 +227,65 @@ def test_train_and_save_cnn() -> None:
 
         saved_record = json.loads(outputs["record"].read_text())
         assert saved_record["run_label"] == "test"
+
+
+_ROBUSTNESS_CONFIG = {
+    "version": "robustness-v1",
+    "global_seed": 20261004,
+    "training_augmentation": {
+        "probability": 0.5,
+        "epoch_aware_seed": True,
+        "transforms": {
+            "codec": {
+                "probability": 0.0,  # disable codec to avoid ffmpeg in tests
+                "bitrate_kbps": 24,
+            },
+            "noise": {
+                "probability": 1.0,
+                "snr_db_range": [10, 30],
+            },
+        },
+    },
+}
+
+
+def test_train_cnn_augmented_run_record() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        frozen = _build_frozen_record()
+        rows = _make_rows(tmpdir, _SPEAKERS, clips_per_speaker=4)
+        train_rows = [r for r in rows if r["official_split"] == "train"]
+        dev_rows = [r for r in rows if r["official_split"] == "development"]
+
+        run_record, _, _ = train_cnn(
+            train_rows, dev_rows, frozen, _STUDY_CONFIG,
+            seed=42, run_label="augmented",
+            robustness_config=_ROBUSTNESS_CONFIG,
+        )
+
+        assert run_record["run_label"] == "augmented"
+        aug = run_record["augmentation"]
+        assert aug["enabled"] is True
+        assert aug["probability"] == 0.5
+        assert aug["noise_probability"] == 1.0
+        assert aug["codec_probability"] == 0.0
+        assert aug["robustness_version"] == "robustness-v1"
+        assert aug["epoch_aware_seed"] is True
+
+
+def test_train_cnn_clean_augmentation_disabled() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        frozen = _build_frozen_record()
+        rows = _make_rows(tmpdir, _SPEAKERS, clips_per_speaker=4)
+        train_rows = [r for r in rows if r["official_split"] == "train"]
+        dev_rows = [r for r in rows if r["official_split"] == "development"]
+
+        run_record, _, _ = train_cnn(
+            train_rows, dev_rows, frozen, _STUDY_CONFIG,
+            seed=42, run_label="clean",
+        )
+
+        aug = run_record["augmentation"]
+        assert aug["enabled"] is False
+        assert aug["probability"] is None

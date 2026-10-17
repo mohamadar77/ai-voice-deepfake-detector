@@ -172,3 +172,66 @@ def test_compute_norm_stats_shapes() -> None:
         assert mean.dtype == torch.float32
         assert std.dtype == torch.float32
         assert (std >= 0).all()
+
+
+def test_mel_dataset_augment_fn_called() -> None:
+    """augment_fn is called with (waveform, clip_id) before crop."""
+    calls: list[tuple[int, str]] = []
+
+    def _spy(waveform: np.ndarray, clip_id: str) -> np.ndarray:
+        calls.append((waveform.size, clip_id))
+        return waveform
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        rows = _make_rows(Path(tmpdir), n=2, duration_s=5.0)
+        spec = MelSpec(window_seconds=2.0)
+        ds = MelDataset(rows, spec, training=True, seed=42, augment_fn=_spy)
+        _ = ds[0]
+        _ = ds[1]
+        assert len(calls) == 2
+        assert calls[0][1] == "clip_0"
+        assert calls[1][1] == "clip_1"
+        # augment_fn receives the FULL waveform, not the cropped one
+        assert calls[0][0] == int(16000 * 5.0)
+
+
+def test_mel_dataset_augment_fn_not_called_in_eval() -> None:
+    called = []
+
+    def _spy(waveform: np.ndarray, clip_id: str) -> np.ndarray:
+        called.append(clip_id)
+        return waveform
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        rows = _make_rows(Path(tmpdir), n=2, duration_s=2.0)
+        spec = MelSpec(window_seconds=2.0)
+        ds = MelDataset(rows, spec, training=False, seed=42, augment_fn=_spy)
+        _ = ds[0]
+        assert len(called) == 0
+
+
+def test_mel_dataset_set_epoch_forwards() -> None:
+    epochs_seen: list[int] = []
+
+    class _FakeAugmentor:
+        def set_epoch(self, epoch: int) -> None:
+            epochs_seen.append(epoch)
+
+        def __call__(self, waveform: np.ndarray, clip_id: str) -> np.ndarray:
+            return waveform
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        rows = _make_rows(Path(tmpdir), n=1, duration_s=1.0)
+        spec = MelSpec(window_seconds=1.0)
+        ds = MelDataset(rows, spec, training=True, seed=42, augment_fn=_FakeAugmentor())
+        ds.set_epoch(0)
+        ds.set_epoch(3)
+        assert epochs_seen == [0, 3]
+
+
+def test_mel_dataset_set_epoch_noop_without_augment() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        rows = _make_rows(Path(tmpdir), n=1, duration_s=1.0)
+        spec = MelSpec(window_seconds=1.0)
+        ds = MelDataset(rows, spec, training=True, seed=42)
+        ds.set_epoch(5)  # should not raise

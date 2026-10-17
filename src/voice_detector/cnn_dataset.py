@@ -10,7 +10,7 @@ only and applied identically to all splits.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -19,6 +19,7 @@ import torch
 import torchaudio
 from torch.utils.data import Dataset
 
+from voice_detector.manifest import resolve_local_path
 from voice_detector.preprocessing import AudioConfig, load_waveform, window_spans
 
 
@@ -104,6 +105,7 @@ class MelDataset(Dataset):
         seed: int = 20261004,
         mean: torch.Tensor | None = None,
         std: torch.Tensor | None = None,
+        augment_fn: Callable[[np.ndarray, str], np.ndarray] | None = None,
     ) -> None:
         self.rows = list(rows)
         self.mel_spec = mel_spec
@@ -116,6 +118,12 @@ class MelDataset(Dataset):
         )
         self.mean = mean
         self.std = std
+        self.augment_fn = augment_fn
+
+    def set_epoch(self, epoch: int) -> None:
+        """Forward epoch to the augmentor so per-clip seeds vary each epoch."""
+        if self.augment_fn is not None and hasattr(self.augment_fn, "set_epoch"):
+            self.augment_fn.set_epoch(epoch)
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -128,7 +136,11 @@ class MelDataset(Dataset):
         if not local_path:
             raise ValueError(f"clip {clip_id!r} has no local_path")
 
-        waveform = load_waveform(local_path, self._audio_config)
+        waveform = load_waveform(resolve_local_path(local_path), self._audio_config)
+
+        if self.training and self.augment_fn is not None:
+            waveform = self.augment_fn(waveform, clip_id)
+
         target_len = self.mel_spec.window_samples
 
         if self.training:
@@ -181,7 +193,7 @@ class EvalWindowDataset(Dataset):
             clip_id = str(row["clip_id"])
             label = LABEL_MAP[str(row["label"])]
             local_path = str(row.get("local_path", ""))
-            waveform = load_waveform(local_path, self._audio_config)
+            waveform = load_waveform(resolve_local_path(local_path), self._audio_config)
             spans = window_spans(
                 waveform.size,
                 window_samples=mel_spec.window_samples,
@@ -200,7 +212,7 @@ class EvalWindowDataset(Dataset):
 
         if local_path not in self._waveform_cache:
             self._waveform_cache[local_path] = load_waveform(
-                local_path, self._audio_config
+                resolve_local_path(local_path), self._audio_config
             )
         waveform = self._waveform_cache[local_path]
         segment = waveform[start:stop]
@@ -249,7 +261,7 @@ def compute_norm_stats(
         local_path = row.get("local_path")
         if not local_path:
             continue
-        waveform = load_waveform(local_path, audio_config)
+        waveform = load_waveform(resolve_local_path(local_path), audio_config)
         segment = _repeat_pad(waveform, mel_spec.window_samples)
         tensor = torch.from_numpy(segment)
         mel = mel_transform(tensor)

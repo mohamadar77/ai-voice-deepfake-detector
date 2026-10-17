@@ -258,5 +258,10 @@ uploads/
 tmp/
 *.pid
 
+# ASVspoof data symlinks (created by scripts/setup_dl120.sh)
+ASVspoof2019_LA_train
+ASVspoof2019_LA_dev
+ASVspoof2019_LA_eval
+
 # macOS Finder metadata
 .DS_Store

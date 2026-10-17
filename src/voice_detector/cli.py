@@ -558,6 +558,398 @@ def _extract_features(
     return 0
 
 
+def _find_run_record(bundle_dir: Path) -> Path | None:
+    """Locate the run record in a bundle, accepting prefixed names."""
+    for name in ("run_record.json", "lr_run_record.json", "cnn_run_record.json"):
+        candidate = bundle_dir / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _infer_model_family(record_filename: str) -> str:
+    if record_filename.startswith("lr_"):
+        return "logistic_regression"
+    if record_filename.startswith("cnn_"):
+        return "cnn"
+    return "unknown"
+
+
+def _eval_freeze(
+    manifest_dir: Path | None,
+    config_path: Path,
+    evaluation_config_path: Path,
+    bundle_dirs: list[Path],
+    out_path: Path,
+    *,
+    dry_run: bool,
+) -> int:
+    """Create and freeze an evaluation protocol record (#35).
+
+    Lazy imports keep cli.py importable without yaml on dataset-free runs.
+    """
+
+    from voice_detector.evaluation import (
+        CandidateDeclaration,
+        _hash_directory,
+        create_draft,
+        freeze_record,
+        save_freeze_record,
+    )
+
+    config = load_config(config_path)
+    if manifest_dir is None:
+        manifest_dir = config.paths.artifacts_root / "manifest"
+    catalog_path = manifest_dir / "manifest.sqlite"
+
+    rows, meta = read_manifest_sqlite(catalog_path)
+    if not rows:
+        return _refuse(
+            "empty_catalog",
+            catalog=str(catalog_path),
+            hint="rebuild the manifest with build-manifest",
+        )
+
+    candidates: list[CandidateDeclaration] = []
+    for bundle_dir in bundle_dirs:
+        if not bundle_dir.is_dir():
+            return _refuse(
+                "bundle_not_found",
+                bundle=str(bundle_dir),
+                hint="each --bundle must be a directory containing a run record and model",
+            )
+        run_record_path = _find_run_record(bundle_dir)
+        if run_record_path is None:
+            return _refuse(
+                "run_record_missing",
+                bundle=str(bundle_dir),
+                hint="bundle directory must contain *run_record.json",
+            )
+        run_record = json.loads(run_record_path.read_text(encoding="utf-8"))
+        bundle_hash = _hash_directory(bundle_dir)
+        threshold = run_record.get("threshold", {}).get("value")
+        if threshold is None:
+            return _refuse(
+                "threshold_missing",
+                bundle=str(bundle_dir),
+                hint="run_record.json must contain threshold.value",
+            )
+        candidate_id = bundle_dir.name
+        model_family = run_record.get(
+            "model_family",
+            _infer_model_family(run_record_path.name),
+        )
+        seed = run_record.get("seed", 0)
+        run_label = run_record.get("run_label", candidate_id)
+        aggregation = run_record.get("aggregation_rule", "mean_window_decision_function")
+        candidates.append(CandidateDeclaration(
+            candidate_id=candidate_id,
+            model_family=model_family,
+            bundle_hash=bundle_hash,
+            threshold=float(threshold),
+            seed=int(seed),
+            run_label=str(run_label),
+            aggregation_rule=str(aggregation),
+        ))
+
+    if not candidates:
+        return _refuse(
+            "no_candidates",
+            hint="provide at least one --bundle directory",
+        )
+
+    config_dir = Path(evaluation_config_path).parent
+    draft = create_draft(
+        candidates, rows, config_dir,
+        evaluation_spec_path=Path(evaluation_config_path),
+    )
+
+    if dry_run:
+        print(json.dumps(draft.as_dict(), indent=2, sort_keys=True))
+        return 0
+
+    frozen = freeze_record(draft)
+    save_freeze_record(frozen, out_path)
+
+    print(
+        json.dumps(
+            {
+                "status": "frozen",
+                "state": frozen.state,
+                "n_candidates": len(frozen.candidates),
+                "n_slices": len(frozen.slices),
+                "n_conditions": len(frozen.conditions),
+                "manifest_hash": frozen.manifest_hash,
+                "output": str(out_path),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _eval_score(
+    manifest_dir: Path | None,
+    config_path: Path,
+    freeze_record_path: Path,
+    store_path: Path,
+    partition: str,
+) -> int:
+    """Score clips under all conditions for a frozen evaluation record (#35).
+
+    Currently supports LR candidates only. CNN support will be added once
+    CNN bundles are available.
+    """
+
+    import hashlib
+
+    import numpy as np
+
+    from voice_detector.evaluation import (
+        load_freeze_record as load_eval_record,
+    )
+    from voice_detector.evaluation import (
+        verify_freeze_against_artifacts,
+    )
+    from voice_detector.prediction_store import (
+        PredictionRow,
+        compute_predictions_hash,
+        create_prediction_store,
+        write_predictions,
+    )
+    from voice_detector.scoring import decide_spoof
+
+    config = load_config(config_path)
+    if manifest_dir is None:
+        manifest_dir = config.paths.artifacts_root / "manifest"
+    catalog_path = manifest_dir / "manifest.sqlite"
+
+    rows, meta = read_manifest_sqlite(catalog_path)
+    if not rows:
+        return _refuse(
+            "empty_catalog",
+            catalog=str(catalog_path),
+            hint="rebuild the manifest with build-manifest",
+        )
+
+    record = load_eval_record(freeze_record_path)
+    if record.state != "FROZEN":
+        return _refuse(
+            "not_frozen",
+            state=record.state,
+            hint="the evaluation record must be in FROZEN state to score",
+        )
+
+    config_dir = Path(config_path).parent
+    bundle_root = Path(config.paths.artifacts_root)
+    verify_freeze_against_artifacts(record, rows, config_dir, bundle_root)
+
+    split_rows = [r for r in rows if r["official_split"] == partition]
+    if not split_rows:
+        return _refuse(
+            "no_clips_for_partition",
+            partition=partition,
+            hint=f"no clips found for partition {partition!r}",
+        )
+
+    create_prediction_store(store_path)
+    freeze_hash = hashlib.sha256(
+        json.dumps(record.as_dict(), sort_keys=True).encode()
+    ).hexdigest()
+
+    from voice_detector.augmentation import codec_transform, noise_transform
+    from voice_detector.preprocessing import AudioConfig, load_waveform
+
+    robustness_spec_path = config_dir / "robustness_spec.yaml"
+    robustness_spec: dict = {}
+    if robustness_spec_path.exists():
+        import yaml
+
+        robustness_spec = yaml.safe_load(
+            robustness_spec_path.read_text(encoding="utf-8")
+        )
+    spec_global_seed = int(robustness_spec.get("global_seed", 20261004))
+    spec_conditions = robustness_spec.get("conditions", {})
+
+    scored_pairs: list[str] = []
+
+    for candidate in record.candidates:
+        if candidate.model_family == "logistic_regression":
+            import joblib
+
+            from voice_detector.manifest import resolve_local_path
+            from voice_detector.preprocessing import PreprocessingConfig, clip_feature_matrix
+
+            pre_config = PreprocessingConfig.from_mapping(
+                load_config(config_path).raw,
+            )
+            bundle_dir = bundle_root / candidate.candidate_id
+            model_path = bundle_dir / "lr_pipeline.joblib"
+            if not model_path.exists():
+                model_path = bundle_dir / "pipeline.joblib"
+            pipeline = joblib.load(model_path)
+
+            for condition in record.conditions:
+                pred_rows: list[PredictionRow] = []
+                cond_spec = spec_conditions.get(condition, {})
+                for row in split_rows:
+                    clip_id = str(row["clip_id"])
+                    local_path = row.get("local_path")
+                    if not local_path:
+                        continue
+
+                    audio_config = AudioConfig(sample_rate_hz=16000)
+                    waveform = load_waveform(
+                        resolve_local_path(local_path), audio_config,
+                    )
+
+                    transform = cond_spec.get("transform")
+                    if transform == "codec":
+                        waveform = codec_transform(
+                            waveform,
+                            sample_rate=cond_spec.get("sample_rate_hz", 16000),
+                            bitrate_kbps=cond_spec.get("bitrate_kbps", 24),
+                        ).waveform
+                    elif transform == "noise":
+                        waveform = noise_transform(
+                            waveform,
+                            snr_db=float(cond_spec["snr_db"]),
+                            clip_id=clip_id,
+                            global_seed=spec_global_seed,
+                        ).waveform
+
+                    features = clip_feature_matrix(waveform, pre_config)
+                    window_scores = pipeline.decision_function(features)
+                    clip_score = float(window_scores.mean())
+                    n_windows = len(window_scores)
+
+                    decision = bool(
+                        decide_spoof(np.array([clip_score]), candidate.threshold)[0]
+                    )
+
+                    pred_rows.append(PredictionRow(
+                        clip_id=clip_id,
+                        candidate_id=candidate.candidate_id,
+                        condition=condition,
+                        clip_score=clip_score,
+                        label=str(row["label"]),
+                        speaker_id=str(row.get("speaker_id", "")),
+                        attack_id=row.get("attack_id"),
+                        official_split=partition,
+                        duration_seconds=float(row.get("duration_seconds", 0)),
+                        n_windows=n_windows,
+                        threshold=candidate.threshold,
+                        decision=decision,
+                    ))
+
+                write_predictions(store_path, pred_rows, freeze_record_hash=freeze_hash)
+                scored_pairs.append(f"{candidate.candidate_id}/{condition}")
+        else:
+            scored_pairs.append(f"{candidate.candidate_id}/skipped (unsupported family)")
+
+    predictions_hash = compute_predictions_hash(store_path)
+    print(
+        json.dumps(
+            {
+                "status": "scored",
+                "partition": partition,
+                "scored": scored_pairs,
+                "predictions_hash": predictions_hash,
+                "store": str(store_path),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _eval_report(
+    freeze_record_path: Path,
+    store_path: Path,
+    out_dir: Path,
+    *,
+    with_bootstrap: bool,
+) -> int:
+    """Generate the evaluation report from scored predictions (#35)."""
+
+    from voice_detector.bootstrap import BootstrapSpec as BootSpec
+    from voice_detector.eval_report import compute_report_hash, generate_report
+    from voice_detector.evaluation import (
+        load_freeze_record as load_eval_record,
+    )
+    from voice_detector.evaluation import (
+        mark_reported,
+        mark_scored,
+        save_freeze_record,
+    )
+    from voice_detector.prediction_store import (
+        compute_predictions_hash,
+        read_predictions,
+    )
+
+    record = load_eval_record(freeze_record_path)
+
+    if record.state == "FROZEN":
+        predictions_hash = compute_predictions_hash(store_path)
+        record = mark_scored(record, predictions_hash)
+        save_freeze_record(record, freeze_record_path)
+
+    if record.state != "SCORED":
+        return _refuse(
+            "not_scored",
+            state=record.state,
+            hint="the evaluation record must be SCORED before generating a report",
+        )
+
+    predictions = read_predictions(store_path)
+    if not predictions:
+        return _refuse(
+            "no_predictions",
+            store=str(store_path),
+            hint="the prediction store is empty; run eval-score first",
+        )
+
+    bootstrap_spec: BootSpec | None = None
+    if with_bootstrap:
+        bs = record.bootstrap
+        bootstrap_spec = BootSpec(
+            confidence_level=bs.confidence_level,
+            n_resamples=bs.n_resamples,
+            seed=bs.seed,
+            resampling_unit=bs.resampling_unit,
+            method=bs.method,
+        )
+
+    report = generate_report(
+        record, predictions,
+        output_dir=out_dir,
+        bootstrap_spec=bootstrap_spec,
+    )
+
+    report_hash = compute_report_hash(out_dir / "evaluation_report.json")
+    record = mark_reported(record, report_hash)
+    save_freeze_record(record, freeze_record_path)
+
+    n_results = len(report.get("results", []))
+    print(
+        json.dumps(
+            {
+                "status": "reported",
+                "state": record.state,
+                "n_results": n_results,
+                "report_hash": report_hash,
+                "output": str(out_dir / "evaluation_report.json"),
+                "freeze_record": str(freeze_record_path),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
 def _train_cnn(
     manifest_dir: Path | None,
     config_path: Path,
@@ -566,6 +958,7 @@ def _train_cnn(
     out_dir: Path | None,
     seed: int | None,
     run_label: str,
+    robustness_config_path: Path | None = None,
 ) -> int:
     """Train the compact log-Mel CNN (#33).
 
@@ -598,12 +991,19 @@ def _train_cnn(
         Path(frozen_record_path).read_text(encoding="utf-8")
     )
 
+    robustness_raw = None
+    if robustness_config_path is not None:
+        robustness_raw = yaml.safe_load(
+            Path(robustness_config_path).read_text(encoding="utf-8")
+        )
+
     train_rows = [r for r in rows if r["official_split"] == "train"]
     dev_rows = [r for r in rows if r["official_split"] == "development"]
 
     run_record, outputs = train_and_save_cnn(
         train_rows, dev_rows, frozen_record_raw, study_raw,
         seed=seed, run_label=run_label, out_dir=out_dir,
+        robustness_config=robustness_raw,
     )
 
     print(
@@ -785,8 +1185,12 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument(
         "--la-root",
         type=Path,
-        required=True,
-        help="extracted ASVspoof 2019 LA root (contains ASVspoof2019_LA_cm_protocols/ etc.)",
+        default=os.environ.get("VOICE_DETECTOR_LA_ROOT"),
+        required="VOICE_DETECTOR_LA_ROOT" not in os.environ,
+        help=(
+            "extracted ASVspoof 2019 LA root (contains ASVspoof2019_LA_cm_protocols/ etc.); "
+            "defaults to the VOICE_DETECTOR_LA_ROOT environment variable"
+        ),
     )
     build.add_argument(
         "--config",
@@ -1038,6 +1442,127 @@ def build_parser() -> argparse.ArgumentParser:
         default="clean",
         help="label for this run (default: clean)",
     )
+    train_cnn.add_argument(
+        "--augmented",
+        action="store_true",
+        help="enable training augmentation from the robustness spec",
+    )
+    train_cnn.add_argument(
+        "--robustness-config",
+        type=Path,
+        default=Path("configs/robustness_spec.yaml"),
+        help="robustness specification YAML (used with --augmented)",
+    )
+
+    eval_freeze = subparsers.add_parser(
+        "eval-freeze",
+        help=(
+            "create and freeze an evaluation protocol record from declared "
+            "candidate bundles (#35)"
+        ),
+    )
+    eval_freeze.add_argument(
+        "--manifest-dir",
+        type=Path,
+        default=None,
+        help="directory holding manifest.sqlite (default: <artifacts_root>/manifest)",
+    )
+    eval_freeze.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/default.yaml"),
+        help="project YAML (artifact roots)",
+    )
+    eval_freeze.add_argument(
+        "--evaluation-config",
+        type=Path,
+        default=Path("configs/evaluation_protocol.yaml"),
+        help="evaluation protocol specification",
+    )
+    eval_freeze.add_argument(
+        "--bundle",
+        type=Path,
+        action="append",
+        dest="bundles",
+        default=[],
+        help="candidate bundle directory (repeat for multiple candidates)",
+    )
+    eval_freeze.add_argument(
+        "--out",
+        type=Path,
+        default=Path("reports/evaluation_freeze.json"),
+        help="output path for the frozen evaluation record",
+    )
+    eval_freeze.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the draft record without freezing",
+    )
+
+    eval_score = subparsers.add_parser(
+        "eval-score",
+        help=(
+            "score clips under all conditions for a frozen evaluation record (#35); "
+            "currently supports LR candidates only"
+        ),
+    )
+    eval_score.add_argument(
+        "--manifest-dir",
+        type=Path,
+        default=None,
+        help="directory holding manifest.sqlite",
+    )
+    eval_score.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/default.yaml"),
+        help="project YAML",
+    )
+    eval_score.add_argument(
+        "--freeze-record",
+        type=Path,
+        default=Path("reports/evaluation_freeze.json"),
+        help="frozen evaluation record from eval-freeze",
+    )
+    eval_score.add_argument(
+        "--store",
+        type=Path,
+        default=Path("artifacts/evaluation/predictions.db"),
+        help="output path for the prediction store (SQLite)",
+    )
+    eval_score.add_argument(
+        "--partition",
+        default="development",
+        help="partition to score (default: development for rehearsal)",
+    )
+
+    eval_report = subparsers.add_parser(
+        "eval-report",
+        help="generate the evaluation report from scored predictions (#35)",
+    )
+    eval_report.add_argument(
+        "--freeze-record",
+        type=Path,
+        default=Path("reports/evaluation_freeze.json"),
+        help="frozen evaluation record",
+    )
+    eval_report.add_argument(
+        "--store",
+        type=Path,
+        default=Path("artifacts/evaluation/predictions.db"),
+        help="prediction store from eval-score",
+    )
+    eval_report.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path("artifacts/evaluation"),
+        help="output directory for the report JSON",
+    )
+    eval_report.add_argument(
+        "--bootstrap",
+        action="store_true",
+        help="compute speaker-grouped bootstrap confidence intervals",
+    )
     return parser
 
 
@@ -1101,6 +1626,31 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.out_dir,
             args.seed,
             args.run_label,
+            robustness_config_path=args.robustness_config if args.augmented else None,
+        )
+    if args.command == "eval-freeze":
+        return _eval_freeze(
+            args.manifest_dir,
+            args.config,
+            args.evaluation_config,
+            args.bundles,
+            args.out,
+            dry_run=args.dry_run,
+        )
+    if args.command == "eval-score":
+        return _eval_score(
+            args.manifest_dir,
+            args.config,
+            args.freeze_record,
+            args.store,
+            args.partition,
+        )
+    if args.command == "eval-report":
+        return _eval_report(
+            args.freeze_record,
+            args.store,
+            args.out_dir,
+            with_bootstrap=args.bootstrap,
         )
     return 2
 

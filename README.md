@@ -93,6 +93,23 @@ export VOICE_DETECTOR_DATA_DIR=/path/to/asvspoof-data
 export VOICE_DETECTOR_ARTIFACTS_DIR=/path/to/generated-artifacts
 ```
 
+The extracted ASVspoof 2019 LA root (the directory containing
+`ASVspoof2019_LA_cm_protocols/`, `ASVspoof2019_LA_train/`, etc.) can likewise be
+pointed to wherever it actually lives, instead of symlinking it into the
+working tree:
+
+```bash
+export VOICE_DETECTOR_LA_ROOT=/path/to/LA
+uv run voice-detector build-manifest --config configs/default.yaml
+```
+
+`--la-root` still overrides the environment variable when passed explicitly.
+Manifest rows store each clip's audio path relative to that root, so the same
+`VOICE_DETECTOR_LA_ROOT` variable also has to be set (not just for
+`build-manifest`) whenever a later command reads the audio itself —
+`extract-features`, `train-lr`, `cnn-pilot`, and `train-cnn` — unless it is run
+with its working directory already at the LA root.
+
 The local `data/` and `artifacts/` directories are intentionally excluded from version control except for their documentation files. Do not commit audio, extracted features, checkpoints, databases, credentials, or uploaded recordings.
 
 ## Evaluation safeguards
