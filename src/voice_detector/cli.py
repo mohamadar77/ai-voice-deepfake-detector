@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import importlib
 import importlib.metadata
@@ -558,23 +559,6 @@ def _extract_features(
     return 0
 
 
-def _find_run_record(bundle_dir: Path) -> Path | None:
-    """Locate the run record in a bundle, accepting prefixed names."""
-    for name in ("run_record.json", "lr_run_record.json", "cnn_run_record.json"):
-        candidate = bundle_dir / name
-        if candidate.exists():
-            return candidate
-    return None
-
-
-def _infer_model_family(record_filename: str) -> str:
-    if record_filename.startswith("lr_"):
-        return "logistic_regression"
-    if record_filename.startswith("cnn_"):
-        return "cnn"
-    return "unknown"
-
-
 def _eval_freeze(
     manifest_dir: Path | None,
     config_path: Path,
@@ -591,9 +575,9 @@ def _eval_freeze(
 
     from voice_detector.evaluation import (
         CandidateDeclaration,
-        _hash_directory,
         create_draft,
         freeze_record,
+        hash_directory,
         save_freeze_record,
     )
 
@@ -610,6 +594,21 @@ def _eval_freeze(
             hint="rebuild the manifest with build-manifest",
         )
 
+    from voice_detector.eval_scoring import (
+        ScoringPreflightError,
+        UnsupportedModelFamily,
+        check_bundle_files,
+        check_mel_matches_study,
+        describe_bundle,
+    )
+
+    study_config: dict[str, Any] = {}
+    study_path = Path(evaluation_config_path).parent / "cnn_study.yaml"
+    if study_path.is_file():
+        import yaml
+
+        study_config = yaml.safe_load(study_path.read_text(encoding="utf-8")) or {}
+
     candidates: list[CandidateDeclaration] = []
     for bundle_dir in bundle_dirs:
         if not bundle_dir.is_dir():
@@ -618,38 +617,31 @@ def _eval_freeze(
                 bundle=str(bundle_dir),
                 hint="each --bundle must be a directory containing a run record and model",
             )
-        run_record_path = _find_run_record(bundle_dir)
-        if run_record_path is None:
+        try:
+            descriptor = describe_bundle(bundle_dir)
+            check_mel_matches_study(descriptor, study_config)
+            check_bundle_files(descriptor, bundle_dir)
+        except (ScoringPreflightError, UnsupportedModelFamily) as exc:
+            return _refuse("bundle_invalid", bundle=str(bundle_dir), detail=str(exc))
+        expected_dir = Path(config.paths.artifacts_root) / descriptor.candidate_id
+        if bundle_dir.resolve() != expected_dir.resolve():
             return _refuse(
-                "run_record_missing",
+                "bundle_outside_artifacts_root",
                 bundle=str(bundle_dir),
-                hint="bundle directory must contain *run_record.json",
+                expected=str(expected_dir),
+                hint="eval-score resolves bundles as <artifacts_root>/<candidate_id>; "
+                "copy the bundle there before freezing",
             )
-        run_record = json.loads(run_record_path.read_text(encoding="utf-8"))
-        bundle_hash = _hash_directory(bundle_dir)
-        threshold = run_record.get("threshold", {}).get("value")
-        if threshold is None:
-            return _refuse(
-                "threshold_missing",
-                bundle=str(bundle_dir),
-                hint="run_record.json must contain threshold.value",
-            )
-        candidate_id = bundle_dir.name
-        model_family = run_record.get(
-            "model_family",
-            _infer_model_family(run_record_path.name),
-        )
-        seed = run_record.get("seed", 0)
-        run_label = run_record.get("run_label", candidate_id)
-        aggregation = run_record.get("aggregation_rule", "mean_window_decision_function")
+        if any(c.candidate_id == descriptor.candidate_id for c in candidates):
+            return _refuse("duplicate_candidate", candidate=descriptor.candidate_id)
         candidates.append(CandidateDeclaration(
-            candidate_id=candidate_id,
-            model_family=model_family,
-            bundle_hash=bundle_hash,
-            threshold=float(threshold),
-            seed=int(seed),
-            run_label=str(run_label),
-            aggregation_rule=str(aggregation),
+            candidate_id=descriptor.candidate_id,
+            model_family=descriptor.model_family,
+            bundle_hash=hash_directory(bundle_dir),
+            threshold=descriptor.threshold,
+            seed=descriptor.seed,
+            run_label=descriptor.run_label,
+            aggregation_rule=descriptor.aggregation_rule,
         ))
 
     if not candidates:
@@ -695,37 +687,62 @@ def _eval_score(
     freeze_record_path: Path,
     store_path: Path,
     partition: str,
+    *,
+    resume: bool = False,
+    max_clips: int | None = None,
+    torch_threads: int = 4,
+    dev_store: Path | None = None,
 ) -> int:
-    """Score clips under all conditions for a frozen evaluation record (#35).
+    """Score clips under all frozen conditions for every frozen candidate (#35).
 
-    Currently supports LR candidates only. CNN support will be added once
-    CNN bundles are available.
+    Refuses instead of skipping: an unsupported candidate, missing audio, an
+    unknown condition or a non-empty store stops the run before any compute.
+    Exits 0 only when the full candidate x condition x clip matrix is stored.
+    A full development run must pass the dev parity gate after the clean
+    condition; an evaluation run needs a development store with a passed parity
+    under the same freeze record.
     """
 
-    import hashlib
-
-    import numpy as np
-
+    from voice_detector.eval_scoring import (
+        ParityFailedError,
+        ParityTolerances,
+        ScoringPreflightError,
+        StoreStateError,
+        UnsupportedModelFamily,
+        check_store_for_report,
+        dev_parity,
+        load_robustness_spec,
+        load_scorers,
+        parity_passed,
+        score_partition,
+    )
+    from voice_detector.evaluation import (
+        freeze_identity_hash,
+        load_evaluation_spec,
+        verify_freeze_against_artifacts,
+    )
     from voice_detector.evaluation import (
         load_freeze_record as load_eval_record,
     )
-    from voice_detector.evaluation import (
-        verify_freeze_against_artifacts,
-    )
-    from voice_detector.prediction_store import (
-        PredictionRow,
-        compute_predictions_hash,
-        create_prediction_store,
-        write_predictions,
-    )
-    from voice_detector.scoring import decide_spoof
+    from voice_detector.manifest import resolve_local_path
+    from voice_detector.prediction_store import set_metadata_once
+    from voice_detector.preprocessing import AudioConfig, PreprocessingConfig, load_waveform
+
+    if torch_threads < 1:
+        return _refuse("invalid_torch_threads", torch_threads=torch_threads)
 
     config = load_config(config_path)
     if manifest_dir is None:
         manifest_dir = config.paths.artifacts_root / "manifest"
     catalog_path = manifest_dir / "manifest.sqlite"
+    if not catalog_path.is_file():
+        return _refuse(
+            "catalog_not_found",
+            catalog=str(catalog_path),
+            hint="rebuild the manifest with build-manifest",
+        )
 
-    rows, meta = read_manifest_sqlite(catalog_path)
+    rows, _meta = read_manifest_sqlite(catalog_path)
     if not rows:
         return _refuse(
             "empty_catalog",
@@ -743,126 +760,225 @@ def _eval_score(
 
     config_dir = Path(config_path).parent
     bundle_root = Path(config.paths.artifacts_root)
-    verify_freeze_against_artifacts(record, rows, config_dir, bundle_root)
+    candidate_ids = [c.candidate_id for c in record.candidates]
+    dev_gate = partition == "development" and max_clips is None
+    parity_report: dict[str, Any] | None = None
+    summary = None
+    error: Exception | None = None
 
-    split_rows = [r for r in rows if r["official_split"] == partition]
-    if not split_rows:
-        return _refuse(
-            "no_clips_for_partition",
-            partition=partition,
-            hint=f"no clips found for partition {partition!r}",
-        )
-
-    create_prediction_store(store_path)
-    freeze_hash = hashlib.sha256(
-        json.dumps(record.as_dict(), sort_keys=True).encode()
-    ).hexdigest()
-
-    from voice_detector.augmentation import codec_transform, noise_transform
-    from voice_detector.preprocessing import AudioConfig, load_waveform
-
-    robustness_spec_path = config_dir / "robustness_spec.yaml"
-    robustness_spec: dict = {}
-    if robustness_spec_path.exists():
-        import yaml
-
-        robustness_spec = yaml.safe_load(
-            robustness_spec_path.read_text(encoding="utf-8")
-        )
-    spec_global_seed = int(robustness_spec.get("global_seed", 20261004))
-    spec_conditions = robustness_spec.get("conditions", {})
-
-    scored_pairs: list[str] = []
-
-    for candidate in record.candidates:
-        if candidate.model_family == "logistic_regression":
-            import joblib
-
-            from voice_detector.manifest import resolve_local_path
-            from voice_detector.preprocessing import PreprocessingConfig, clip_feature_matrix
-
-            pre_config = PreprocessingConfig.from_mapping(
-                load_config(config_path).raw,
+    try:
+        verify_freeze_against_artifacts(record, rows, config_dir, bundle_root)
+        if partition == "evaluation":
+            if dev_store is None:
+                raise StoreStateError(
+                    "scoring the evaluation partition needs --dev-store: a complete "
+                    "development store with a passed parity under this freeze record",
+                    reason="dev_store_required",
+                )
+            check_store_for_report(
+                dev_store, record, partition="development", require_parity=True
             )
-            bundle_dir = bundle_root / candidate.candidate_id
-            model_path = bundle_dir / "lr_pipeline.joblib"
-            if not model_path.exists():
-                model_path = bundle_dir / "pipeline.joblib"
-            pipeline = joblib.load(model_path)
+        tolerances = ParityTolerances.from_spec(
+            load_evaluation_spec(config_dir / "evaluation_protocol.yaml")
+        )
+        spec = load_robustness_spec(
+            config_dir / "robustness_spec.yaml", required=record.conditions
+        )
+        _configure_torch(torch_threads)
+        scorers = load_scorers(
+            record,
+            bundle_root,
+            pre_config=PreprocessingConfig.from_mapping(config.raw),
+        )
+        if any(spec.conditions[c].get("transform") == "codec" for c in record.conditions):
+            _check_codec_tooling()
 
-            for condition in record.conditions:
-                pred_rows: list[PredictionRow] = []
-                cond_spec = spec_conditions.get(condition, {})
-                for row in split_rows:
-                    clip_id = str(row["clip_id"])
-                    local_path = row.get("local_path")
-                    if not local_path:
-                        continue
+        def decode(local_path: str, sample_rate: int) -> Any:
+            return load_waveform(
+                resolve_local_path(local_path), AudioConfig(sample_rate_hz=sample_rate)
+            )
 
-                    audio_config = AudioConfig(sample_rate_hz=16000)
-                    waveform = load_waveform(
-                        resolve_local_path(local_path), audio_config,
-                    )
+        def parity_gate(condition: str) -> None:
+            nonlocal parity_report
+            if not dev_gate or condition != "clean":
+                return
+            parity_report = dev_parity(store_path, bundle_root, candidate_ids, tolerances)
+            if not parity_passed(parity_report):
+                raise ParityFailedError("dev parity failed after the clean condition")
+            set_metadata_once(store_path, "dev_parity", "passed")
 
-                    transform = cond_spec.get("transform")
-                    if transform == "codec":
-                        waveform = codec_transform(
-                            waveform,
-                            sample_rate=cond_spec.get("sample_rate_hz", 16000),
-                            bitrate_kbps=cond_spec.get("bitrate_kbps", 24),
-                        ).waveform
-                    elif transform == "noise":
-                        waveform = noise_transform(
-                            waveform,
-                            snr_db=float(cond_spec["snr_db"]),
-                            clip_id=clip_id,
-                            global_seed=spec_global_seed,
-                        ).waveform
+        summary = score_partition(
+            rows,
+            candidate_ids,
+            list(record.conditions),
+            scorers,
+            spec,
+            partition=partition,
+            store_path=store_path,
+            freeze_identity=freeze_identity_hash(record),
+            decode=decode,
+            path_exists=lambda p: resolve_local_path(p).is_file(),
+            resume=resume,
+            max_clips=max_clips,
+            provenance=_scoring_provenance(torch_threads),
+            after_condition=parity_gate,
+            progress=lambda message: print(message, file=sys.stderr),
+        )
+    except ParityFailedError as exc:
+        error = exc
+    except (ScoringPreflightError, StoreStateError, UnsupportedModelFamily, ValueError) as exc:
+        error = exc
+    except Exception as exc:
+        error = exc
+        _write_scoring_sidecar(
+            config_path, store_path, torch_threads, resume, max_clips, summary, parity_report, exc
+        )
+        raise
 
-                    features = clip_feature_matrix(waveform, pre_config)
-                    window_scores = pipeline.decision_function(features)
-                    clip_score = float(window_scores.mean())
-                    n_windows = len(window_scores)
+    sidecar = _write_scoring_sidecar(
+        config_path, store_path, torch_threads, resume, max_clips, summary, parity_report, error
+    )
+    if isinstance(error, ParityFailedError):
+        return _refuse(
+            "parity_failed",
+            detail=str(error),
+            dev_parity=parity_report,
+            run_info=str(sidecar) if sidecar else None,
+        )
+    if error is not None:
+        return _refuse(
+            getattr(error, "reason", "scoring_refused"),
+            detail=str(error),
+            type=type(error).__name__,
+        )
 
-                    decision = bool(
-                        decide_spoof(np.array([clip_score]), candidate.threshold)[0]
-                    )
-
-                    pred_rows.append(PredictionRow(
-                        clip_id=clip_id,
-                        candidate_id=candidate.candidate_id,
-                        condition=condition,
-                        clip_score=clip_score,
-                        label=str(row["label"]),
-                        speaker_id=str(row.get("speaker_id", "")),
-                        attack_id=row.get("attack_id"),
-                        official_split=partition,
-                        duration_seconds=float(row.get("duration_seconds", 0)),
-                        n_windows=n_windows,
-                        threshold=candidate.threshold,
-                        decision=decision,
-                    ))
-
-                write_predictions(store_path, pred_rows, freeze_record_hash=freeze_hash)
-                scored_pairs.append(f"{candidate.candidate_id}/{condition}")
-        else:
-            scored_pairs.append(f"{candidate.candidate_id}/skipped (unsupported family)")
-
-    predictions_hash = compute_predictions_hash(store_path)
+    assert summary is not None
     print(
         json.dumps(
             {
-                "status": "scored",
-                "partition": partition,
-                "scored": scored_pairs,
-                "predictions_hash": predictions_hash,
+                "status": "scored" if summary.complete else "incomplete",
+                **summary.as_dict(),
                 "store": str(store_path),
+                "run_info": str(sidecar) if sidecar else None,
+                "dev_parity": parity_report,
             },
             indent=2,
             sort_keys=True,
         )
     )
-    return 0
+    return 0 if summary.complete else 1
+
+
+def _write_scoring_sidecar(
+    config_path: Path,
+    store_path: Path,
+    torch_threads: int,
+    resume: bool,
+    max_clips: int | None,
+    summary: Any,
+    parity_report: dict[str, Any] | None,
+    error: Exception | None,
+) -> Path | None:
+    """Write the scoring run record next to the store, also after a failed run."""
+
+    if not Path(store_path).exists():
+        return None
+    run_info = _scoring_run_info(config_path, torch_threads, resume, max_clips, summary)
+    run_info["dev_parity"] = parity_report
+    run_info["error"] = None if error is None else f"{type(error).__name__}: {error}"
+    sidecar = Path(store_path).with_name(
+        f"{Path(store_path).stem}.scoring-run-{run_info['finished_utc'].replace(':', '')}.json"
+    )
+    sidecar.write_text(json.dumps(run_info, indent=2, sort_keys=True), encoding="utf-8")
+    return sidecar
+
+
+def _dependency_versions() -> dict[str, str]:
+    versions: dict[str, str] = {}
+    for distribution in ("numpy", "scikit-learn", "librosa", "soundfile", "torch", "torchaudio"):
+        try:
+            versions[distribution] = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            versions[distribution] = "not installed"
+    return versions
+
+
+def _scoring_provenance(torch_threads: int) -> dict[str, str]:
+    """Values pinned in the prediction store; a resumed run must match them."""
+
+    from voice_detector.manifest import git_commit
+
+    return {
+        "git_commit": git_commit(),
+        "dependency_versions": json.dumps(_dependency_versions(), sort_keys=True),
+        "torch_threads": str(torch_threads),
+    }
+
+
+def _configure_torch(threads: int) -> None:
+    """Fix torch execution settings for scoring; no-op when torch is absent."""
+
+    try:
+        import torch
+    except ImportError:
+        return
+    torch.set_num_threads(threads)
+    with contextlib.suppress(RuntimeError):  # already set, or parallel work has started
+        torch.set_num_interop_threads(1)
+    torch.use_deterministic_algorithms(True)
+
+
+def _check_codec_tooling() -> None:
+    """Fail early when ffmpeg or the libopus encoder is unavailable."""
+
+    import subprocess
+
+    from voice_detector.augmentation import check_ffmpeg
+    from voice_detector.eval_scoring import ScoringPreflightError
+
+    try:
+        check_ffmpeg()
+    except Exception as exc:  # noqa: BLE001
+        raise ScoringPreflightError(f"codec conditions need ffmpeg: {exc}") from exc
+    encoders = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-encoders"], capture_output=True, text=True, timeout=30
+    ).stdout
+    if "libopus" not in encoders:
+        raise ScoringPreflightError("ffmpeg has no libopus encoder")
+
+
+def _scoring_run_info(
+    config_path: Path,
+    torch_threads: int,
+    resume: bool,
+    max_clips: int | None,
+    summary: Any,
+) -> dict[str, Any]:
+    """Environment and timing record for one scoring run (reproducibility)."""
+
+    from datetime import UTC, datetime
+
+    from voice_detector.manifest import git_commit, package_version
+
+    versions = _dependency_versions()
+    return {
+        "finished_utc": datetime.now(UTC).isoformat(timespec="seconds"),
+        "git_commit": git_commit(),
+        "package_version": package_version(),
+        "dependency_versions": versions,
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "cpu_count": os.cpu_count(),
+        "torch_threads": torch_threads,
+        "resume": resume,
+        "max_clips": max_clips,
+        "config": str(config_path),
+        "condition_seconds": summary.condition_seconds if summary else None,
+        "diagnostics": summary.diagnostics if summary else None,
+        "predictions_hash": summary.predictions_hash if summary else None,
+        "complete": summary.complete if summary else False,
+    }
 
 
 def _eval_report(
@@ -871,45 +987,88 @@ def _eval_report(
     out_dir: Path,
     *,
     with_bootstrap: bool,
+    dev_store: Path | None = None,
 ) -> int:
-    """Generate the evaluation report from scored predictions (#35)."""
+    """Generate the evaluation report from scored predictions (#35).
+
+    Only a complete evaluation-partition store (plus a complete development
+    store with a passed parity, for the development slices) advances the freeze
+    record to SCORED and REPORTED. A development store yields a labelled
+    rehearsal report and leaves the record untouched.
+    """
 
     from voice_detector.bootstrap import BootstrapSpec as BootSpec
     from voice_detector.eval_report import compute_report_hash, generate_report
+    from voice_detector.eval_scoring import StoreStateError, check_store_for_report
     from voice_detector.evaluation import (
-        load_freeze_record as load_eval_record,
-    )
-    from voice_detector.evaluation import (
+        freeze_identity_hash,
         mark_reported,
         mark_scored,
         save_freeze_record,
     )
+    from voice_detector.evaluation import (
+        load_freeze_record as load_eval_record,
+    )
     from voice_detector.prediction_store import (
         compute_predictions_hash,
+        get_metadata,
         read_predictions,
     )
 
     record = load_eval_record(freeze_record_path)
+    if not Path(store_path).is_file():
+        return _refuse("store_not_found", store=str(store_path))
 
-    if record.state == "FROZEN":
-        predictions_hash = compute_predictions_hash(store_path)
-        record = mark_scored(record, predictions_hash)
-        save_freeze_record(record, freeze_record_path)
+    partition = get_metadata(store_path).get("partition")
+    rehearsal = partition == "development"
+    try:
+        if partition == "evaluation":
+            check_store_for_report(store_path, record, partition="evaluation")
+            if dev_store is None:
+                raise StoreStateError(
+                    "the locked report needs --dev-store for the development slices",
+                    reason="dev_store_required",
+                )
+            check_store_for_report(
+                dev_store, record, partition="development", require_parity=True
+            )
+        elif rehearsal:
+            check_store_for_report(store_path, record, partition="development")
+            if dev_store is not None:
+                raise StoreStateError(
+                    "--dev-store is only used with an evaluation store",
+                    reason="dev_store_not_allowed",
+                )
+        else:
+            raise StoreStateError(
+                f"store partition {partition!r} is neither development nor evaluation",
+                reason="store_partition_unknown",
+            )
+    except StoreStateError as exc:
+        return _refuse(exc.reason, detail=str(exc))
 
-    if record.state != "SCORED":
-        return _refuse(
-            "not_scored",
-            state=record.state,
-            hint="the evaluation record must be SCORED before generating a report",
-        )
+    predictions_hash = compute_predictions_hash(store_path)
+    if not rehearsal:
+        if record.state == "FROZEN":
+            record = mark_scored(record, predictions_hash)
+            save_freeze_record(record, freeze_record_path)
+        elif record.state == "SCORED" and record.predictions_hash != predictions_hash:
+            return _refuse(
+                "store_hash_mismatch",
+                hint="the record was scored from a different prediction store",
+            )
+        if record.state != "SCORED":
+            return _refuse(
+                "not_scored",
+                state=record.state,
+                hint="the evaluation record must be SCORED before generating a report",
+            )
 
     predictions = read_predictions(store_path)
-    if not predictions:
-        return _refuse(
-            "no_predictions",
-            store=str(store_path),
-            hint="the prediction store is empty; run eval-score first",
-        )
+    dev_hash = None
+    if dev_store is not None:
+        predictions += read_predictions(dev_store)
+        dev_hash = compute_predictions_hash(dev_store)
 
     bootstrap_spec: BootSpec | None = None
     if with_bootstrap:
@@ -926,21 +1085,28 @@ def _eval_report(
         record, predictions,
         output_dir=out_dir,
         bootstrap_spec=bootstrap_spec,
+        primary_partition=partition,
+        provenance={
+            "rehearsal": rehearsal,
+            "freeze_identity": freeze_identity_hash(record),
+            "predictions_hash": predictions_hash,
+            "dev_predictions_hash": dev_hash,
+        },
     )
+    report_path = out_dir / "evaluation_report.json"
+    report_hash = compute_report_hash(report_path)
+    if not rehearsal:
+        record = mark_reported(record, report_hash)
+        save_freeze_record(record, freeze_record_path)
 
-    report_hash = compute_report_hash(out_dir / "evaluation_report.json")
-    record = mark_reported(record, report_hash)
-    save_freeze_record(record, freeze_record_path)
-
-    n_results = len(report.get("results", []))
     print(
         json.dumps(
             {
-                "status": "reported",
+                "status": "rehearsal_report" if rehearsal else "reported",
                 "state": record.state,
-                "n_results": n_results,
+                "n_results": len(report.get("results", [])),
                 "report_hash": report_hash,
-                "output": str(out_dir / "evaluation_report.json"),
+                "output": str(report_path),
                 "freeze_record": str(freeze_record_path),
             },
             indent=2,
@@ -1502,8 +1668,8 @@ def build_parser() -> argparse.ArgumentParser:
     eval_score = subparsers.add_parser(
         "eval-score",
         help=(
-            "score clips under all conditions for a frozen evaluation record (#35); "
-            "currently supports LR candidates only"
+            "score clips under all frozen conditions for every frozen candidate "
+            "(LR and CNN) into a prediction store (#35)"
         ),
     )
     eval_score.add_argument(
@@ -1533,7 +1699,31 @@ def build_parser() -> argparse.ArgumentParser:
     eval_score.add_argument(
         "--partition",
         default="development",
+        choices=("development", "evaluation"),
         help="partition to score (default: development for rehearsal)",
+    )
+    eval_score.add_argument(
+        "--resume",
+        action="store_true",
+        help="continue into a non-empty store, skipping conditions already complete",
+    )
+    eval_score.add_argument(
+        "--max-clips",
+        type=int,
+        default=None,
+        help="development smoke only: score the first N clips by clip_id",
+    )
+    eval_score.add_argument(
+        "--dev-store",
+        type=Path,
+        default=None,
+        help="required for --partition evaluation: development store with a passed parity",
+    )
+    eval_score.add_argument(
+        "--torch-threads",
+        type=int,
+        default=4,
+        help="torch intra-op threads (recorded in the scoring run info)",
     )
 
     eval_report = subparsers.add_parser(
@@ -1557,6 +1747,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("artifacts/evaluation"),
         help="output directory for the report JSON",
+    )
+    eval_report.add_argument(
+        "--dev-store",
+        type=Path,
+        default=None,
+        help="development store supplying the development slices of a locked report",
     )
     eval_report.add_argument(
         "--bootstrap",
@@ -1644,6 +1840,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.freeze_record,
             args.store,
             args.partition,
+            resume=args.resume,
+            max_clips=args.max_clips,
+            torch_threads=args.torch_threads,
+            dev_store=args.dev_store,
         )
     if args.command == "eval-report":
         return _eval_report(
@@ -1651,6 +1851,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.store,
             args.out_dir,
             with_bootstrap=args.bootstrap,
+            dev_store=args.dev_store,
         )
     return 2
 
