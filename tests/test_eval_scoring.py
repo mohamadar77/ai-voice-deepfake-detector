@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import functools
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -12,10 +14,12 @@ import yaml
 from test_evaluation import _candidate, _draft_record
 
 from voice_detector.eval_scoring import (
+    ParallelConfig,
     ParityTolerances,
     ScoringPreflightError,
     StoreStateError,
     UnsupportedModelFamily,
+    WorkerContext,
     apply_condition,
     check_bundle_files,
     check_mel_matches_study,
@@ -23,6 +27,7 @@ from voice_detector.eval_scoring import (
     describe_bundle,
     load_robustness_spec,
     parity_passed,
+    pinned_thread_env,
     score_partition,
     validate_scoring_rows,
 )
@@ -841,3 +846,121 @@ class TestCheckStoreForReport:
         assert info.value.reason == "parity_not_passed"
         set_metadata_once(store, "dev_parity", "passed")
         check_store_for_report(store, record, partition="development", require_parity=True)
+
+
+# ---------------------------------------------------------------------------
+# Worker processes
+# ---------------------------------------------------------------------------
+
+
+class _FailingDecode:
+    """Picklable decoder that fails for one path."""
+
+    def __init__(self, inner, fail_path: str) -> None:
+        self.inner = inner
+        self.fail_path = fail_path
+
+    def __call__(self, local_path: str, sample_rate: int) -> np.ndarray:
+        if local_path == self.fail_path:
+            raise OSError("cannot decode")
+        return self.inner(local_path, sample_rate)
+
+
+def _stub_context(spec_path: str, fail_path: str | None = None) -> WorkerContext:
+    """Module-level worker factory, so spawned workers can unpickle it."""
+
+    env = _Env()
+    decode = env.decode if fail_path is None else _FailingDecode(env.decode, fail_path)
+    return WorkerContext(
+        scorers={"a": _StubScorer(threshold=0.2), "b": _StubScorer(threshold=0.2, offset=1.0)},
+        decode=decode,
+        spec=load_robustness_spec(Path(spec_path), required=_ALL),
+        candidate_ids=["a", "b"],
+        codec_fn=env.codec,
+        noise_fn=env.noise,
+    )
+
+
+def _run_parallel(tmp_path: Path, store: str, *, fail_path: str | None = None, **over: Any):
+    spec_path = _spec_file(tmp_path)
+    parallel = ParallelConfig(
+        workers=2,
+        factory=functools.partial(_stub_context, str(spec_path), fail_path),
+        chunk_size=1,
+    )
+    return _run(tmp_path, store=store, parallel=parallel, **over)
+
+
+class TestWorkers:
+    def test_parallel_store_is_identical_to_serial(self, tmp_path: Path):
+        serial, _, _ = _run(tmp_path, store="serial.db")
+        parallel, _, _ = _run_parallel(tmp_path, "parallel.db")
+        assert parallel.complete and parallel.workers == 2
+        assert parallel.predictions_hash == serial.predictions_hash
+        assert parallel.diagnostics == serial.diagnostics
+        assert parallel.rows_written == serial.rows_written == 32
+
+    def test_worker_error_names_the_clip_and_commits_nothing(self, tmp_path: Path):
+        with pytest.raises(RuntimeError, match="LA_D_002"):
+            _run_parallel(tmp_path, "failing.db", fail_path="clip_002.flac")
+        assert completed_pairs(tmp_path / "failing.db") == {}
+
+    def test_resume_in_parallel_equals_an_uninterrupted_run(self, tmp_path: Path):
+        whole, _, _ = _run(tmp_path, store="whole.db")
+
+        def stop_after_clean(condition: str) -> None:
+            if condition == "clean":
+                raise RuntimeError("stop")
+
+        with pytest.raises(RuntimeError, match="stop"):
+            _run_parallel(tmp_path, "resumed.db", after_condition=stop_after_clean)
+        assert {cond for _, cond in completed_pairs(tmp_path / "resumed.db")} == {"clean"}
+        summary, _, _ = _run_parallel(tmp_path, "resumed.db", resume=True)
+        assert summary.complete and len(summary.skipped_pairs) == 2
+        assert summary.predictions_hash == whole.predictions_hash
+
+    def test_parallel_needs_two_workers_and_a_chunk(self, tmp_path: Path):
+        for bad in (ParallelConfig(workers=1, factory=_stub_context),
+                    ParallelConfig(workers=2, factory=_stub_context, chunk_size=0)):
+            with pytest.raises(ScoringPreflightError, match="workers"):
+                _run(tmp_path, parallel=bad)
+
+    def test_thread_env_is_pinned_inside_and_restored_after(self, monkeypatch):
+        monkeypatch.setenv("OMP_NUM_THREADS", "7")
+        monkeypatch.delenv("OPENBLAS_NUM_THREADS", raising=False)
+        with pinned_thread_env():
+            assert os.environ["OMP_NUM_THREADS"] == "1"
+            assert os.environ["OPENBLAS_NUM_THREADS"] == "1"
+        assert os.environ["OMP_NUM_THREADS"] == "7"
+        assert "OPENBLAS_NUM_THREADS" not in os.environ
+
+    @pytest.mark.parametrize("parallel", [False, True])
+    def test_progress_reports_clip_counts(self, tmp_path: Path, monkeypatch, parallel: bool):
+        import voice_detector.eval_scoring as module
+
+        monkeypatch.setattr(module, "_PROGRESS_EVERY", 2)
+        lines: list[str] = []
+        runner = _run_parallel if parallel else _run
+        runner(tmp_path, "p.db", progress=lines.append)
+        assert any("clean: 2/4 clips" in line for line in lines)
+        assert any(line.startswith("silence_trim") or line.startswith("noise_10db")
+                   for line in lines)
+
+
+class TestWorkerCli:
+    def test_provenance_pins_effective_thread_settings(self):
+        from voice_detector.cli import _scoring_provenance
+
+        serial = _scoring_provenance(8, 1)
+        workers = _scoring_provenance(8, 12)
+        assert (serial["torch_threads"], serial["blas_threads"]) == ("8", "default")
+        assert (workers["torch_threads"], workers["blas_threads"]) == ("1", "1")
+        assert "workers" not in workers  # the worker count does not change scores
+
+    def test_invalid_worker_count_is_refused(self, tmp_path: Path, capsys):
+        from voice_detector.cli import main
+
+        code = main(["eval-score", "--freeze-record", str(tmp_path / "f.json"),
+                     "--store", str(tmp_path / "p.db"), "--workers", "0"])
+        assert code == 1
+        assert json.loads(capsys.readouterr().out)["reason"] == "invalid_workers"

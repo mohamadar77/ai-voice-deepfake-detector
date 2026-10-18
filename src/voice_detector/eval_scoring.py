@@ -12,10 +12,14 @@ interrupted run leaves only whole conditions behind.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import math
+import multiprocessing
+import os
 import time
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -514,6 +518,7 @@ class ScoringSummary:
     complete: bool
     partition: str
     n_clips: int
+    workers: int = 1
     rows_written: int = 0
     scored_pairs: list[str] = field(default_factory=list)
     skipped_pairs: list[str] = field(default_factory=list)
@@ -527,6 +532,7 @@ class ScoringSummary:
             "complete": self.complete,
             "partition": self.partition,
             "n_clips": self.n_clips,
+            "workers": self.workers,
             "rows_written": self.rows_written,
             "scored": self.scored_pairs,
             "skipped_complete": self.skipped_pairs,
@@ -535,6 +541,178 @@ class ScoringSummary:
             "diagnostics": self.diagnostics,
             "predictions_hash": self.predictions_hash,
         }
+
+
+# ---------------------------------------------------------------------------
+# Per-clip scoring, shared by the serial loop and the worker processes
+# ---------------------------------------------------------------------------
+
+
+def default_decode(local_path: str, sample_rate: int) -> np.ndarray:
+    """Decode a manifest ``local_path`` with the shared preprocessing decoder."""
+
+    from voice_detector.manifest import resolve_local_path
+    from voice_detector.preprocessing import AudioConfig, load_waveform
+
+    return load_waveform(resolve_local_path(local_path), AudioConfig(sample_rate_hz=sample_rate))
+
+
+@dataclass
+class WorkerContext:
+    """Everything needed to score one clip: scorers, decoder, frozen conditions.
+
+    Built once per process. A clip's result depends only on the clip, the
+    condition and this context, never on which process scored it or on the
+    other clips, so the stored predictions do not depend on the worker count.
+    """
+
+    scorers: Mapping[str, WaveformScorer]
+    decode: Callable[[str, int], np.ndarray]
+    spec: RobustnessSpec
+    candidate_ids: Sequence[str]
+    codec_fn: Callable[..., Any] | None = None
+    noise_fn: Callable[..., Any] | None = None
+    trim_fn: Callable[..., Any] | None = None
+
+    @property
+    def sample_rate(self) -> int:
+        return next(iter(self.scorers.values())).sample_rate_hz
+
+
+@dataclass(frozen=True)
+class ClipResult:
+    clip_id: str
+    scores: dict[str, WaveformScore]
+    n_clipped: int
+    shorter: int
+    kept_original: int
+
+
+def score_clip(row: Mapping[str, Any], condition: str, ctx: WorkerContext) -> ClipResult:
+    """Decode one clip, apply the frozen condition once and score every candidate."""
+
+    clip_id = str(row["clip_id"])
+    try:
+        waveform = ctx.decode(str(row["local_path"]), ctx.sample_rate)
+        conditioned = apply_condition(
+            waveform,
+            clip_id=clip_id,
+            condition=condition,
+            spec=ctx.spec,
+            codec_fn=ctx.codec_fn,
+            noise_fn=ctx.noise_fn,
+            trim_fn=ctx.trim_fn,
+            sample_rate_hz=ctx.sample_rate,
+        )
+        scores = {
+            c: ctx.scorers[c].score_waveform(conditioned.waveform) for c in ctx.candidate_ids
+        }
+    except Exception as exc:  # noqa: BLE001 - add clip context, then re-raise
+        raise RuntimeError(
+            f"scoring failed for clip {clip_id!r} under {condition!r}: {exc}"
+        ) from exc
+    for candidate_id, score in scores.items():
+        if not math.isfinite(score.clip_score):
+            raise RuntimeError(
+                f"non-finite score for clip {clip_id!r}, candidate {candidate_id!r}, "
+                f"condition {condition!r}"
+            )
+    return ClipResult(
+        clip_id=clip_id,
+        scores=scores,
+        n_clipped=conditioned.n_clipped,
+        shorter=int(conditioned.samples_delta < 0),
+        kept_original=int(conditioned.kept_original),
+    )
+
+
+def configure_torch(threads: int) -> None:
+    """Fix torch execution settings for scoring; a no-op when torch is absent."""
+
+    try:
+        import torch
+    except ImportError:
+        return
+    torch.set_num_threads(threads)
+    with contextlib.suppress(RuntimeError):  # already set, or parallel work has started
+        torch.set_num_interop_threads(1)
+    torch.use_deterministic_algorithms(True)
+
+
+def production_worker_context(
+    record: FreezeRecord,
+    bundle_root: Path,
+    pre_config: Any,
+    spec: RobustnessSpec,
+) -> WorkerContext:
+    """Build a worker's context: verified scorers, one torch thread, default decoder."""
+
+    configure_torch(1)
+    scorers = load_scorers(record, bundle_root, pre_config=pre_config)
+    return WorkerContext(
+        scorers=scorers,
+        decode=default_decode,
+        spec=spec,
+        candidate_ids=[c.candidate_id for c in record.candidates],
+    )
+
+
+@dataclass(frozen=True)
+class ParallelConfig:
+    """Run each condition on a pool of worker processes.
+
+    ``factory`` must be picklable (a module-level function or a ``functools.partial``
+    of one); each worker calls it once. Workers are spawned, never forked, because
+    forking after torch has started threads is unsafe.
+    """
+
+    workers: int
+    factory: Callable[[], WorkerContext]
+    chunk_size: int = 40
+    mp_context: str = "spawn"
+
+
+_WORKER_CONTEXT: WorkerContext | None = None
+
+_THREAD_VARS = (
+    "OMP_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+    "NUMBA_NUM_THREADS",
+)
+
+
+def _worker_init(factory: Callable[[], WorkerContext]) -> None:
+    global _WORKER_CONTEXT
+    _WORKER_CONTEXT = factory()
+
+
+def _worker_run(task: tuple[str, list[Mapping[str, Any]]]) -> list[ClipResult]:
+    condition, rows = task
+    if _WORKER_CONTEXT is None:
+        raise RuntimeError("worker context was not initialised")
+    return [score_clip(row, condition, _WORKER_CONTEXT) for row in rows]
+
+
+@contextlib.contextmanager
+def pinned_thread_env() -> Any:
+    """Pin BLAS/OpenMP/numba pools to one thread for processes spawned inside the block."""
+
+    saved = {name: os.environ.get(name) for name in _THREAD_VARS}
+    os.environ.update({name: "1" for name in _THREAD_VARS})
+    try:
+        yield
+    finally:
+        for name, value in saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+
+_PROGRESS_EVERY = 1000
 
 
 def score_partition(
@@ -554,6 +732,7 @@ def score_partition(
     codec_fn: Callable[..., Any] | None = None,
     noise_fn: Callable[..., Any] | None = None,
     trim_fn: Callable[..., Any] | None = None,
+    parallel: ParallelConfig | None = None,
     provenance: Mapping[str, str] | None = None,
     after_condition: Callable[[str], None] | None = None,
     progress: Callable[[str], None] | None = None,
@@ -563,6 +742,9 @@ def score_partition(
     ``provenance`` (scoring commit, library versions) is pinned in the store, and a
     resumed run must match it. ``after_condition`` runs after each condition is
     committed (or found complete on resume) and may raise to abort the run.
+    With ``parallel`` the clips of a condition are scored by worker processes that
+    build their own context from ``parallel.factory``; ``scorers``, ``decode`` and the
+    ``*_fn`` hooks then serve only the parent's validation and thresholds.
     """
 
     if max_clips is not None and partition != "development":
@@ -573,7 +755,8 @@ def score_partition(
     rates = {scorers[c].sample_rate_hz for c in candidate_ids}
     if len(rates) != 1:
         raise ScoringPreflightError(f"candidates disagree on sample rate: {sorted(rates)}")
-    sample_rate = rates.pop()
+    if parallel is not None and (parallel.workers < 2 or parallel.chunk_size < 1):
+        raise ScoringPreflightError("parallel scoring needs workers >= 2 and chunk_size >= 1")
 
     clips = validate_scoring_rows(rows, partition, path_exists=path_exists)
     if max_clips is not None:
@@ -611,96 +794,127 @@ def score_partition(
         raise StoreStateError(str(exc), reason="store_mismatch") from exc
 
     n_clips = len(clips)
-    summary = ScoringSummary(complete=False, partition=partition, n_clips=n_clips)
+    summary = ScoringSummary(
+        complete=False,
+        partition=partition,
+        n_clips=n_clips,
+        workers=1 if parallel is None else parallel.workers,
+    )
+    serial_ctx = WorkerContext(
+        scorers=scorers,
+        decode=decode,
+        spec=spec,
+        candidate_ids=list(candidate_ids),
+        codec_fn=codec_fn,
+        noise_fn=noise_fn,
+        trim_fn=trim_fn,
+    )
 
-    for condition in conditions:
-        done = [(c, condition) in existing for c in candidate_ids]
-        if all(done):
-            if any(existing[(c, condition)] != n_clips for c in candidate_ids):
+    with contextlib.ExitStack() as stack:
+        pool: ProcessPoolExecutor | None = None
+        for condition in conditions:
+            done = [(c, condition) in existing for c in candidate_ids]
+            if all(done):
+                if any(existing[(c, condition)] != n_clips for c in candidate_ids):
+                    raise StoreStateError(
+                        f"condition {condition!r} has a partial row count in the store"
+                    )
+                summary.skipped_pairs.extend(f"{c}/{condition}" for c in candidate_ids)
+                if after_condition is not None:
+                    after_condition(condition)
+                continue
+            if any(done):
                 raise StoreStateError(
-                    f"condition {condition!r} has a partial row count in the store"
+                    f"condition {condition!r} is complete for only some candidates; "
+                    "refusing to resume into an inconsistent store"
                 )
-            summary.skipped_pairs.extend(f"{c}/{condition}" for c in candidate_ids)
+
+            started = time.perf_counter()
+
+            def report(count: int, label: str = condition, t0: float = started) -> None:
+                if progress is not None:
+                    elapsed = time.perf_counter() - t0
+                    rate = count / max(elapsed, 1e-9)
+                    progress(
+                        f"{label}: {count}/{n_clips} clips, {rate:.1f} clips/s, "
+                        f"{elapsed:.0f}s elapsed"
+                    )
+
+            results: list[ClipResult] = []
+            if parallel is None:
+                for row in clips:
+                    results.append(score_clip(row, condition, serial_ctx))
+                    if len(results) % _PROGRESS_EVERY == 0:
+                        report(len(results))
+            else:
+                if pool is None:
+                    stack.enter_context(pinned_thread_env())
+                    pool = ProcessPoolExecutor(
+                        max_workers=parallel.workers,
+                        mp_context=multiprocessing.get_context(parallel.mp_context),
+                        initializer=_worker_init,
+                        initargs=(parallel.factory,),
+                    )
+                    stack.callback(pool.shutdown, wait=True, cancel_futures=True)
+                size = parallel.chunk_size
+                tasks = [(condition, clips[i : i + size]) for i in range(0, n_clips, size)]
+                reported = 0
+                for chunk_results in pool.map(_worker_run, tasks):
+                    results.extend(chunk_results)
+                    if len(results) - reported >= _PROGRESS_EVERY:
+                        reported = len(results)
+                        report(reported)
+
+            pred_rows: list[PredictionRow] = []
+            n_clipped = shorter = kept_original = 0
+            for row, result in zip(clips, results, strict=True):
+                if result.clip_id != str(row["clip_id"]):
+                    raise RuntimeError(
+                        f"result order mismatch: expected {row['clip_id']!r}, "
+                        f"got {result.clip_id!r}"
+                    )
+                n_clipped += result.n_clipped
+                shorter += result.shorter
+                kept_original += result.kept_original
+                for c in candidate_ids:
+                    score = result.scores[c]
+                    threshold = scorers[c].threshold
+                    pred_rows.append(
+                        PredictionRow(
+                            clip_id=result.clip_id,
+                            candidate_id=c,
+                            condition=condition,
+                            clip_score=score.clip_score,
+                            label=str(row["label"]),
+                            speaker_id=str(row["speaker_id"]),
+                            attack_id=row.get("attack_id"),
+                            official_split=partition,
+                            duration_seconds=float(row.get("duration_seconds", 0)),
+                            n_windows=score.n_windows,
+                            threshold=threshold,
+                            decision=bool(
+                                decide_spoof(np.array([score.clip_score]), threshold)[0]
+                            ),
+                        )
+                    )
+            summary.rows_written += write_predictions(
+                store_path, pred_rows, freeze_record_hash=freeze_identity
+            )
+            elapsed = time.perf_counter() - started
+            summary.condition_seconds[condition] = round(elapsed, 3)
+            summary.diagnostics[condition] = {
+                "noise_samples_clipped": n_clipped,
+                "codec_outputs_shorter_than_input": shorter,
+                "silence_trim_kept_original": kept_original,
+            }
+            summary.scored_pairs.extend(f"{c}/{condition}" for c in candidate_ids)
+            if progress is not None:
+                progress(
+                    f"{condition}: done, {n_clips} clips x {len(candidate_ids)} candidates "
+                    f"in {elapsed:.1f}s"
+                )
             if after_condition is not None:
                 after_condition(condition)
-            continue
-        if any(done):
-            raise StoreStateError(
-                f"condition {condition!r} is complete for only some candidates; "
-                "refusing to resume into an inconsistent store"
-            )
-
-        started = time.perf_counter()
-        pred_rows: list[PredictionRow] = []
-        n_clipped = 0
-        shorter = 0
-        kept_original = 0
-        for row in clips:
-            clip_id = str(row["clip_id"])
-            try:
-                waveform = decode(str(row["local_path"]), sample_rate)
-                conditioned = apply_condition(
-                    waveform,
-                    clip_id=clip_id,
-                    condition=condition,
-                    spec=spec,
-                    codec_fn=codec_fn,
-                    noise_fn=noise_fn,
-                    trim_fn=trim_fn,
-                    sample_rate_hz=sample_rate,
-                )
-                n_clipped += conditioned.n_clipped
-                shorter += int(conditioned.samples_delta < 0)
-                kept_original += int(conditioned.kept_original)
-                scored = {
-                    c: scorers[c].score_waveform(conditioned.waveform) for c in candidate_ids
-                }
-            except Exception as exc:  # noqa: BLE001 - add clip context, then re-raise
-                raise RuntimeError(
-                    f"scoring failed for clip {clip_id!r} under {condition!r}: {exc}"
-                ) from exc
-            for c in candidate_ids:
-                score = scored[c]
-                if not math.isfinite(score.clip_score):
-                    raise RuntimeError(
-                        f"non-finite score for clip {clip_id!r}, candidate {c!r}, "
-                        f"condition {condition!r}"
-                    )
-                threshold = scorers[c].threshold
-                pred_rows.append(
-                    PredictionRow(
-                        clip_id=clip_id,
-                        candidate_id=c,
-                        condition=condition,
-                        clip_score=score.clip_score,
-                        label=str(row["label"]),
-                        speaker_id=str(row["speaker_id"]),
-                        attack_id=row.get("attack_id"),
-                        official_split=partition,
-                        duration_seconds=float(row.get("duration_seconds", 0)),
-                        n_windows=score.n_windows,
-                        threshold=threshold,
-                        decision=bool(decide_spoof(np.array([score.clip_score]), threshold)[0]),
-                    )
-                )
-        summary.rows_written += write_predictions(
-            store_path, pred_rows, freeze_record_hash=freeze_identity
-        )
-        elapsed = time.perf_counter() - started
-        summary.condition_seconds[condition] = round(elapsed, 3)
-        summary.diagnostics[condition] = {
-            "noise_samples_clipped": n_clipped,
-            "codec_outputs_shorter_than_input": shorter,
-            "silence_trim_kept_original": kept_original,
-        }
-        summary.scored_pairs.extend(f"{c}/{condition}" for c in candidate_ids)
-        if progress is not None:
-            progress(
-                f"{condition}: {n_clips} clips x {len(candidate_ids)} candidates "
-                f"in {elapsed:.1f}s"
-            )
-        if after_condition is not None:
-            after_condition(condition)
 
     summary.missing = validate_prediction_completeness(
         store_path, [str(r["clip_id"]) for r in clips], list(candidate_ids), list(conditions)

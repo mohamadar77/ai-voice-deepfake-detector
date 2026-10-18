@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
+import functools
 import hashlib
 import importlib
 import importlib.metadata
@@ -692,6 +692,7 @@ def _eval_score(
     max_clips: int | None = None,
     torch_threads: int = 4,
     dev_store: Path | None = None,
+    workers: int = 1,
 ) -> int:
     """Score clips under all frozen conditions for every frozen candidate (#35).
 
@@ -704,16 +705,19 @@ def _eval_score(
     """
 
     from voice_detector.eval_scoring import (
+        ParallelConfig,
         ParityFailedError,
         ParityTolerances,
         ScoringPreflightError,
         StoreStateError,
         UnsupportedModelFamily,
         check_store_for_report,
+        default_decode,
         dev_parity,
         load_robustness_spec,
         load_scorers,
         parity_passed,
+        production_worker_context,
         score_partition,
     )
     from voice_detector.evaluation import (
@@ -726,10 +730,12 @@ def _eval_score(
     )
     from voice_detector.manifest import resolve_local_path
     from voice_detector.prediction_store import set_metadata_once
-    from voice_detector.preprocessing import AudioConfig, PreprocessingConfig, load_waveform
+    from voice_detector.preprocessing import PreprocessingConfig
 
     if torch_threads < 1:
         return _refuse("invalid_torch_threads", torch_threads=torch_threads)
+    if workers < 1 or workers > (os.cpu_count() or 1):
+        return _refuse("invalid_workers", workers=workers, cpu_count=os.cpu_count())
 
     config = load_config(config_path)
     if manifest_dir is None:
@@ -784,18 +790,19 @@ def _eval_score(
         spec = load_robustness_spec(
             config_dir / "robustness_spec.yaml", required=record.conditions
         )
-        _configure_torch(torch_threads)
-        scorers = load_scorers(
-            record,
-            bundle_root,
-            pre_config=PreprocessingConfig.from_mapping(config.raw),
-        )
+        _configure_torch(1 if workers > 1 else torch_threads)
+        pre_config = PreprocessingConfig.from_mapping(config.raw)
+        scorers = load_scorers(record, bundle_root, pre_config=pre_config)
         if any(spec.conditions[c].get("transform") == "codec" for c in record.conditions):
             _check_codec_tooling()
 
-        def decode(local_path: str, sample_rate: int) -> Any:
-            return load_waveform(
-                resolve_local_path(local_path), AudioConfig(sample_rate_hz=sample_rate)
+        parallel = None
+        if workers > 1:
+            parallel = ParallelConfig(
+                workers=workers,
+                factory=functools.partial(
+                    production_worker_context, record, bundle_root, pre_config, spec
+                ),
             )
 
         def parity_gate(condition: str) -> None:
@@ -816,11 +823,12 @@ def _eval_score(
             partition=partition,
             store_path=store_path,
             freeze_identity=freeze_identity_hash(record),
-            decode=decode,
+            decode=default_decode,
             path_exists=lambda p: resolve_local_path(p).is_file(),
             resume=resume,
             max_clips=max_clips,
-            provenance=_scoring_provenance(torch_threads),
+            parallel=parallel,
+            provenance=_scoring_provenance(torch_threads, workers),
             after_condition=parity_gate,
             progress=lambda message: print(message, file=sys.stderr),
         )
@@ -831,12 +839,14 @@ def _eval_score(
     except Exception as exc:
         error = exc
         _write_scoring_sidecar(
-            config_path, store_path, torch_threads, resume, max_clips, summary, parity_report, exc
+            config_path, store_path, torch_threads, resume, max_clips, summary, parity_report, exc,
+            workers,
         )
         raise
 
     sidecar = _write_scoring_sidecar(
-        config_path, store_path, torch_threads, resume, max_clips, summary, parity_report, error
+        config_path, store_path, torch_threads, resume, max_clips, summary, parity_report, error,
+        workers,
     )
     if isinstance(error, ParityFailedError):
         return _refuse(
@@ -878,12 +888,13 @@ def _write_scoring_sidecar(
     summary: Any,
     parity_report: dict[str, Any] | None,
     error: Exception | None,
+    workers: int = 1,
 ) -> Path | None:
     """Write the scoring run record next to the store, also after a failed run."""
 
     if not Path(store_path).exists():
         return None
-    run_info = _scoring_run_info(config_path, torch_threads, resume, max_clips, summary)
+    run_info = _scoring_run_info(config_path, torch_threads, resume, max_clips, summary, workers)
     run_info["dev_parity"] = parity_report
     run_info["error"] = None if error is None else f"{type(error).__name__}: {error}"
     sidecar = Path(store_path).with_name(
@@ -903,29 +914,32 @@ def _dependency_versions() -> dict[str, str]:
     return versions
 
 
-def _scoring_provenance(torch_threads: int) -> dict[str, str]:
-    """Values pinned in the prediction store; a resumed run must match them."""
+def _scoring_provenance(torch_threads: int, workers: int = 1) -> dict[str, str]:
+    """Values pinned in the prediction store; a resumed run must match them.
+
+    Scores are a function of the clip and the numeric settings, not of the worker
+    count, so ``workers`` is not pinned. Worker processes always run torch on one
+    thread with the BLAS/OpenMP pools pinned to one, so the effective settings are
+    pinned instead.
+    """
 
     from voice_detector.manifest import git_commit
 
+    parallel = workers > 1
     return {
         "git_commit": git_commit(),
         "dependency_versions": json.dumps(_dependency_versions(), sort_keys=True),
-        "torch_threads": str(torch_threads),
+        "torch_threads": "1" if parallel else str(torch_threads),
+        "blas_threads": "1" if parallel else "default",
     }
 
 
 def _configure_torch(threads: int) -> None:
     """Fix torch execution settings for scoring; no-op when torch is absent."""
 
-    try:
-        import torch
-    except ImportError:
-        return
-    torch.set_num_threads(threads)
-    with contextlib.suppress(RuntimeError):  # already set, or parallel work has started
-        torch.set_num_interop_threads(1)
-    torch.use_deterministic_algorithms(True)
+    from voice_detector.eval_scoring import configure_torch
+
+    configure_torch(threads)
 
 
 def _check_codec_tooling() -> None:
@@ -953,6 +967,7 @@ def _scoring_run_info(
     resume: bool,
     max_clips: int | None,
     summary: Any,
+    workers: int = 1,
 ) -> dict[str, Any]:
     """Environment and timing record for one scoring run (reproducibility)."""
 
@@ -970,7 +985,8 @@ def _scoring_run_info(
         "platform": platform.platform(),
         "machine": platform.machine(),
         "cpu_count": os.cpu_count(),
-        "torch_threads": torch_threads,
+        "torch_threads": 1 if workers > 1 else torch_threads,
+        "workers": workers,
         "resume": resume,
         "max_clips": max_clips,
         "config": str(config_path),
@@ -1714,6 +1730,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="development smoke only: score the first N clips by clip_id",
     )
     eval_score.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="worker processes per condition (default 1 = serial). Each worker runs torch "
+        "on one thread; --torch-threads then applies only to the serial path",
+    )
+    eval_score.add_argument(
         "--dev-store",
         type=Path,
         default=None,
@@ -1844,6 +1867,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_clips=args.max_clips,
             torch_threads=args.torch_threads,
             dev_store=args.dev_store,
+            workers=args.workers,
         )
     if args.command == "eval-report":
         return _eval_report(

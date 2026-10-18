@@ -303,3 +303,41 @@ def test_inconsistent_run_record_is_refused(bundle, mutate):
     path.write_text(json.dumps(record))
     with pytest.raises(CnnBundleError):
         load_cnn_scorer(directory)
+
+
+# --- worker context (the factory each worker process runs) -------------------
+
+
+def test_production_worker_context_builds_verified_scorers(bundle, tmp_path: Path):
+    from test_evaluation import _draft_record
+
+    from voice_detector.eval_scoring import RobustnessSpec, production_worker_context
+    from voice_detector.evaluation import CandidateDeclaration
+    from voice_detector.preprocessing import PreprocessingConfig
+
+    directory = bundle[0]
+    candidate = CandidateDeclaration(
+        candidate_id=directory.name,
+        model_family="cnn",
+        bundle_hash=hash_directory(directory),
+        threshold=_THRESHOLD,
+        seed=1,
+        run_label="unit",
+        aggregation_rule=CNN_AGGREGATION_RULE,
+    )
+    record = _draft_record([candidate])
+    spec = RobustnessSpec(version="robustness-v1", global_seed=1, conditions={"clean": {}})
+
+    threads, deterministic = torch.get_num_threads(), torch.are_deterministic_algorithms_enabled()
+    try:
+        ctx = production_worker_context(record, directory.parent, PreprocessingConfig(), spec)
+        assert torch.get_num_threads() == 1  # workers score on one thread
+    finally:
+        torch.set_num_threads(threads)
+        torch.use_deterministic_algorithms(deterministic)
+
+    wave = _wave(_WINDOW + 5000)
+    expected = load_cnn_scorer(directory).score_waveform(wave)
+    assert ctx.candidate_ids == [directory.name]
+    assert ctx.sample_rate == 16000
+    assert ctx.scorers[directory.name].score_waveform(wave) == expected
