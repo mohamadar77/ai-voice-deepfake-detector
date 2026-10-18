@@ -1,0 +1,385 @@
+{
+  "bootstrap": {
+    "confidence_level": 0.95,
+    "method": "percentile",
+    "n_resamples": 10000,
+    "resampling_unit": "speaker_id",
+    "seed": 20261015
+  },
+  "candidates": [
+    {
+      "aggregation_rule": "mean_window_decision_function",
+      "bundle_hash": "87fc09b885ea6ac8673edcdefd9918b0c399ba5f9537ccbcc35a3a2410b868cc",
+      "candidate_id": "lr_baseline",
+      "model_family": "logistic_regression",
+      "run_label": "lr_baseline",
+      "seed": 20261004,
+      "threshold": 1.2972940206527712
+    },
+    {
+      "aggregation_rule": "mean_window_logit",
+      "bundle_hash": "7e4ba4695214b450a4f058acebe9fc9eabf6fa1ddf0314a7bae53f4bb076aaca",
+      "candidate_id": "cnn_clean_seed1",
+      "model_family": "cnn",
+      "run_label": "clean",
+      "seed": 20261004,
+      "threshold": 0.6495614051818849
+    },
+    {
+      "aggregation_rule": "mean_window_logit",
+      "bundle_hash": "569f8dc807f394223859acb11f587bc1443706490ea4119054b7671c8f8925cb",
+      "candidate_id": "cnn_clean_seed2",
+      "model_family": "cnn",
+      "run_label": "clean-seed2",
+      "seed": 20261005,
+      "threshold": 2.637584209442139
+    },
+    {
+      "aggregation_rule": "mean_window_logit",
+      "bundle_hash": "999bd10a831fcdff43829fbc197c3d4991491153fcead7cf594c1a971e3fe8a0",
+      "candidate_id": "cnn_augmented_seed1",
+      "model_family": "cnn",
+      "run_label": "augmented_seed1",
+      "seed": 20261004,
+      "threshold": -1.251954287290573
+    },
+    {
+      "aggregation_rule": "mean_window_logit",
+      "bundle_hash": "4e40dbe0657b04972a9e6ee280b118b4c2b110c7dc6c178adcdf75ea2c9a1ebc",
+      "candidate_id": "cnn_augmented_seed2",
+      "model_family": "cnn",
+      "run_label": "augmented_seed2",
+      "seed": 20261005,
+      "threshold": -1.1976757049560545
+    }
+  ],
+  "conditions": [
+    "clean",
+    "codec_opus_24k",
+    "noise_20db",
+    "noise_10db",
+    "silence_trim"
+  ],
+  "config_hashes": {
+    "cnn_study.yaml": "493a9a16aa9620a417778fa589a1c7e03fcb9c1c4d8ba3d04a81294f0fc8c8af",
+    "default.yaml": "dbd72bc38512c18ba7098d971efb16fffc0a6fe0d5d2566de5eda2d027d73b7c",
+    "dev_reservation.yaml": "021f9de93d045439bf18557b6dace8392017d1983e70894eefd827b6b10b4fd2",
+    "evaluation_protocol.yaml": "0de0572e505f4d7f1a93408d3c0d273b08de58703c3abb0a7269fe3fb6f2874f",
+    "example.local.yaml": "c7a1c879f1809fde46fc087d9fe9bf7c870287df74ca164a42f3eccb93b52467",
+    "pre_tuning_protocol.yaml": "1032f0dbf32375e0ad6733ea59e99566a48e17da3ebdca551af764386a8f6c00",
+    "robustness_spec.yaml": "e09287e17e8203b42310afa14cbbe88f10113cc2d09e7d9eba3dc19aab9ba557"
+  },
+  "created_utc": "2026-10-18T08:59:26.240653+00:00",
+  "decision_rule": "spoof if score >= threshold, compared in float64",
+  "frozen_utc": "2026-10-18T08:59:26.519538+00:00",
+  "git_commit": "c4445f5083d80a91b2014fa57937eb328eb8ae5d",
+  "manifest_hash": "b932b8599f7202456b9e9a40b219870540e1bb1d9be5d0393011a764e1a133d1",
+  "metrics_version": "metrics-v1",
+  "package_version": "0.1.0",
+  "predictions_hash": null,
+  "report_hash": null,
+  "reported_utc": null,
+  "schema_version": "evaluation-v1",
+  "score_direction": "higher_more_spoof",
+  "scored_utc": null,
+  "slices": [
+    {
+      "bonafide_pool": "development_all",
+      "clip_filter": {
+        "attack_id": "A01",
+        "partition": "development"
+      },
+      "description": "A01 (Known algorithms, unseen speakers (dev A01-A06))",
+      "partition": "development",
+      "slice_id": "attack_A01"
+    },
+    {
+      "bonafide_pool": "development_all",
+      "clip_filter": {
+        "attack_id": "A02",
+        "partition": "development"
+      },
+      "description": "A02 (Known algorithms, unseen speakers (dev A01-A06))",
+      "partition": "development",
+      "slice_id": "attack_A02"
+    },
+    {
+      "bonafide_pool": "development_all",
+      "clip_filter": {
+        "attack_id": "A03",
+        "partition": "development"
+      },
+      "description": "A03 (Known algorithms, unseen speakers (dev A01-A06))",
+      "partition": "development",
+      "slice_id": "attack_A03"
+    },
+    {
+      "bonafide_pool": "development_all",
+      "clip_filter": {
+        "attack_id": "A04",
+        "partition": "development"
+      },
+      "description": "A04 (Known algorithms, unseen speakers (dev A01-A06))",
+      "partition": "development",
+      "slice_id": "attack_A04"
+    },
+    {
+      "bonafide_pool": "development_all",
+      "clip_filter": {
+        "attack_id": "A05",
+        "partition": "development"
+      },
+      "description": "A05 (Known algorithms, unseen speakers (dev A01-A06))",
+      "partition": "development",
+      "slice_id": "attack_A05"
+    },
+    {
+      "bonafide_pool": "development_all",
+      "clip_filter": {
+        "attack_id": "A06",
+        "partition": "development"
+      },
+      "description": "A06 (Known algorithms, unseen speakers (dev A01-A06))",
+      "partition": "development",
+      "slice_id": "attack_A06"
+    },
+    {
+      "bonafide_pool": "development_all",
+      "clip_filter": {
+        "attack_ids": [
+          "A01",
+          "A02",
+          "A03",
+          "A04",
+          "A05",
+          "A06"
+        ],
+        "partition": "development"
+      },
+      "description": "Known algorithms, unseen speakers (dev A01-A06)",
+      "partition": "development",
+      "slice_id": "group_development_known"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A16",
+        "partition": "evaluation"
+      },
+      "description": "A16 (Known algorithms (reuse A04/A06), unseen speakers)",
+      "partition": "evaluation",
+      "slice_id": "attack_A16"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A19",
+        "partition": "evaluation"
+      },
+      "description": "A19 (Known algorithms (reuse A04/A06), unseen speakers)",
+      "partition": "evaluation",
+      "slice_id": "attack_A19"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_ids": [
+          "A16",
+          "A19"
+        ],
+        "partition": "evaluation"
+      },
+      "description": "Known algorithms (reuse A04/A06), unseen speakers",
+      "partition": "evaluation",
+      "slice_id": "group_evaluation_known_algorithm"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A07",
+        "partition": "evaluation"
+      },
+      "description": "A07 (Unseen algorithms \u2014 headline unseen result)",
+      "partition": "evaluation",
+      "slice_id": "attack_A07"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A08",
+        "partition": "evaluation"
+      },
+      "description": "A08 (Unseen algorithms \u2014 headline unseen result)",
+      "partition": "evaluation",
+      "slice_id": "attack_A08"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A09",
+        "partition": "evaluation"
+      },
+      "description": "A09 (Unseen algorithms \u2014 headline unseen result)",
+      "partition": "evaluation",
+      "slice_id": "attack_A09"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A10",
+        "partition": "evaluation"
+      },
+      "description": "A10 (Unseen algorithms \u2014 headline unseen result)",
+      "partition": "evaluation",
+      "slice_id": "attack_A10"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A11",
+        "partition": "evaluation"
+      },
+      "description": "A11 (Unseen algorithms \u2014 headline unseen result)",
+      "partition": "evaluation",
+      "slice_id": "attack_A11"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A12",
+        "partition": "evaluation"
+      },
+      "description": "A12 (Unseen algorithms \u2014 headline unseen result)",
+      "partition": "evaluation",
+      "slice_id": "attack_A12"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A13",
+        "partition": "evaluation"
+      },
+      "description": "A13 (Unseen algorithms \u2014 headline unseen result)",
+      "partition": "evaluation",
+      "slice_id": "attack_A13"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A14",
+        "partition": "evaluation"
+      },
+      "description": "A14 (Unseen algorithms \u2014 headline unseen result)",
+      "partition": "evaluation",
+      "slice_id": "attack_A14"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A15",
+        "partition": "evaluation"
+      },
+      "description": "A15 (Unseen algorithms \u2014 headline unseen result)",
+      "partition": "evaluation",
+      "slice_id": "attack_A15"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A17",
+        "partition": "evaluation"
+      },
+      "description": "A17 (Unseen algorithms \u2014 headline unseen result)",
+      "partition": "evaluation",
+      "slice_id": "attack_A17"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_id": "A18",
+        "partition": "evaluation"
+      },
+      "description": "A18 (Unseen algorithms \u2014 headline unseen result)",
+      "partition": "evaluation",
+      "slice_id": "attack_A18"
+    },
+    {
+      "bonafide_pool": "evaluation_all",
+      "clip_filter": {
+        "attack_ids": [
+          "A07",
+          "A08",
+          "A09",
+          "A10",
+          "A11",
+          "A12",
+          "A13",
+          "A14",
+          "A15",
+          "A17",
+          "A18"
+        ],
+        "partition": "evaluation"
+      },
+      "description": "Unseen algorithms \u2014 headline unseen result",
+      "partition": "evaluation",
+      "slice_id": "group_evaluation_unseen"
+    },
+    {
+      "bonafide_pool": "same_partition",
+      "clip_filter": {
+        "duration_lower": 0,
+        "duration_upper": 1,
+        "duration_upper_inclusive": false
+      },
+      "description": "Duration bin lt_1s",
+      "partition": "all",
+      "slice_id": "duration_lt_1s"
+    },
+    {
+      "bonafide_pool": "same_partition",
+      "clip_filter": {
+        "duration_lower": 1,
+        "duration_upper": 2,
+        "duration_upper_inclusive": false
+      },
+      "description": "Duration bin 1s_to_2s",
+      "partition": "all",
+      "slice_id": "duration_1s_to_2s"
+    },
+    {
+      "bonafide_pool": "same_partition",
+      "clip_filter": {
+        "duration_lower": 2,
+        "duration_upper": 4,
+        "duration_upper_inclusive": false
+      },
+      "description": "Duration bin 2s_to_4s",
+      "partition": "all",
+      "slice_id": "duration_2s_to_4s"
+    },
+    {
+      "bonafide_pool": "same_partition",
+      "clip_filter": {
+        "duration_lower": 4,
+        "duration_upper": 10,
+        "duration_upper_inclusive": true
+      },
+      "description": "Duration bin 4s_to_10s",
+      "partition": "all",
+      "slice_id": "duration_4s_to_10s"
+    },
+    {
+      "bonafide_pool": "same_partition",
+      "clip_filter": {
+        "duration_lower": 10,
+        "duration_upper": null,
+        "duration_upper_inclusive": false
+      },
+      "description": "Duration bin gt_10s",
+      "partition": "all",
+      "slice_id": "duration_gt_10s"
+    }
+  ],
+  "state": "FROZEN"
+}
