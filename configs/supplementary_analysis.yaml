@@ -1,0 +1,50 @@
+# Supplementary post-report analysis (issue #35), declared 2026-10-18 before the
+# locked report (R7) was generated. docs/evaluation-protocol.md section 6 lists
+# these analyses as supplementary and descriptive. They run only after the
+# freeze record is REPORTED and only under an explicit owner authorization.
+#
+# Nothing here is tuned to results. The thresholds, bootstrap settings, speaker
+# resampling unit and candidate list come from the freeze record.
+
+version: supplementary-v1
+declared_on: "2026-10-18"
+
+# Evaluation-only slices (ids from the freeze record). The duration bins are
+# declared there with partition "all"; this analysis restricts every slice to the
+# evaluation partition, so the duration table is an evaluation-only result.
+evaluation_slice_ids:
+  - group_evaluation_unseen
+  - group_evaluation_known_algorithm
+  - duration_lt_1s
+  - duration_1s_to_2s
+  - duration_2s_to_4s
+  - duration_4s_to_10s
+  - duration_gt_10s
+
+# The pooled partition is always included as "partition_all".
+# Used to build and test the tooling on the development store only (rehearsal).
+development_slice_ids:
+  - group_development_known
+  - duration_lt_1s
+  - duration_1s_to_2s
+  - duration_2s_to_4s
+  - duration_4s_to_10s
+  - duration_gt_10s
+
+# Metrics with speaker-grouped bootstrap intervals (all from the same resamples).
+metrics: [eer, human_false_positive_rate, synthetic_detection_rate, balanced_accuracy, macro_f1]
+
+# Predeclared paired comparisons: difference = a minus b, same resamples.
+# For EER a negative difference means a has the lower (better) EER.
+comparisons:
+  - {id: clean_vs_augmented_seed1, a: cnn_clean_seed1, b: cnn_augmented_seed1}
+  - {id: clean_vs_augmented_seed2, a: cnn_clean_seed2, b: cnn_augmented_seed2}
+  - {id: clean_seed1_vs_seed2, a: cnn_clean_seed1, b: cnn_clean_seed2}
+  - {id: augmented_seed1_vs_seed2, a: cnn_augmented_seed1, b: cnn_augmented_seed2}
+  - {id: clean_seed1_vs_lr, a: cnn_clean_seed1, b: lr_baseline}
+  - {id: clean_seed2_vs_lr, a: cnn_clean_seed2, b: lr_baseline}
+  - {id: augmented_seed1_vs_lr, a: cnn_augmented_seed1, b: lr_baseline}
+  - {id: augmented_seed2_vs_lr, a: cnn_augmented_seed2, b: lr_baseline}
+
+# Slices with fewer clips than this in either class are flagged low_support.
+low_support_min_class_count: 100

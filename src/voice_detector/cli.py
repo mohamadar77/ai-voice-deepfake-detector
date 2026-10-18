@@ -1137,6 +1137,113 @@ def _eval_report(
     return 0
 
 
+def _eval_supplement(
+    freeze_record_path: Path,
+    store_path: Path,
+    out_dir: Path,
+    *,
+    spec_path: Path,
+    workers: int = 1,
+    authorization: str | None = None,
+) -> int:
+    """Supplementary post-report analysis (#35), described in docs/evaluation-protocol.md.
+
+    On an evaluation store it needs a REPORTED freeze record, a store whose hash is
+    the one the record was scored from, and an explicit owner authorization that is
+    recorded in the output. On a development store it is a rehearsal for building
+    and testing the tooling. It never changes the freeze record.
+    """
+
+    from voice_detector.eval_scoring import StoreStateError, check_store_for_report
+    from voice_detector.eval_supplementary import (
+        compute_supplementary_hash,
+        load_supplementary_spec,
+        run_supplementary,
+        write_supplementary_report,
+    )
+    from voice_detector.evaluation import freeze_identity_hash
+    from voice_detector.evaluation import load_freeze_record as load_eval_record
+    from voice_detector.prediction_store import (
+        compute_predictions_hash,
+        get_metadata,
+        read_predictions,
+    )
+
+    if workers < 1 or workers > (os.cpu_count() or 1):
+        return _refuse("invalid_workers", workers=workers, cpu_count=os.cpu_count())
+    if not Path(store_path).is_file():
+        return _refuse("store_not_found", store=str(store_path))
+    record = load_eval_record(freeze_record_path)
+    spec = load_supplementary_spec(spec_path)
+
+    partition = get_metadata(store_path).get("partition")
+    predictions_hash = compute_predictions_hash(store_path)
+    try:
+        if partition == "evaluation":
+            if record.state != "REPORTED":
+                raise StoreStateError(
+                    f"the freeze record is {record.state}; the supplementary analysis "
+                    "of the evaluation partition runs only after REPORTED",
+                    reason="record_not_reported",
+                )
+            if not (authorization and authorization.strip()):
+                raise StoreStateError(
+                    "analysing the evaluation partition after the report needs "
+                    "--authorization with the owner's explicit approval",
+                    reason="authorization_required",
+                )
+            check_store_for_report(store_path, record, partition="evaluation")
+            if record.predictions_hash != predictions_hash:
+                raise StoreStateError(
+                    "the store is not the one the record was scored from",
+                    reason="store_hash_mismatch",
+                )
+        elif partition == "development":
+            check_store_for_report(
+                store_path, record, partition="development", require_parity=True
+            )
+        else:
+            raise StoreStateError(
+                f"store partition {partition!r} is neither development nor evaluation",
+                reason="store_partition_unknown",
+            )
+    except StoreStateError as exc:
+        return _refuse(exc.reason, detail=str(exc))
+    if (Path(out_dir) / "supplementary_report.json").exists():
+        return _refuse("supplementary_exists", out_dir=str(out_dir))
+
+    predictions = read_predictions(store_path)
+    report = run_supplementary(
+        record,
+        predictions,
+        spec,
+        partition=partition,
+        workers=workers,
+        progress=lambda message: print(message, file=sys.stderr),
+        provenance={
+            "freeze_identity": freeze_identity_hash(record),
+            "predictions_hash": predictions_hash,
+            "authorization": authorization if partition == "evaluation" else None,
+        },
+    )
+    report_path = write_supplementary_report(report, out_dir)
+    print(
+        json.dumps(
+            {
+                "status": report["label"],
+                "partition": partition,
+                "n_conditions": len(report["results"]),
+                "report_hash": compute_supplementary_hash(report_path),
+                "output": str(report_path),
+                "freeze_record_state": record.state,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
 def _train_cnn(
     manifest_dir: Path | None,
     config_path: Path,
@@ -1794,6 +1901,41 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="compute speaker-grouped bootstrap confidence intervals",
     )
+    eval_supplement = subparsers.add_parser(
+        "eval-supplement",
+        help="supplementary post-report analysis of a scored store (#35)",
+    )
+    eval_supplement.add_argument(
+        "--freeze-record",
+        type=Path,
+        default=Path("reports/evaluation_freeze.json"),
+        help="frozen evaluation record (must be REPORTED for an evaluation store)",
+    )
+    eval_supplement.add_argument(
+        "--store", type=Path, required=True, help="prediction store to analyse"
+    )
+    eval_supplement.add_argument(
+        "--out-dir", type=Path, required=True, help="output directory (no overwrite)"
+    )
+    eval_supplement.add_argument(
+        "--spec",
+        type=Path,
+        default=Path("configs/supplementary_analysis.yaml"),
+        help="pre-declared analysis specification",
+    )
+    eval_supplement.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="worker processes, at most one per condition; the report is identical "
+        "for any value",
+    )
+    eval_supplement.add_argument(
+        "--authorization",
+        default=None,
+        help="the owner's explicit approval for analysing the evaluation partition "
+        "after the report; recorded in the output",
+    )
     return parser
 
 
@@ -1889,6 +2031,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             with_bootstrap=args.bootstrap,
             dev_store=args.dev_store,
             workers=args.workers,
+        )
+    if args.command == "eval-supplement":
+        return _eval_supplement(
+            args.freeze_record,
+            args.store,
+            args.out_dir,
+            spec_path=args.spec,
+            workers=args.workers,
+            authorization=args.authorization,
         )
     return 2
 
