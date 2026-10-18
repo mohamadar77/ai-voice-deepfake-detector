@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import dataclasses
+import json
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 from voice_detector.eval_report import (
     compute_report_hash,
@@ -213,3 +218,69 @@ class TestGenerateReport:
         h1 = compute_report_hash(dir1 / "evaluation_report.json")
         h2 = compute_report_hash(dir2 / "evaluation_report.json")
         assert h1 == h2
+
+
+def _multi_pair_setup() -> tuple[FreezeRecord, list[PredictionRow]]:
+    """Two candidates x two conditions with enough speakers for the bootstrap."""
+
+    base = _freeze()
+    candidates = [
+        dataclasses.replace(base.candidates[0], candidate_id="cand_a"),
+        dataclasses.replace(base.candidates[0], candidate_id="cand_b", threshold=0.4),
+    ]
+    record = dataclasses.replace(base, candidates=candidates, conditions=["clean", "noise_10db"])
+    rng = np.random.default_rng(7)
+    preds: list[PredictionRow] = []
+    for cand in ("cand_a", "cand_b"):
+        for condition in ("clean", "noise_10db"):
+            for i in range(24):
+                spoof = i % 2 == 1
+                preds.append(
+                    _pred(
+                        f"clip{i:02d}",
+                        "spoof" if spoof else "bonafide",
+                        float(np.clip(rng.normal(0.7 if spoof else 0.3, 0.25), 0, 1)),
+                        candidate_id=cand,
+                        condition=condition,
+                        speaker_id=f"SPK{i % 6}",
+                        attack_id="A07" if spoof else None,
+                        duration_seconds=0.5 + i * 0.4,
+                    )
+                )
+    return record, preds
+
+
+class TestParallelReport:
+    def test_workers_give_a_byte_identical_report(self, tmp_path: Path):
+        record, preds = _multi_pair_setup()
+        spec = record.bootstrap
+        serial = generate_report(record, preds, output_dir=tmp_path / "s", bootstrap_spec=spec)
+        parallel = generate_report(
+            record, preds, output_dir=tmp_path / "p", bootstrap_spec=spec, workers=2
+        )
+        assert [r["candidate_id"] for r in parallel["results"]] == [
+            "cand_a", "cand_a", "cand_b", "cand_b",
+        ]
+        assert any(
+            s["bootstrap_ci"] for r in serial["results"] for s in r["slices"]
+        ), "the fixture must exercise the bootstrap"
+        strip = lambda rep: {k: v for k, v in rep.items() if k != "generated_utc"}  # noqa: E731
+        assert json.dumps(strip(parallel), sort_keys=True) == json.dumps(
+            strip(serial), sort_keys=True
+        )
+        assert compute_report_hash(tmp_path / "p" / "evaluation_report.json") == (
+            compute_report_hash(tmp_path / "s" / "evaluation_report.json")
+        )
+
+    def test_missing_pair_is_refused_before_any_worker_starts(self, tmp_path: Path):
+        record, preds = _multi_pair_setup()
+        partial = [p for p in preds if not (p.candidate_id == "cand_b" and p.condition == "clean")]
+        with pytest.raises(ValueError, match="cand_b"):
+            generate_report(record, partial, output_dir=tmp_path, workers=2)
+
+    def test_progress_reports_each_pair(self, tmp_path: Path):
+        record, preds = _multi_pair_setup()
+        lines: list[str] = []
+        generate_report(record, preds, output_dir=tmp_path, workers=2, progress=lines.append)
+        assert len(lines) == 4
+        assert lines[-1].endswith("4/4 pairs done")

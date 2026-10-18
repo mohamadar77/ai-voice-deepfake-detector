@@ -30,6 +30,13 @@ SCORE_DIRECTION = "higher_more_spoof"
 DECISION_RULE = "spoof if score >= threshold, compared in float64"
 
 
+# Window-to-clip aggregation rules, one per model family. A clip score is the
+# arithmetic mean, in float64, of the per-window quantity named here.
+LR_AGGREGATION_RULE = "mean_window_decision_function"
+# Mean over option-D windows of (logit_spoof - logit_bonafide).
+CNN_AGGREGATION_RULE = "mean_window_logit"
+
+
 def decide_spoof(scores: ArrayLike, threshold: float) -> np.ndarray:
     """Boolean spoof decisions: ``score >= threshold``, compared in ``float64``.
 
@@ -59,6 +66,28 @@ class ClipScore:
     score_direction: str  # SCORE_DIRECTION
     threshold: float
     n_windows: int
+
+
+@dataclass(frozen=True)
+class WaveformScore:
+    """A clip score from a decoded waveform, before any threshold is applied."""
+
+    clip_score: float  # float64, SCORE_DIRECTION
+    n_windows: int
+
+
+class WaveformScorer(Protocol):
+    """Scores one decoded, mono, finite waveform at ``sample_rate_hz``.
+
+    Implementations must not mutate the waveform. Labels never reach a scorer.
+    """
+
+    sample_rate_hz: int
+    model_family: str
+    aggregation_rule: str
+    threshold: float
+
+    def score_waveform(self, waveform: np.ndarray) -> WaveformScore: ...
 
 
 @runtime_checkable

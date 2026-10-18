@@ -65,8 +65,20 @@ bootstrap:
   note: "67 eval speakers, no source recording mapping available"
 
 # --- Conditions (reference to robustness_spec.yaml) --------------------------
-conditions: [clean, codec_opus_24k, noise_20db, noise_10db]
-silence_trim_diagnostic: true
+# silence_trim is the evaluation-only shortcut diagnostic (parameters under
+# `silence_trim:` in robustness_spec.yaml). It is scored for every frozen
+# candidate like any other condition but is not a robustness claim.
+conditions: [clean, codec_opus_24k, noise_20db, noise_10db, silence_trim]
+
+# --- Development parity gate -------------------------------------------------
+# After the clean development condition, each candidate's scores are compared
+# with the dev_full_metrics in its own run record. Scores are not bitwise
+# reproducible across batch composition (about 1e-6), so a single boundary clip
+# may flip at the frozen threshold. Evaluation scoring requires a passed parity.
+dev_parity:
+  roc_auc_abs_tolerance: 1.0e-5
+  eer_abs_tolerance: 1.0e-4
+  max_abs_confusion_delta_total: 2
 
 # --- Candidates (populated at freeze time, not hand-edited) ------------------
 candidates: []

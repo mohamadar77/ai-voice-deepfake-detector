@@ -11,9 +11,12 @@ PredictionRows and produces structured metrics.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
-from collections.abc import Sequence
+import multiprocessing
+from collections.abc import Callable, Sequence
+from concurrent.futures import ProcessPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -21,7 +24,8 @@ from typing import Any
 import numpy as np
 
 from voice_detector.bootstrap import BootstrapSpec, speaker_grouped_bootstrap
-from voice_detector.evaluation import FreezeRecord
+from voice_detector.eval_scoring import pinned_thread_env
+from voice_detector.evaluation import FreezeRecord, SliceDefinition
 from voice_detector.manifest import git_commit, package_version
 from voice_detector.metrics import (
     METRICS_VERSION,
@@ -176,58 +180,126 @@ def compute_slice_metrics(
     }
 
 
+def _report_pair(
+    task: tuple[
+        float, list[SliceDefinition], list[PredictionRow], BootstrapSpec | None, str | None
+    ],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Metrics for one candidate x condition: overall and every slice.
+
+    A pure function of its arguments (the bootstrap draws from a generator seeded by
+    the spec), so it returns the same result in any process and in any order.
+    """
+
+    threshold, slices, cond_preds, bootstrap_spec, primary_partition = task
+    primary_preds = [
+        p for p in cond_preds
+        if primary_partition is None or p.official_split == primary_partition
+    ]
+    overall_metrics = evaluate_clip_scores(
+        [p.clip_id for p in primary_preds],
+        [p.label for p in primary_preds],
+        np.array([p.clip_score for p in primary_preds], dtype=np.float64),
+        threshold=threshold,
+        score_direction=SCORE_DIRECTION,
+    )
+    slice_results = [
+        compute_slice_metrics(
+            cond_preds, cond_preds,
+            slice_def.slice_id,
+            slice_def.clip_filter,
+            slice_def.bonafide_pool,
+            slice_def.partition,
+            threshold=threshold,
+            score_direction=SCORE_DIRECTION,
+            bootstrap_spec=bootstrap_spec,
+        )
+        for slice_def in slices
+    ]
+    return overall_metrics.as_dict(), slice_results
+
+
 def generate_report(
     freeze_record: FreezeRecord,
     predictions: Sequence[PredictionRow],
     *,
     output_dir: Path,
     bootstrap_spec: BootstrapSpec | None = None,
+    primary_partition: str | None = None,
+    provenance: dict[str, Any] | None = None,
+    workers: int = 1,
+    progress: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
+    """Build the evaluation report.
+
+    ``primary_partition`` selects the partition whose clips form each result's
+    ``overall_metrics`` (the locked report uses ``evaluation``). Slices select
+    their own partition, so a development store passed alongside the evaluation
+    store supplies the development slices. ``provenance`` is copied into the report.
+    With ``workers`` > 1 the candidate x condition pairs are computed in worker
+    processes; the report is identical to the serial one, byte for byte.
+    """
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    results: list[dict[str, Any]] = []
+    by_pair: dict[tuple[str, str], list[PredictionRow]] = {}
+    for p in predictions:
+        by_pair.setdefault((p.candidate_id, p.condition), []).append(p)
 
+    keys: list[tuple[str, str]] = []
+    tasks = []
     for candidate in freeze_record.candidates:
         for condition in freeze_record.conditions:
-            cond_preds = [
-                p for p in predictions
-                if p.candidate_id == candidate.candidate_id
-                and p.condition == condition
-            ]
-
-            if not cond_preds:
-                continue
-
-            clip_ids = [p.clip_id for p in cond_preds]
-            labels = [p.label for p in cond_preds]
-            scores = np.array([p.clip_score for p in cond_preds], dtype=np.float64)
-
-            overall_metrics = evaluate_clip_scores(
-                clip_ids, labels, scores,
-                threshold=candidate.threshold,
-                score_direction=SCORE_DIRECTION,
+            cond_preds = by_pair.get((candidate.candidate_id, condition), [])
+            if not any(
+                primary_partition is None or p.official_split == primary_partition
+                for p in cond_preds
+            ):
+                raise ValueError(
+                    f"no predictions for candidate {candidate.candidate_id!r} "
+                    f"under condition {condition!r}; refusing to report a partial matrix"
+                )
+            keys.append((candidate.candidate_id, condition))
+            tasks.append(
+                (
+                    candidate.threshold,
+                    list(freeze_record.slices),
+                    cond_preds,
+                    bootstrap_spec,
+                    primary_partition,
+                )
             )
 
-            slice_results: list[dict[str, Any]] = []
-            for slice_def in freeze_record.slices:
-                slice_result = compute_slice_metrics(
-                    cond_preds, cond_preds,
-                    slice_def.slice_id,
-                    slice_def.clip_filter,
-                    slice_def.bonafide_pool,
-                    slice_def.partition,
-                    threshold=candidate.threshold,
-                    score_direction=SCORE_DIRECTION,
-                    bootstrap_spec=bootstrap_spec,
-                )
-                slice_results.append(slice_result)
+    outputs: list[tuple[dict[str, Any], list[dict[str, Any]]]] = []
 
-            results.append({
-                "candidate_id": candidate.candidate_id,
-                "condition": condition,
-                "overall_metrics": overall_metrics.as_dict(),
-                "slices": slice_results,
-            })
+    def done(index: int) -> None:
+        if progress is not None:
+            progress(f"{keys[index][0]}/{keys[index][1]}: {index + 1}/{len(tasks)} pairs done")
+
+    if workers > 1 and len(tasks) > 1:
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(pinned_thread_env())
+            pool = ProcessPoolExecutor(
+                max_workers=min(workers, len(tasks)),
+                mp_context=multiprocessing.get_context("spawn"),
+            )
+            stack.callback(pool.shutdown, wait=True, cancel_futures=True)
+            for index, output in enumerate(pool.map(_report_pair, tasks)):
+                outputs.append(output)
+                done(index)
+    else:
+        for index, task in enumerate(tasks):
+            outputs.append(_report_pair(task))
+            done(index)
+
+    results: list[dict[str, Any]] = []
+    for (candidate_id, condition), (overall, slice_results) in zip(keys, outputs, strict=True):
+        results.append({
+            "candidate_id": candidate_id,
+            "condition": condition,
+            "overall_metrics": overall,
+            "slices": slice_results,
+        })
 
     report = {
         "report_version": REPORT_VERSION,
@@ -241,6 +313,8 @@ def generate_report(
         "n_candidates": len(freeze_record.candidates),
         "n_conditions": len(freeze_record.conditions),
         "n_slices": len(freeze_record.slices),
+        "primary_partition": primary_partition,
+        "provenance": provenance or {},
         "results": results,
     }
 
