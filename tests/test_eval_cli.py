@@ -371,3 +371,16 @@ class TestReport:
                                  "--dev-store", str(dev)))
         assert code == 1
         assert json.loads(capsys.readouterr().out)["reason"] == "store_hash_mismatch"
+
+
+def test_report_with_invalid_worker_count_is_refused(tmp_path: Path, capsys):
+    code = main(
+        [
+            "eval-report",
+            "--freeze-record", str(tmp_path / "f.json"),
+            "--store", str(tmp_path / "p.db"),
+            "--workers", "0",
+        ]
+    )
+    assert code == 1
+    assert json.loads(capsys.readouterr().out)["reason"] == "invalid_workers"

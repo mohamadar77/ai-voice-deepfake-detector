@@ -1004,6 +1004,7 @@ def _eval_report(
     *,
     with_bootstrap: bool,
     dev_store: Path | None = None,
+    workers: int = 1,
 ) -> int:
     """Generate the evaluation report from scored predictions (#35).
 
@@ -1031,6 +1032,8 @@ def _eval_report(
         read_predictions,
     )
 
+    if workers < 1 or workers > (os.cpu_count() or 1):
+        return _refuse("invalid_workers", workers=workers, cpu_count=os.cpu_count())
     record = load_eval_record(freeze_record_path)
     if not Path(store_path).is_file():
         return _refuse("store_not_found", store=str(store_path))
@@ -1102,6 +1105,8 @@ def _eval_report(
         output_dir=out_dir,
         bootstrap_spec=bootstrap_spec,
         primary_partition=partition,
+        workers=workers,
+        progress=lambda message: print(message, file=sys.stderr),
         provenance={
             "rehearsal": rehearsal,
             "freeze_identity": freeze_identity_hash(record),
@@ -1772,6 +1777,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="output directory for the report JSON",
     )
     eval_report.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="worker processes for the bootstrap (default 1); the report is identical "
+        "for any value",
+    )
+    eval_report.add_argument(
         "--dev-store",
         type=Path,
         default=None,
@@ -1876,6 +1888,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.out_dir,
             with_bootstrap=args.bootstrap,
             dev_store=args.dev_store,
+            workers=args.workers,
         )
     return 2
 
