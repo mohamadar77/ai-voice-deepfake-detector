@@ -204,8 +204,8 @@ evaluation-only duration table is pre-declared and produced by `eval-supplement`
   from development results only; #71 run-record follow-ups (lessons from R6/R7).
 - PR #82 supplementary analysis: ruff clean, 24 new tests pass, full suite 504 passed
   and 1 failed (`test_config.py::test_default_config_uses_repository_local_paths`,
-  attributed to an exported `VOICE_DETECTOR_ARTIFACTS_DIR` in the host shell; to be
-  confirmed with the variables unset). Development rehearsal ran in 2 min 30 s
+  caused by an exported `VOICE_DETECTOR_ARTIFACTS_DIR` in the host shell: with the
+  three `VOICE_DETECTOR_*` variables unset the test file gives 2 passed). Development rehearsal ran in 2 min 30 s
   (5 workers) and the serial run gave the same report hash `e78ed516…`. Still to do:
   `/code-review`, then an explicit decision on running it on the evaluation store.
 - RQ mapping (proposal research questions to evidence, with RQ2's second domain and
