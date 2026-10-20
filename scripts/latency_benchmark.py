@@ -142,7 +142,7 @@ def run(config_path: Path, output_path: Path | None) -> dict:
 
     print(f"\nWarming up ({warmup_rounds} rounds)...")
     for w in range(warmup_rounds):
-        for label, data in clips:
+        for _label, data in clips:
             service.score_bytes(data, request_id=f"warmup-{w}")
     print("  Done")
 
