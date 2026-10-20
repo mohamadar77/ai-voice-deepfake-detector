@@ -219,7 +219,7 @@ Depends on: model development complete.
 - [ ] Compute 95% bootstrap intervals grouped by original source recording. Where no source mapping exists, group by `speaker_id` (67 evaluation speakers). Paired differences use the same resamples. Disclose the speaker dependence and the small `dev_threshold` speaker count. Partly done: R7 gives slice-EER intervals; other metrics and paired differences are in PR #82 (development rehearsal passed, not yet run on evaluation data).
 - [x] Save prediction files and structured metrics; document any deviations from the original protocol.
 - [x] Label evaluation on a subset and externally pretrained models accurately; do not claim an official leaderboard result.
-- [ ] Map each proposal research question to its evidence, or to an explicit "not run": RQ2's second domain and RQ3 are deferred (deviation register).
+- [x] Map each proposal research question to its evidence, or to an explicit "not run": RQ2's second domain and RQ3 are deferred (deviation register). See "Research-question mapping" in `docs/evaluation-results-g2.md`.
 
 **Done when:** results trace to frozen inputs and model versions, and the report answers the primary model comparison and unfamiliar attack questions. Final test findings do not feed further tuning.
 
@@ -271,7 +271,7 @@ Depends on: a working application.
 - [x] Package API and UI in containers and document one startup command. One image, two services: `VOICE_DETECTOR_BUNDLE_DIR=<bundle> docker compose up --wait` (see `compose.yaml`; smoke: `scripts/docker_smoke.sh`).
 - [ ] Verify a clean local container startup and health check, in the presentation configuration on the DL120 host, which is the presentation machine (owner, 13 Oct), with image size and cold start recorded. Rehearse the venue access path (on-site, or an SSH tunnel to localhost-bound services) ([#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11)). **Partial, 2026-10-20 (hp-xl420gen9-01, not yet the DL120 presentation configuration):** build ~25 min, image 19.97 GB (CUDA torch wheels from `uv.lock`; shrinking needs a recorded lock decision), cold start 39 s, API 612 MiB / UI 49 MiB, `/ready` healthy, read-only root, generated-tone request scored. Venue access path not yet rehearsed.
 - [x] Write the model card: intended use, data, language scope, metrics, known failures and limitations. See `docs/model-card.md`.
-- [ ] Document training, evaluation, artifacts, result reproduction and temporary audio handling.
+- [x] Document training, evaluation, artifacts, result reproduction and temporary audio handling. See `docs/reproduction.md`.
 - [ ] Provide artifact retrieval instructions and checksums where redistribution is permitted.
 - [x] Archive frozen bundles, freeze records, per-clip predictions, run records and the manifest, with SHA-256 checksums, in a retained location outside Git. Phase 2 comparisons depend on them. **2026-10-20:** `scripts/archive_artifacts.sh` wrote `/root/archive_g2_20261020` on hp-xl420gen9-01 (80 files, 572 MB, `SHA256SUMS`, copy verified against source, FROZEN/REPORTED/report hashes equal the published values). Off-host copy verified on Mac (`/Users/mohamadabo-ras/tmp/archive_g2_20261020`); external device backup confirmed by owner 2026-10-20.
 - [ ] Verify fresh-checkout reproduction of data preparation, baseline training, CNN training and the report (not baseline only).
