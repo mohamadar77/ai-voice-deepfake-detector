@@ -265,7 +265,7 @@ Depends on: a working application.
 
 - [ ] Log request ID, model version, audio duration, status and latency without raw recordings or secrets.
 - [ ] Long host jobs (extraction, CNN training, locked scoring) run detached (`tmux`/`systemd-run --user`) with file logs and are resumable (per-epoch checkpoints with optimizer/RNG state; atomic cache writes). API/UI bind to localhost and are reached via an SSH tunnel.
-- [ ] Measure p50/p95 latency, failure rate and memory on named hardware using a declared input mix and request count.
+- [ ] Measure p50/p95 latency, failure rate and memory on named hardware using a declared input mix and request count. Script: `scripts/latency_benchmark.py` with `configs/latency_benchmark.yaml` (5 clip types, 50 rounds each). Needs host run.
 - [ ] Add focused tests for feature shapes, split leakage, inference preprocessing and API error handling.
 - [ ] Configure lightweight GitHub Actions checks that do not require downloading the full dataset or training models.
 - [x] Package API and UI in containers and document one startup command. One image, two services: `VOICE_DETECTOR_BUNDLE_DIR=<bundle> docker compose up --wait` (see `compose.yaml`; smoke: `scripts/docker_smoke.sh`).
