@@ -4,14 +4,9 @@ A reproducible AI Engineering graduation project for distinguishing bona fide hu
 
 ## Status
 
-Phase 1 (graduation release, 5 November 2026) is in progress. These exist:
+Phase 1 (graduation release, 5 November 2026) is in progress. The deployed model is `cnn_augmented_seed1`, a compact log-Mel CNN (~23.7 K parameters) served through FastAPI and a Streamlit demo, packaged in Docker. The locked evaluation is REPORTED; see the [model card](docs/model-card.md) for measured results, known failures and limitations.
 
-- the data contract and the official-protocol parser/audit;
-- the ASVspoof 2019 LA manifest builder, verified against the published counts on the training host;
-- shared MFCC preprocessing with frozen windowing;
-- a FastAPI/Streamlit serving skeleton.
-
-**No model has been trained, and no measured results exist yet.** The prioritized critical path is in the [roadmap](docs/roadmap.md). Post-graduation research is kept separately in the [research backlog](docs/research-backlog.md).
+The prioritized critical path is in the [roadmap](docs/roadmap.md). Post-graduation research is kept separately in the [research backlog](docs/research-backlog.md).
 
 ## Core scope
 
