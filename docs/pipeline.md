@@ -1,6 +1,6 @@
 # Project workflow and pipeline
 
-This is the planned implementation, not a claim that every module or service exists. Implemented so far: protocol parsing, the manifest builder, shared MFCC preprocessing and the serving skeleton. There is no trained model or evaluation harness yet. See [architecture and delivery decisions](architecture-and-delivery-plan.md) for contracts, acceptance tests, deadlines and remaining TODOs.
+The offline experiment path and the serving path are both implemented. Five candidate models (LR baseline, 4 CNN runs) were trained and evaluated under the locked protocol (REPORTED). The deployed model (`cnn_augmented_seed1`) is served through FastAPI and Streamlit, packaged in Docker. See the [reproduction guide](reproduction.md) for step-by-step commands and the [model card](model-card.md) for measured results.
 
 ## Offline experiment path
 
