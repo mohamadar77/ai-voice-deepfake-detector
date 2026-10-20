@@ -273,7 +273,7 @@ Depends on: a working application.
 - [ ] Write the model card: intended use, data, language scope, metrics, known failures and limitations.
 - [ ] Document training, evaluation, artifacts, result reproduction and temporary audio handling.
 - [ ] Provide artifact retrieval instructions and checksums where redistribution is permitted.
-- [ ] Archive frozen bundles, freeze records, per-clip predictions, run records and the manifest, with SHA-256 checksums, in a retained location outside Git. Phase 2 comparisons depend on them.
+- [x] Archive frozen bundles, freeze records, per-clip predictions, run records and the manifest, with SHA-256 checksums, in a retained location outside Git. Phase 2 comparisons depend on them. **2026-10-20:** `scripts/archive_artifacts.sh` wrote `/root/archive_g2_20261020` on hp-xl420gen9-01 (80 files, 572 MB, `SHA256SUMS`, copy verified against source, FROZEN/REPORTED/report hashes equal the published values). Off-host copy still to do.
 - [ ] Verify fresh-checkout reproduction of data preparation, baseline training, CNN training and the report (not baseline only).
 
 **Done when:** another developer can follow the setup and reproduction instructions, and the application has measured reliability and a model card.
