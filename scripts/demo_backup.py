@@ -4,8 +4,8 @@ Produces a set of pre-scored results using the ScoringService with synthetic
 test clips, saving JSON responses that can be shown if the live demo fails.
 Run on the host where the bundle is available:
 
-    uv run python scripts/demo_backup.py --bundle-dir artifacts/cnn_augmented_seed1 \
-        --output-dir reports/demo_backup
+    VOICE_DETECTOR_BUNDLE_DIR=artifacts/cnn_augmented_seed1 \
+        uv run python scripts/demo_backup.py --output-dir reports/demo_backup
 
 The output directory will contain:
   - tone_4s.json: score response for a 4-second generated tone
@@ -21,6 +21,7 @@ import io
 import json
 import platform
 import time
+import uuid
 from pathlib import Path
 
 import numpy as np
@@ -42,15 +43,21 @@ def _synthetic_wav(seconds: float, freq_hz: float, seed: int) -> bytes:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--bundle-dir", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
     args = parser.parse_args()
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    from voice_detector.serving import ScoringService
+    from voice_detector.config import load_config
+    from voice_detector.serving.loader import build_scorer
+    from voice_detector.serving.service import ScoringService
+    from voice_detector.serving.settings import load_serving_settings
 
-    svc = ScoringService.from_config()
+    settings = load_serving_settings()
+    project = load_config()
+    scorer = build_scorer(settings, project.paths.artifacts_root)
+    svc = ScoringService(scorer, settings)
+    svc.warmup()
 
     clips = [
         ("tone_4s", 4.0, 220.0, 42),
@@ -59,25 +66,31 @@ def main() -> None:
 
     for name, dur, freq, seed in clips:
         wav = _synthetic_wav(dur, freq, seed)
+        request_id = str(uuid.uuid4())
         t0 = time.perf_counter()
-        result = svc.score_bytes(wav, f"{name}.wav")
+        outcome = svc.score_bytes(wav, request_id=request_id)
         elapsed_ms = (time.perf_counter() - t0) * 1000
+        resp = outcome.response
         payload = {
             "name": name,
-            "duration_seconds": dur,
-            "score": result.score,
-            "decision": result.decision,
-            "threshold": result.threshold,
-            "n_windows": result.n_windows,
+            "duration_seconds": resp.duration_seconds,
+            "score": resp.score,
+            "decision": resp.decision,
+            "threshold": resp.threshold,
+            "n_windows": resp.n_windows,
             "processing_ms": round(elapsed_ms, 1),
-            "model_id": result.model_id,
+            "model_id": resp.model_id,
+            "model_version": resp.model_version,
+            "bundle_hash": resp.bundle_hash,
         }
         out = args.output_dir / f"{name}.json"
         out.write_text(json.dumps(payload, indent=2) + "\n")
-        print(f"{name}: score={result.score:.4f} decision={result.decision} ({elapsed_ms:.1f} ms)")
+        print(f"{name}: score={resp.score:.4f} decision={resp.decision} ({elapsed_ms:.1f} ms)")
 
     info = svc.model_info()
-    (args.output_dir / "model_info.json").write_text(json.dumps(info, indent=2) + "\n")
+    (args.output_dir / "model_info.json").write_text(
+        json.dumps(info.model_dump(mode="json"), indent=2) + "\n"
+    )
 
     hw = {
         "hostname": platform.node(),
