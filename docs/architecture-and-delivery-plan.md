@@ -182,6 +182,7 @@ The 11 October sign-off deferred these items "with rationale" but did not record
 | Calibration (reliability plot, Brier score) and the "inconclusive" band | Not implemented | The proposal makes both conditional ("if calibration is implemented") | Architecture agreement, 2026-10-06 | Outputs are labeled scores; no inconclusive output |
 | Cloud deployment ("attempt one small cloud deployment after the local demo is reliable") | Deferred | Conditional in the proposal; local container only | Architecture agreement, 2026-10-06 | No hosted claim |
 | RAG evidence assistant and MCP interface ("optional extension") | RAG: **no-go**, owner decision 2026-10-13 (#37). MCP: deferred. | Optional in the proposal | Architecture agreement, 2026-10-06 | None. Course coverage stays conceptual. |
+| Deployed-model selection order (evaluation protocol section 7: choose the deployed bundle from development results before and independently of the locked report) | Deviation, disclosed | The development-only selection rule was written and accepted on 2026-10-19 after the locked report (R7) had been read; it was applied mechanically to development numbers (`docs/deployed-model-decision.md`, #86). Swapping the model afterwards would be selection on test data. | Owner, 2026-10-20: keep `cnn_augmented_seed1` | Described everywhere as a "development-only rule", never "pre-declared" or "blind". The chosen model has the highest clean unseen-attack EER of the four CNNs (11.77%), reported as a finding. |
 
 ### Plan amendments adopted (owner-requested review)
 

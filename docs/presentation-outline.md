@@ -1,7 +1,7 @@
 # Presentation outline — AI Voice Deepfake Detector
 
-Target: 12 minutes. Allocation: 1 motivation, 2 data, 2 methods, 3 results,
-2 demo, 1 conclusions, 1 buffer. Show ideas, plots and behavior, not code.
+Target: 12 minutes. Planned talk time 11:00 (slide timings below) leaving a 1-minute
+buffer. Allocation: 1 motivation, 2 data, 2 methods, 3 results, 2 demo, 1 conclusions. Show ideas, plots and behavior, not code.
 
 ---
 
@@ -32,19 +32,24 @@ Speaker note: emphasize that the detector is a score, not ground truth.
 **ASVspoof 2019 Logical Access**
 
 - Standard benchmark for speech anti-spoofing research (Todisco et al., 2019).
-- 121,461 clips: 12,483 bona fide (human), 108,978 spoofed (6 known + 13 unseen
-  attack algorithms). 107 speakers.
+- 121,461 clips: 12,483 bona fide (human), 108,978 spoofed (19 attacks: A01-A06
+  seen in training; A07-A15, A17, A18 unseen; A16/A19 reuse the A04/A06 algorithms).
+  107 speakers.
 - Official partitions preserved: train (20 speakers, attacks A01-A06),
   development (20 speakers, A01-A06), evaluation (67 speakers, A07-A19).
 - Evaluation attacks are unseen at training time — the real test.
-- Licence: ODC-By 1.0.
+- Licence: ODC-By 1.0. Footer on every data slide: "Contains information from the
+  ASVspoof 2019 database (datashare.ed.ac.uk/handle/10283/3336), made available under
+  the ODC Attribution License."
+- Context only (never as our result): published ASVspoof 2019 baselines B01 (CQCC-GMM)
+  and B02 (LFCC-GMM).
 
 Visual: partition/attack table or stacked bar chart showing class balance and
 the known/unseen split.
 
 ---
 
-## Slide 4 — Evaluation integrity (1 min)
+## Slide 4 — Evaluation integrity (45 s)
 
 **Keeping the test honest**
 
@@ -123,7 +128,9 @@ Visual: grouped bar chart or dot plot with CI whiskers.
 
 **What happens under noise and compression?**
 
-EER % on unseen attacks by condition:
+EER % on unseen attacks by condition. The augmented models were trained with codec
+and noise, so their gains under those conditions are matched-condition gains. The
+condition parameters are frozen; the clean-audio threshold is not recalibrated.
 
 | Model | clean | codec 24k | noise 20 dB | noise 10 dB |
 | --- | --- | --- | --- | --- |
@@ -132,9 +139,9 @@ EER % on unseen attacks by condition:
 | CNN aug s1 (deployed) | 11.8 | 13.1 | 19.7 | 20.6 |
 | CNN aug s2 | 7.4 | 7.7 | 17.8 | 22.1 |
 
-- **Augmentation helps robustness dramatically**: augmented CNNs hold up
-  under 10 dB noise (EER ~20%) while clean CNN seed 1 drops to 61.4%
-  (below chance).
+- **Augmentation helps under matched noise**: augmented CNNs hold up under
+  10 dB noise (EER ~20-22%) while clean CNN seed 1 drops to 61.4% (below
+  chance; clean seed 2 is 30.1%).
 - **Thresholds don't transfer**: the clean-dev threshold flags 25-33% of
   human clips under noise/codec for the deployed model.
 - Negative result published, not hidden.
@@ -143,7 +150,7 @@ Visual: line chart, EER by condition, one line per model family.
 
 ---
 
-## Slide 9 — Results: per-attack and failures (1 min)
+## Slide 9 — Results: per-attack and failures (45 s)
 
 **Not all attacks are equal**
 
@@ -169,10 +176,13 @@ shortcut.
 
 1. Open the Streamlit UI (via SSH tunnel to the host).
 2. Upload a clean human speech clip → show score, decision, spectrogram.
-3. Upload a synthetic clip → show the different score.
-4. Discuss what the output means: "flagged_spoof_like" is not "fake",
+3. Upload a synthetic clip → show the score. Clips come from the predeclared demo
+   set (N, sentences, tool, version and terms recorded); each is scored once and all
+   results are shown, including misses. Report as "n=..., illustrative".
+4. Upload an invalid input (for example an MP3 or a 0.5 s clip) → show the clear error.
+5. Discuss what the output means: "flagged_spoof_like" is not "fake",
    "not_flagged" is not "real".
-5. Show the model info endpoint — bundle hash, threshold, limitations notice.
+6. Show the model info endpoint — bundle hash, threshold, limitations notice.
 
 Fallback: saved screenshots and pre-recorded results if the live demo fails.
 
@@ -189,7 +199,7 @@ measured limitations, and doesn't over-claim.
 - Latency: p50 19.4 ms, p95 107.8 ms (benchmark on declared input mix).
 - Bundle mounted read-only, verified at startup by hash.
 - No audio logged or retained. Every response carries a limitations notice.
-- Same inference code path for evaluation and serving (verified parity).
+- Same inference code path for evaluation and serving (parity checked on development clips; see model-card §6 once the container check is recorded).
 
 Visual: simple serving diagram (upload → API → scorer → response).
 
@@ -201,13 +211,16 @@ Visual: simple serving diagram (upload → API → scorer → response).
 
 1. A 23.7K-parameter CNN on log-Mel spectrograms cuts the LR baseline's
    EER roughly in half on unseen attacks (6.7-11.8% vs 19.9%).
-2. Training augmentation (noise + codec) dramatically improves robustness
-   at some cost to clean accuracy.
+2. Training augmentation (noise + codec) improves robustness under the matched
+   conditions; seed 1 of the augmented family also has the highest clean EER,
+   but seed 2 does not, so the clean cost is not established.
 3. Seed variance is large — single-seed results can be misleading.
 4. Thresholds set on clean audio do not transfer under distortion.
 5. There is evidence of partial reliance on silence cues.
 6. Honest evaluation matters more than the number: frozen protocol,
-   published negatives, disclosed limitations.
+   published negatives, disclosed limitations. The deployed model was chosen by a
+   development-only rule written after the locked report was read, and it has the
+   highest clean unseen EER of the four CNNs; both are disclosed.
 
 **Future work (Phase 2)**
 
