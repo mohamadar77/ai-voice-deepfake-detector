@@ -1,0 +1,97 @@
+# Serving configuration for the demo API (issue #9), version serving-v1.
+# The deployed model was chosen from development results only
+# (docs/deployed-model-decision.md). Changing it means changing candidate_id and
+# both pins in one reviewed change, plus a recorded decision.
+version: serving-v1
+
+model:
+  candidate_id: cnn_augmented_seed1
+  # Tripwires copied from reports/evaluation_freeze_g2.json (host-only record).
+  # The service refuses to start if the bundle differs from either value. The
+  # threshold is the full-precision float64, not the rounded -1.2519543.
+  expected_bundle_hash: "999bd10a831fcdff43829fbc197c3d4991491153fcead7cf594c1a971e3fe8a0"
+  expected_threshold: -1.251954287290573
+
+runtime:
+  torch_threads: 1            # same as eval-score workers; measure before raising
+  interop_threads: 1
+  deterministic_algorithms: true
+  max_concurrent_scoring: 1
+  queue_timeout_seconds: 10.0
+  warmup:
+    enabled: true
+    seed: 20261019
+    seconds: [4.0, 12.0]      # a one-window and a multi-window clip
+    resample_from_hz: 44100   # exercises the resampler (librosa/soxr) before ready
+
+server:
+  host: "${VOICE_DETECTOR_API_HOST:-127.0.0.1}"
+  port: 8000
+  # Exact Host headers accepted (blocks DNS rebinding). Add the container service name
+  # via VOICE_DETECTOR_API_ALLOWED_HOST when running behind compose.
+  allowed_hosts: ["localhost", "127.0.0.1", "${VOICE_DETECTOR_API_ALLOWED_HOST:-localhost}"]
+  cors_allow_origins: []      # none: the UI calls the API server to server
+  limit_concurrency: 16
+  timeout_keep_alive_seconds: 5
+  timeout_graceful_shutdown_seconds: 10
+  upload_timeout_seconds: 30.0
+
+input:
+  max_upload_bytes: 20971520          # 20 MiB
+  multipart_overhead_bytes: 65536
+  accepted_formats: [WAV, FLAC]       # sniffed by libsndfile; filename and Content-Type ignored
+  max_channels: 2
+  min_source_sample_rate_hz: 8000
+  max_source_sample_rate_hz: 96000
+  # Evaluation scored every clip, but sub-1 s clips were not validated separately
+  # (docs/evaluation-protocol.md, issue #14). Lowering this floor (about 0.4 s) is
+  # a recorded decision, not a silent change.
+  min_duration_seconds: 1.0
+  max_duration_seconds: 30.0          # rejected, never truncated: truncation would change the score
+  silence_peak_dbfs: -60.0            # digital silence is rejected
+
+hints:
+  version: hints-v0-provisional
+  # PROVISIONAL: these thresholds are not yet derived from development-clip
+  # statistics. They are advisory only and never change a score or decision.
+  # Derive them from development clips (never the evaluation partition) and bump
+  # the version before the demo is described as validated.
+  provisional: true
+  warn_below_seconds: 1.0
+  warn_above_seconds: 10.0
+  clipping_level: 0.999
+  clipping_fraction: 0.001
+  low_rms_dbfs: -45.0
+  short_window_seconds: 1.0
+
+observability:
+  log_level: INFO
+  debug_tracebacks: false             # tracebacks can carry request data; keep off
+
+framing:
+  notice: >-
+    This is a model score, not a probability or a verdict. "flagged_spoof_like" means the
+    score is at or above a threshold fixed on clean ASVspoof 2019 LA development audio.
+    It does not prove a recording is authentic or synthetic, identify a speaker, or verify
+    what was said.
+  limitations:
+    - >-
+      The threshold was set on clean audio. Under noise or compression, about 21-27% of
+      development genuine clips are flagged as spoof-like for this model (issue #83).
+    - >-
+      On the locked evaluation, the unseen-attack clean equal error rate is 11.77%
+      (95% interval 10.28-13.04), the highest of the four CNNs, with a pooled clean
+      human false-positive rate of 7.21% at the frozen threshold.
+    - >-
+      Only ASVspoof 2019 LA was evaluated. Newer voice-cloning systems, other
+      microphones and channels were not.
+    - >-
+      Scores average 4-second windows, so partial synthesis can be diluted.
+    - >-
+      Clips under 1 second are rejected: the benchmark scored them, but they were not
+      validated separately for this demo.
+    - >-
+      This is a project evaluation, not an official leaderboard result.
+  evidence_refs:
+    - docs/deployed-model-decision.md
+    - docs/evaluation-results-g2.md

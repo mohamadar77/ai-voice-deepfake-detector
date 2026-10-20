@@ -341,3 +341,32 @@ def test_production_worker_context_builds_verified_scorers(bundle, tmp_path: Pat
     assert ctx.candidate_ids == [directory.name]
     assert ctx.sample_rate == 16000
     assert ctx.scorers[directory.name].score_waveform(wave) == expected
+
+
+def test_score_decoded_keeps_window_evidence_and_matches_score_waveform(bundle):
+    directory, _, _ = bundle
+    scorer = load_cnn_scorer(directory)
+    wave = _wave(int(2.5 * _WINDOW), seed=9)
+    decoded = scorer.score_decoded(wave)
+    plain = scorer.score_waveform(wave)
+    assert decoded.clip.score == plain.clip_score
+    assert decoded.clip.n_windows == plain.n_windows
+    assert decoded.window_scores == tuple(float(v) for v in scorer.window_scores(wave))
+    spans = window_spans(wave.size, window_samples=_WINDOW, n_fft=_MEL.n_fft)
+    assert decoded.window_real_samples == tuple(stop - start for start, stop in spans)
+
+
+def test_bundle_hash_is_retained_only_when_it_was_verified(bundle):
+    directory, _, _ = bundle
+    pinned = hash_directory(directory)
+    assert load_cnn_scorer(directory, expected_bundle_hash=pinned).bundle_hash == pinned
+    assert load_cnn_scorer(directory).bundle_hash is None
+
+
+def test_describe_is_an_allowlisted_summary_without_paths(bundle, tmp_path: Path):
+    directory, _, _ = bundle
+    info = load_cnn_scorer(directory).describe()
+    assert info["candidate_id"] == directory.name
+    assert info["run_label"] == "unit"
+    assert info["threshold_basis"]["value"] == _THRESHOLD
+    assert str(tmp_path) not in str(info)

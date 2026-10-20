@@ -40,6 +40,7 @@ class Readiness:
     detail: str
     model_version: str | None = None
     preprocessing_version: str | None = None
+    model_id: str | None = None
 
 
 def content_type_for(filename: str) -> str:
@@ -62,6 +63,7 @@ def check_ready(client: HttpClient) -> Readiness:
             detail="A model bundle is loaded.",
             model_version=body.get("model_version"),
             preprocessing_version=body.get("preprocessing_version"),
+            model_id=body.get("model_id"),
         )
     detail = _detail(response, default="service not ready")
     return Readiness(ready=False, detail=detail)
@@ -81,6 +83,28 @@ def score_clip(client: HttpClient, filename: str, data: bytes) -> dict[str, Any]
     if response.status_code != 200:
         raise ApiError(response.status_code, _detail(response, default="request failed"))
     return response.json()
+
+
+def fetch_model_info(client: HttpClient) -> dict[str, Any] | None:
+    """Fetch ``/model`` (notice, limitations, threshold basis); ``None`` if unavailable."""
+
+    response = client.get("/model")
+    if response.status_code != 200:
+        return None
+    payload = response.json()
+    return payload if isinstance(payload, dict) else None
+
+
+DECISION_TEXT = {
+    "flagged_spoof_like": "Flagged: spoof-like score",
+    "not_flagged": "Not flagged at this threshold",
+}
+
+
+def decision_text(decision: str) -> str:
+    """Neutral display text for a decision; never says authentic or fake."""
+
+    return DECISION_TEXT.get(decision, "Unknown decision")
 
 
 def _detail(response: Any, *, default: str) -> str:
@@ -103,8 +127,9 @@ def render(api_url: str = DEFAULT_API_URL) -> None:  # pragma: no cover - UI glu
     st.title("AI Voice Deepfake Detector")
     st.caption(
         "Upload a short clip (WAV/FLAC, 1–30 s). The score reflects how "
-        "spoof-like the audio is at the model's operating threshold — it is "
-        "not a probability of authenticity and does not verify a speaker."
+        "spoof-like the audio is at a fixed threshold. It is not a probability, "
+        "does not prove a recording is authentic or synthetic, and does not "
+        "identify or verify a speaker."
     )
 
     with httpx.Client(base_url=api_url, timeout=30.0) as client:
@@ -133,19 +158,30 @@ def render(api_url: str = DEFAULT_API_URL) -> None:  # pragma: no cover - UI glu
                 st.error(f"Cannot reach the scoring API at {api_url}.")
                 return
 
-            st.metric("Label", result["label"])
+            st.metric("Decision", decision_text(result["decision"]))
+            st.caption(result["notice"])
+            for warning in result["warnings"]:
+                st.warning(warning["message"])
             st.write(
                 {
                     "score": result["score"],
                     "score_direction": result["score_direction"],
                     "threshold": result["threshold"],
+                    "decision_rule": result["decision_rule"],
+                    "n_windows": result["n_windows"],
                     "duration_seconds": result["duration_seconds"],
                     "processing_ms": result["processing_ms"],
+                    "model_id": result["model_id"],
                     "model_version": result["model_version"],
                     "preprocessing_version": result["preprocessing_version"],
                     "request_id": result["request_id"],
                 }
             )
+        info = fetch_model_info(client)
+        if info is not None:
+            with st.expander("Limitations of this model"):
+                for item in info["limitations"]:
+                    st.markdown(f"- {item}")
 
 
 def main() -> None:  # pragma: no cover - entry point

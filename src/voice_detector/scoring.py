@@ -14,10 +14,11 @@ way everywhere.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from numbers import Real
 from pathlib import Path
-from typing import BinaryIO, Protocol, runtime_checkable
+from typing import Any, BinaryIO, Protocol, runtime_checkable
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -103,3 +104,56 @@ class Scorer(Protocol):
     preprocessing_version: str
 
     def score_source(self, source: AudioSource) -> ClipScore: ...
+
+
+def clip_score_from(result: WaveformScore, threshold: float) -> ClipScore:
+    """Apply the operating decision to a clip score.
+
+    The one place a label is derived from a score outside offline metrics, so the
+    serving API and the library entry points label a clip exactly as
+    ``decide_spoof`` does.
+    """
+
+    is_spoof = bool(decide_spoof(np.array([result.clip_score]), threshold)[0])
+    return ClipScore(
+        score=result.clip_score,
+        label="spoof" if is_spoof else "bonafide",
+        score_direction=SCORE_DIRECTION,
+        threshold=float(threshold),
+        n_windows=result.n_windows,
+    )
+
+
+@dataclass(frozen=True)
+class ScoredClip:
+    """A clip score with the per-window evidence behind it.
+
+    ``window_real_samples`` is the number of real (non-repeated) samples in each
+    window, so a caller can warn when a window is mostly repeat padding.
+    """
+
+    clip: ClipScore
+    window_scores: tuple[float, ...]
+    window_real_samples: tuple[int, ...]
+
+
+@runtime_checkable
+class ServableScorer(Protocol):
+    """What the serving layer needs from a clip scorer that takes decoded audio.
+
+    The API owns decoding and limits, so it hands the scorer a decoded mono
+    waveform at ``sample_rate_hz``. ``describe`` returns an allowlisted summary of
+    the model's run record (no filesystem paths).
+    """
+
+    model_family: str
+    model_version: str
+    preprocessing_version: str
+    aggregation_rule: str
+    sample_rate_hz: int
+    threshold: float
+    bundle_hash: str | None
+
+    def score_decoded(self, waveform: np.ndarray) -> ScoredClip: ...
+
+    def describe(self) -> Mapping[str, Any]: ...

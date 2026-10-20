@@ -249,7 +249,7 @@ Start a thin vertical slice after the baseline; finish after model selection.
 - [ ] Build POST /predict, GET /health and GET /ready with typed responses; configure the UI API URL for localhost versus container service hostname.
 - [ ] Validate WAV/FLAC, at most 20 MB and target 1–30-second decoded duration; evaluate duration coverage or explicitly narrow supported claims. Bound decoding and concurrency.
 - [ ] Handle corrupt files, unsupported formats, empty audio, silence and unavailable models clearly.
-- [ ] Return predicted class, model score, model version and processing time.
+- [ ] Return the decision at the frozen threshold (`decision`, not a verdict), model score, model version and processing time. (Implemented in PR for #9; tick after host verification.)
 - [ ] Build a Streamlit upload interface and spectrogram view. Polish is cut to score, spectrogram, measured-summary table and limitations (owner, 13 October).
 - [ ] Show the chosen model's measured evaluation summary and limitations.
 - [ ] Label uncalibrated outputs as scores; add probability or inconclusive behavior only after the corresponding optional evaluation is complete.
