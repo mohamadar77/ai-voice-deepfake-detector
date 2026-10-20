@@ -154,8 +154,8 @@ Depends on: audited manifest.
 - [ ] Decode consistently to mono 16 kHz and validate decoded audio.
 - [ ] Implement four second training windows with a documented crop and padding policy.
 - [ ] Implement deterministic evaluation windows and aggregation to one score per original clip.
-- [ ] Extract MFCC summary features for the baseline.
-- [ ] Generate log Mel spectrograms for the CNN; record feature settings in configuration. Decide the CNN short-clip/padding policy before training: no unjustified zero-padding, because it would bring back the shortcut that option D removed ([#33](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/33)).
+- [x] Extract MFCC summary features for the baseline. (`features.py`; LR scored on the locked evaluation, 2026-10-18.)
+- [x] Generate log Mel spectrograms for the CNN; record feature settings in configuration. Decide the CNN short-clip/padding policy before training: no unjustified zero-padding, because it would bring back the shortcut that option D removed ([#33](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/33)). (Used by all four CNN runs; shared with serving via `segment_to_spectrogram`, 2026-10-20.)
 - [ ] Fit feature scalers and normalization statistics on training data only.
 - [ ] Cache features using identifiers tied to the manifest and preprocessing configuration.
 - [ ] Check feature shapes, finite values, deterministic evaluation behavior and train/serve consistency.
@@ -186,13 +186,13 @@ artifacts and validations exist. Details: [review](docs/lr-baseline-review-2026-
 
 Depends on: working baseline and compute pilot.
 
-- [ ] Implement a compact spectrogram CNN with a small Multilayer Perceptron (MLP) classification head ([#33](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/33)).
-- [ ] Configure one compact architecture, loss, weighting, optimizer, early stopping and matched clean/augmented runs; record actual epochs/steps/clip exposure.
+- [x] Implement a compact spectrogram CNN with a small Multilayer Perceptron (MLP) classification head ([#33](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/33)). (`CompactMelCNN`, `cnn_train.py`.)
+- [x] Configure one compact architecture, loss, weighting, optimizer, early stopping and matched clean/augmented runs; record actual epochs/steps/clip exposure. (`configs/cnn_study.yaml`: cross-entropy, balanced weights, Adam, patience 5, max 20 epochs.)
 - [ ] Verify the training loop on a small subset before a full run.
-- [ ] Train the main model using a declared development tuning budget.
+- [x] Train the main model using a declared development tuning budget. (Four runs, clean/augmented × seeds 20261004/20261005; `docs/evaluation-results-g2.md`.)
 - [ ] Save learning curves, checkpoint, configuration and development predictions.
 - [ ] Compare baseline and CNN on the same development protocol.
-- [ ] Run a second seed if the compute budget permits; otherwise document the unmeasured training variability.
+- [x] Run a second seed if the compute budget permits; otherwise document the unmeasured training variability. (Both seeds run and reported.)
 - [ ] If the #10 pilot exceeds the CPU caps, train on owner-run Kaggle/Colab under the external-compute protocol (architecture plan). Training/development data only; development predictions recomputed on the host for parity before freezing.
 - [x] Select the deployed model using development results and practical resource requirements. (`docs/deployed-model-decision.md`, 2026-10-20: cnn_augmented_seed1 by the pre-declared dev-only rule; issue #86)
 

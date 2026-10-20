@@ -1,0 +1,51 @@
+# Measured evaluation summary shown in the Streamlit UI for the deployed model.
+# Source: docs/evaluation-results-g2.md (locked ASVspoof 2019 LA evaluation, REPORTED).
+# Values are copied from that document, never recomputed. tests/test_ui.py checks that
+# each number appears in the source row for the candidate. Changing the deployed model
+# means changing this file together with configs/serving.yaml in one reviewed change.
+version: ui-summary-v1
+candidate_id: cnn_augmented_seed1
+source_doc: docs/evaluation-results-g2.md
+threshold: -1.2519543
+framing: >-
+  Project evaluation on the ASVspoof 2019 LA evaluation partition. It is not an official
+  leaderboard result. Intervals are 95% speaker-grouped bootstrap intervals over 67
+  evaluation speakers and cover test-sampling variance only. Seed variance is large.
+  Another augmented seed scored 7.35% on the same primary endpoint.
+
+headline:
+  - label: Unseen attacks (A07-A15, A17, A18), clean EER %
+    value: 11.77
+    ci: [10.28, 13.04]
+    bona_fide: 7355
+    spoof: 54054
+  - label: Known algorithms (A16, A19), clean EER %
+    value: 3.70
+    ci: [2.76, 4.82]
+    bona_fide: 7355
+    spoof: 9828
+
+# Threshold-bound rates at the frozen threshold, all attacks pooled (mixed seen and unseen).
+pooled_clean:
+  bona_fide: 7355
+  spoof: 63882
+  eer: 10.74
+  roc_auc: 95.76
+  macro_f1: 76.42
+  balanced_accuracy: 89.78
+  human_false_positive_rate: 7.21
+  synthetic_detection_rate: 86.78
+  confusion: {tn: 6825, fp: 530, fn: 8448, tp: 55434}
+
+# Unseen-attack group under each condition. The same clips are transformed for both classes.
+robustness:
+  conditions: [clean, codec_opus_24k, noise_20db, noise_10db, silence_trim]
+  eer: [11.77, 13.06, 19.73, 20.64, 23.29]
+  human_false_positive_rate: [7.21, 32.56, 26.15, 25.33, 29.04]
+  synthetic_detection_rate: [84.72, 94.01, 84.36, 81.61, 80.72]
+
+limitations:
+  - The threshold was chosen on clean development speech. Under codec or noise it did not transfer, and human speech was flagged 25-33% of the time for this model (issue #83).
+  - Removing leading and trailing silence raised EER from 11.77% to 23.29% for this model, which is consistent with partial reliance on silence cues (issue #84).
+  - Unseen attacks are harder than known ones. A17, A15, A10 and A13 are the hardest.
+  - Scores are not calibrated probabilities. A score does not prove a recording is authentic or synthetic, and does not identify or verify a speaker.
