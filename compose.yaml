@@ -1,0 +1,49 @@
+# Presentation configuration (issue #11): API + UI from one image.
+# Set VOICE_DETECTOR_BUNDLE_DIR to the host directory of the pinned cnn_augmented_seed1 bundle.
+# Ports bind to localhost only; reach them over an SSH tunnel.
+x-hardened: &hardened
+  image: voice-detector:local
+  read_only: true
+  tmpfs:
+    - /tmp:size=256m,mode=1777
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: "no"
+
+services:
+  api:
+    <<: *hardened
+    build: .
+    command: ["voice-detector", "serve"]
+    environment:
+      VOICE_DETECTOR_API_ALLOWED_HOST: api
+    volumes:
+      - type: bind
+        source: ${VOICE_DETECTOR_BUNDLE_DIR:?set VOICE_DETECTOR_BUNDLE_DIR to the cnn_augmented_seed1 bundle directory}
+        target: /models/cnn_augmented_seed1
+        read_only: true
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/ready', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
+
+  ui:
+    <<: *hardened
+    command: ["streamlit", "run", "src/voice_detector/ui.py", "--server.port", "8501"]
+    environment:
+      VOICE_DETECTOR_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8501:8501"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3

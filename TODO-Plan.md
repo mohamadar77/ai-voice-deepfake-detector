@@ -268,8 +268,8 @@ Depends on: a working application.
 - [ ] Measure p50/p95 latency, failure rate and memory on named hardware using a declared input mix and request count.
 - [ ] Add focused tests for feature shapes, split leakage, inference preprocessing and API error handling.
 - [ ] Configure lightweight GitHub Actions checks that do not require downloading the full dataset or training models.
-- [ ] Package API and UI in containers and document one startup command.
-- [ ] Verify a clean local container startup and health check, in the presentation configuration on the DL120 host, which is the presentation machine (owner, 13 Oct), with image size and cold start recorded. Rehearse the venue access path (on-site, or an SSH tunnel to localhost-bound services) ([#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11)).
+- [x] Package API and UI in containers and document one startup command. One image, two services: `VOICE_DETECTOR_BUNDLE_DIR=<bundle> docker compose up --wait` (see `compose.yaml`; smoke: `scripts/docker_smoke.sh`).
+- [ ] Verify a clean local container startup and health check, in the presentation configuration on the DL120 host, which is the presentation machine (owner, 13 Oct), with image size and cold start recorded. Rehearse the venue access path (on-site, or an SSH tunnel to localhost-bound services) ([#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11)). **Partial, 2026-10-20 (hp-xl420gen9-01, not yet the DL120 presentation configuration):** build ~25 min, image 19.97 GB (CUDA torch wheels from `uv.lock`; shrinking needs a recorded lock decision), cold start 39 s, API 612 MiB / UI 49 MiB, `/ready` healthy, read-only root, generated-tone request scored. Venue access path not yet rehearsed.
 - [ ] Write the model card: intended use, data, language scope, metrics, known failures and limitations.
 - [ ] Document training, evaluation, artifacts, result reproduction and temporary audio handling.
 - [ ] Provide artifact retrieval instructions and checksums where redistribution is permitted.
