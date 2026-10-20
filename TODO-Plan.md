@@ -219,7 +219,7 @@ Depends on: model development complete.
 - [ ] Compute 95% bootstrap intervals grouped by original source recording. Where no source mapping exists, group by `speaker_id` (67 evaluation speakers). Paired differences use the same resamples. Disclose the speaker dependence and the small `dev_threshold` speaker count. Partly done: R7 gives slice-EER intervals; other metrics and paired differences are in PR #82 (development rehearsal passed, not yet run on evaluation data).
 - [x] Save prediction files and structured metrics; document any deviations from the original protocol.
 - [x] Label evaluation on a subset and externally pretrained models accurately; do not claim an official leaderboard result.
-- [ ] Map each proposal research question to its evidence, or to an explicit "not run": RQ2's second domain and RQ3 are deferred (deviation register).
+- [x] Map each proposal research question to its evidence, or to an explicit "not run": RQ2's second domain and RQ3 are deferred (deviation register). See "Research-question mapping" in `docs/evaluation-results-g2.md`.
 
 **Done when:** results trace to frozen inputs and model versions, and the report answers the primary model comparison and unfamiliar attack questions. Final test findings do not feed further tuning.
 

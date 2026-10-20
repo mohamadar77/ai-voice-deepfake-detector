@@ -197,6 +197,45 @@ evaluation-only duration table is pre-declared and produced by `eval-supplement`
 - The role-free train-manifest hash `b172e50c…` versus the role-bearing
   `b932b859…` gap (issues #52/#53) is unchanged.
 
+## Research-question mapping
+
+The proposal defines three research questions. This section maps each to the
+evidence produced by the locked evaluation, or to an explicit "not run".
+
+**RQ1 — Detection accuracy.** *How well can an MFCC + Logistic Regression
+baseline and a compact CNN on log-Mel spectrograms detect spoofed speech on
+ASVspoof 2019 LA unseen attacks?*
+
+Answered. Five candidates (LR baseline, 2 clean CNN seeds, 2 augmented CNN
+seeds) were evaluated under the locked protocol. Primary endpoint (clean EER on
+unseen attacks A07–A15, A17, A18): LR 19.93% [17.18, 22.80]; CNN range
+6.68–11.77% (§1). Per-attack results in §2. Pooled threshold-dependent metrics
+in §3. Seed variance is large: the two augmented seeds differ by 4.4 points
+with non-overlapping intervals.
+
+**RQ2 — Robustness and transfer.** *Does the detector survive degraded
+conditions (noise, compression) and transfer to a second evaluation domain
+(ASVspoof 2021 DF)?*
+
+Partly answered. Noise and codec robustness are reported in §4 for all five
+candidates on the unseen-attack group: EER degrades gradually, but the frozen
+clean-audio threshold does not transfer (human false-positive rates rise to
+25–33% under codec or noise for the deployed model; up to 92% for other
+candidates). Silence trimming (#84) raises CNN EER from 7–12% to 20–23%.
+
+**Not run:** the second-domain part (ASVspoof 2021 DF transfer) was deferred at
+the 2026-10-11 sign-off due to the CPU-only host and the schedule. The
+proposal's own risk rule says to defer 2021 transfer before delaying the main
+report. It leads the Phase 2 research backlog.
+
+**RQ3 — Frozen transformer embeddings.** *If resources allow, what is the
+accuracy-versus-inference-cost tradeoff of frozen wav2vec 2.0 embeddings
+compared with MFCC + LR and the CNN?*
+
+Not run. The resource gate ("if resources allow") failed: the training host is
+CPU-only and the schedule does not permit it. Deferred at the 2026-10-11
+sign-off. No transfer-learning claim is made. See the Phase 2 research backlog.
+
 ## Open items
 
 - #83 threshold transfer and noise result; #84 silence-cue follow-up (development
@@ -208,5 +247,3 @@ evaluation-only duration table is pre-declared and produced by `eval-supplement`
   three `VOICE_DETECTOR_*` variables unset the test file gives 2 passed). Development rehearsal ran in 2 min 30 s
   (5 workers) and the serial run gave the same report hash `e78ed516…`. Still to do:
   `/code-review`, then an explicit decision on running it on the evaluation store.
-- RQ mapping (proposal research questions to evidence, with RQ2's second domain and
-  RQ3 marked not run) is still to be written.
