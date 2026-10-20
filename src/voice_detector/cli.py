@@ -1936,6 +1936,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="the owner's explicit approval for analysing the evaluation partition "
         "after the report; recorded in the output",
     )
+    serve = subparsers.add_parser(
+        "serve",
+        help="serve the deployed CNN scorer over HTTP (issue #9)",
+    )
+    serve.add_argument("--config", type=Path, default=Path("configs/default.yaml"))
+    serve.add_argument("--serving-config", type=Path, default=Path("configs/serving.yaml"))
+    serve.add_argument(
+        "--check",
+        action="store_true",
+        help="verify the pinned bundle, warm up, print the model info and exit",
+    )
+    serve.add_argument(
+        "--freeze-record",
+        type=Path,
+        default=None,
+        help="cross-check the serving pins against this freeze record (JSON)",
+    )
+    serve.add_argument("--host", default=None, help="override server.host from the serving YAML")
+    serve.add_argument(
+        "--port", type=int, default=None, help="override server.port from the serving YAML"
+    )
     return parser
 
 
@@ -2040,6 +2061,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             spec_path=args.spec,
             workers=args.workers,
             authorization=args.authorization,
+        )
+    if args.command == "serve":
+        from voice_detector.serving.cli import run_serve
+
+        return run_serve(
+            config_path=args.config,
+            serving_config_path=args.serving_config,
+            check=args.check,
+            freeze_record=args.freeze_record,
+            host=args.host,
+            port=args.port,
         )
     return 2
 
