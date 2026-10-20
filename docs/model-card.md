@@ -137,14 +137,20 @@ a robustness claim.
 
 ## 6. Serving and resources
 
-Measured on hp-xl420gen9-01, CPU only, torch 2.14.1 with one thread:
+Measured on hp-xl420gen9-01 (Xeon E5-2650L v3 @ 1.80 GHz), CPU only, torch
+2.14.1+cpu with one thread:
 
-- Container cold start to healthy: 39 s; warmup of a 4-second clip 29 s (cold start), then
-  70 ms for the second warmup clip (12 seconds, multi-window). A single live request returned in about 22 ms during
-  host verification. These are single observations, **not** the p50/p95 benchmark with a
-  declared input mix, which is still to be run.
+- **Latency benchmark** (`configs/latency_benchmark.yaml`, `scripts/latency_benchmark.py`):
+  250 rounds over five clip types (1 s, 4 s, 12 s, 30 s mono 16 kHz + 4 s stereo 44.1 kHz),
+  seed 20261020, 3 warmup rounds excluded.
+  - Overall: p50 19.4 ms, p95 107.8 ms, p99 113.2 ms, 0 failures.
+  - Per-bin p50/p95: 1 s = 10.4/10.7 ms, 4 s = 11.5/11.8 ms, 12 s = 31.3/31.6 ms,
+    30 s = 102.3/113.2 ms, 4 s stereo = 19.4/19.7 ms.
+  - Peak RSS 1016 MiB.
+- Container cold start to healthy: 39 s; warmup 28.6 s (cold) then 71.8 ms (warm).
 - Memory: API container 612 MiB, UI container 49 MiB.
-- Image size 19.97 GB, because `uv.lock` resolves CUDA-capable torch wheels.
+- Image size 4.82 GB (CPU-only torch wheels via `[tool.uv.sources]`; was 19.97 GB with
+  CUDA wheels, a 76% reduction). 91 packages (was 110).
 
 ## 7. Provenance and reproducibility
 
