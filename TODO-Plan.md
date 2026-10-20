@@ -194,7 +194,7 @@ Depends on: working baseline and compute pilot.
 - [ ] Compare baseline and CNN on the same development protocol.
 - [ ] Run a second seed if the compute budget permits; otherwise document the unmeasured training variability.
 - [ ] If the #10 pilot exceeds the CPU caps, train on owner-run Kaggle/Colab under the external-compute protocol (architecture plan). Training/development data only; development predictions recomputed on the host for parity before freezing.
-- [ ] Select the deployed model using development results and practical resource requirements.
+- [x] Select the deployed model using development results and practical resource requirements. (`docs/deployed-model-decision.md`, 2026-10-20: cnn_augmented_seed1 by the pre-declared dev-only rule; issue #86)
 
 **Done when:** the CNN is reproducible and its development performance and inference cost are compared with the baseline. A stronger baseline is a valid outcome.
 
