@@ -128,7 +128,8 @@ def test_summary_numbers_appear_in_the_source_document() -> None:
         ), (key, formatted)
     pooled = summary["pooled_clean"]
     confusion = pooled["confusion"]
-    confusion_text = f"{confusion['tn']} / {confusion['fp']} / {confusion['fn']} / {confusion['tp']}"
+    cells = (confusion["tn"], confusion["fp"], confusion["fn"], confusion["tp"])
+    confusion_text = " / ".join(str(cell) for cell in cells)
     assert any(confusion_text in line for line in candidate_lines)
 
 
