@@ -301,11 +301,11 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 - [ ] Show model comparisons, known-versus-unseen attack results, the silence/duration shortcut finding, robustness findings, failure examples and limitations.
 - [ ] Demonstrate a valid recording and an invalid input; include an inconclusive example only if that feature was evaluated.
 - [ ] Describe lessons learned and future work based on measured results.
-- [ ] Prepare a presentation of at most 12 minutes; show ideas, plots and behavior rather than code.
-- [ ] Allocate approximately 1 minute motivation, 2 data, 2 methods, 3 results, 2 demo, 1 conclusions and 1 buffer.
+- [x] Prepare a presentation of at most 12 minutes; show ideas, plots and behavior rather than code. **2026-10-20:** 12-slide outline in `docs/presentation-outline.md` with speaker notes, visual suggestions and time allocations. Slides themselves still to be created.
+- [x] Allocate approximately 1 minute motivation, 2 data, 2 methods, 3 results, 2 demo, 1 conclusions and 1 buffer. See outline.
 - [ ] Freeze features and organize release artifacts.
 - [ ] Test demonstration startup and prepared samples on the presentation machine.
-- [ ] Prepare a short backup recording, saved plots and a local fallback. The demo runs remotely over an SSH tunnel to the host, so the local fallback is the presentation image, frozen bundle and demo clips loaded on the laptop's Docker (`docker save`/`load`, `linux/amd64`), verified offline with score parity in G4.
+- [ ] Prepare a short backup recording, saved plots and a local fallback. The demo runs remotely over an SSH tunnel to the host, so the local fallback is the presentation image, frozen bundle and demo clips loaded on the laptop's Docker (`docker save`/`load`, `linux/amd64`), verified offline with score parity in G4. **Partial:** `scripts/demo_backup.py` generates pre-scored fallback JSON; needs host run.
 - [ ] Rehearse and time the presentation.
 - [ ] Tag the final release and record its commit, model version and manifest hash.
 
