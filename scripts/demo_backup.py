@@ -4,8 +4,11 @@ Produces a set of pre-scored results using the ScoringService with synthetic
 test clips, saving JSON responses that can be shown if the live demo fails.
 Run on the host where the bundle is available:
 
-    VOICE_DETECTOR_BUNDLE_DIR=artifacts/cnn_augmented_seed1 \
+    VOICE_DETECTOR_ARTIFACTS_DIR=/path/to/artifacts \
         uv run python scripts/demo_backup.py --output-dir reports/demo_backup
+
+The bundle is read from <artifacts root>/<candidate_id> as configured in
+configs/serving.yaml.
 
 The output directory will contain:
   - tone_4s.json: score response for a 4-second generated tone
@@ -53,8 +56,8 @@ def main() -> None:
     from voice_detector.serving.service import ScoringService
     from voice_detector.serving.settings import load_serving_settings
 
-    settings = load_serving_settings()
-    project = load_config()
+    settings = load_serving_settings(Path("configs/serving.yaml"))
+    project = load_config(Path("configs/default.yaml"))
     scorer = build_scorer(settings, project.paths.artifacts_root)
     svc = ScoringService(scorer, settings)
     svc.warmup()
