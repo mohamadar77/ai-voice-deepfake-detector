@@ -32,12 +32,19 @@ if not CLIP_DIR:
 
 
 def _clips() -> list[Path]:
+    """Four clips from the start of the directory plus its four largest files.
+
+    The largest files are the longest clips, so the sample covers multi-window scoring.
+    """
+
     directory = Path(str(CLIP_DIR))
     if any("eval" in part.lower() for part in directory.parts):
         pytest.fail("refusing a clip directory that looks like the evaluation partition")
-    clips = sorted([*directory.glob("*.flac"), *directory.glob("*.wav")])[:8]
-    assert clips, "no .flac/.wav clips found"
-    return clips
+    clips = sorted([*directory.glob("*.flac"), *directory.glob("*.wav")])
+    assert len(clips) >= 8, "need at least 8 .flac/.wav clips"
+    longest = sorted(clips, key=lambda path: path.stat().st_size, reverse=True)[:4]
+    chosen = list(dict.fromkeys([*clips[:4], *longest]))
+    return chosen
 
 
 def test_served_score_equals_the_library_score_exactly():
@@ -57,4 +64,5 @@ def test_served_score_equals_the_library_score_exactly():
         assert served.threshold == settings.model.expected_threshold
         assert served.bundle_hash == settings.model.expected_bundle_hash
         windows_seen.add(min(served.n_windows, 2))
-    assert windows_seen, "no clips scored"
+    assert 1 in windows_seen, "no single-window clip was covered"
+    assert 2 in windows_seen, "no multi-window clip was covered; point the test at longer clips"
