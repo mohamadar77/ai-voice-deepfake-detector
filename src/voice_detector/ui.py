@@ -10,9 +10,17 @@ without a running server. Streamlit itself is imported lazily inside
 
 from __future__ import annotations
 
+import io
 import os
 from dataclasses import dataclass
-from typing import Any, Protocol
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Protocol
+
+import numpy as np
+
+if TYPE_CHECKING:
+    from voice_detector.cnn_dataset import MelSpec
+    from voice_detector.preprocessing import AudioConfig
 
 DEFAULT_API_URL = os.environ.get("VOICE_DETECTOR_API_URL", "http://127.0.0.1:8000")
 _CONTENT_TYPES = {".wav": "audio/wav", ".flac": "audio/flac"}
@@ -107,6 +115,111 @@ def decision_text(decision: str) -> str:
     return DECISION_TEXT.get(decision, "Unknown decision")
 
 
+DEFAULT_SUMMARY_PATH = Path(
+    os.environ.get(
+        "VOICE_DETECTOR_UI_SUMMARY",
+        str(Path(__file__).resolve().parents[2] / "configs" / "deployed_model_summary.yaml"),
+    )
+)
+
+
+def load_evaluation_summary(path: Path = DEFAULT_SUMMARY_PATH) -> dict[str, Any]:
+    """Load the committed measured-evaluation summary for the deployed model."""
+
+    import yaml
+
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or payload.get("version") != "ui-summary-v1":
+        raise ValueError(f"{path} is not a ui-summary-v1 evaluation summary")
+    return payload
+
+
+def headline_rows(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    """Headline EER rows with interval and class counts."""
+
+    return [
+        {
+            "Slice": item["label"],
+            "EER %": f"{item['value']:.2f}",
+            "95% CI": f"[{item['ci'][0]:.2f}, {item['ci'][1]:.2f}]",
+            "Human clips": item["bona_fide"],
+            "Synthetic clips": item["spoof"],
+        }
+        for item in summary["headline"]
+    ]
+
+
+def robustness_rows(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    """One row per robustness condition: EER, human false-positive and detection rates."""
+
+    block = summary["robustness"]
+    return [
+        {
+            "Condition": condition,
+            "EER %": f"{eer:.2f}",
+            "Human flagged % (FPR)": f"{fpr:.2f}",
+            "Synthetic flagged % (SDR)": f"{sdr:.2f}",
+        }
+        for condition, eer, fpr, sdr in zip(
+            block["conditions"],
+            block["eer"],
+            block["human_false_positive_rate"],
+            block["synthetic_detection_rate"],
+            strict=True,
+        )
+    ]
+
+
+def display_spectrogram(
+    data: bytes,
+    mel: MelSpec | None = None,
+    audio: AudioConfig | None = None,
+) -> np.ndarray:
+    """Un-normalized log-Mel of the first window, ``(n_mels, n_frames)``, for display.
+
+    Uses the evaluation decoder and ``segment_to_spectrogram`` so the picture comes
+    from the same numerics the scorer uses. The bundle's per-channel standardization
+    is skipped on purpose: it is model-specific and would hide the real energy.
+    The audio is decoded from memory only; nothing is written to disk.
+    """
+
+    from voice_detector.cnn_dataset import MelSpec as _MelSpec
+    from voice_detector.cnn_dataset import repeat_pad, segment_to_spectrogram
+    from voice_detector.preprocessing import AudioConfig as _AudioConfig
+    from voice_detector.preprocessing import load_waveform
+
+    mel = mel or _MelSpec()
+    audio = audio or _AudioConfig(sample_rate_hz=mel.sample_rate_hz)
+    waveform = load_waveform(io.BytesIO(data), audio)
+    segment = repeat_pad(waveform, mel.window_samples).astype(np.float32)
+    spectrogram = segment_to_spectrogram(segment, mel.transform(), None, None)
+    return spectrogram.squeeze(0).numpy()
+
+
+def spectrogram_figure(spectrogram: np.ndarray, mel: MelSpec | None = None) -> Any:
+    """Matplotlib figure of a log-Mel array; the caller closes it."""
+
+    from matplotlib.figure import Figure
+
+    from voice_detector.cnn_dataset import MelSpec as _MelSpec
+
+    mel = mel or _MelSpec()
+    figure = Figure(figsize=(7, 3), layout="constrained")
+    axis = figure.subplots()
+    seconds = spectrogram.shape[1] * mel.hop_length / mel.sample_rate_hz
+    image = axis.imshow(
+        spectrogram,
+        origin="lower",
+        aspect="auto",
+        extent=(0.0, seconds, 0.0, mel.n_mels),
+    )
+    axis.set_xlabel("Time (s), first 4 s window")
+    axis.set_ylabel("Mel bin")
+    axis.set_title("Log-Mel spectrogram (display only, not normalized)")
+    figure.colorbar(image, ax=axis, label="log energy")
+    return figure
+
+
 def _detail(response: Any, *, default: str) -> str:
     try:
         payload = response.json()
@@ -149,8 +262,9 @@ def render(api_url: str = DEFAULT_API_URL) -> None:  # pragma: no cover - UI glu
 
         upload = st.file_uploader("Audio clip", type=["wav", "flac"])
         if upload is not None and st.button("Score clip", disabled=not readiness.ready):
+            data = upload.getvalue()
             try:
-                result = score_clip(client, upload.name, upload.getvalue())
+                result = score_clip(client, upload.name, data)
             except ApiError as error:
                 st.error(error.detail)
                 return
@@ -177,11 +291,42 @@ def render(api_url: str = DEFAULT_API_URL) -> None:  # pragma: no cover - UI glu
                     "request_id": result["request_id"],
                 }
             )
+            try:
+                figure = spectrogram_figure(display_spectrogram(data))
+                st.pyplot(figure)
+                figure.clear()
+            except Exception:  # noqa: BLE001 - the score stands even if the picture fails
+                st.info("The spectrogram could not be drawn for this clip.")
+            del data  # the page holds no other copy; Streamlit drops the upload on rerun
+
+        _render_evaluation_summary(st)
         info = fetch_model_info(client)
         if info is not None:
             with st.expander("Limitations of this model"):
                 for item in info["limitations"]:
                     st.markdown(f"- {item}")
+
+
+def _render_evaluation_summary(st: Any) -> None:  # pragma: no cover - UI glue
+    """Show the measured evaluation of the deployed model, with its caveats."""
+
+    try:
+        summary = load_evaluation_summary()
+    except (OSError, ValueError):
+        st.info("The measured evaluation summary is not available in this deployment.")
+        return
+    with st.expander("How well does this model work? (measured, locked evaluation)"):
+        st.caption(summary["framing"].strip())
+        st.markdown("**Headline (clean audio, 95% speaker-grouped interval)**")
+        st.table(headline_rows(summary))
+        st.markdown("**Unseen attacks under degraded audio, at the frozen threshold**")
+        st.table(robustness_rows(summary))
+        st.caption(
+            f"Frozen threshold {summary['threshold']}. EER does not depend on the threshold; "
+            "the flagged rates do. Source: " + summary["source_doc"]
+        )
+        for item in summary["limitations"]:
+            st.markdown(f"- {item}")
 
 
 def main() -> None:  # pragma: no cover - entry point
