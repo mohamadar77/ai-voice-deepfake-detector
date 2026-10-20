@@ -1,0 +1,29 @@
+# Declared input mix and parameters for the p50/p95 latency benchmark.
+# Run: uv run python scripts/latency_benchmark.py [--config configs/latency_benchmark.yaml]
+
+seed: 20261020
+warmup_rounds: 3
+rounds_per_clip: 50
+
+# Durations cover the accepted range boundaries and the typical 4-second window.
+input_mix:
+  - label: "1s (minimum)"
+    duration_seconds: 1.0
+    sample_rate_hz: 16000
+    channels: 1
+  - label: "4s (one window)"
+    duration_seconds: 4.0
+    sample_rate_hz: 16000
+    channels: 1
+  - label: "12s (multi-window)"
+    duration_seconds: 12.0
+    sample_rate_hz: 16000
+    channels: 1
+  - label: "30s (maximum)"
+    duration_seconds: 30.0
+    sample_rate_hz: 16000
+    channels: 1
+  - label: "4s stereo 44.1kHz (resample path)"
+    duration_seconds: 4.0
+    sample_rate_hz: 44100
+    channels: 2
