@@ -219,7 +219,7 @@ Depends on: model development complete.
 - [ ] Compute 95% bootstrap intervals grouped by original source recording. Where no source mapping exists, group by `speaker_id` (67 evaluation speakers). Paired differences use the same resamples. Disclose the speaker dependence and the small `dev_threshold` speaker count. Partly done: R7 gives slice-EER intervals; other metrics and paired differences are in PR #82 (development rehearsal passed, not yet run on evaluation data).
 - [x] Save prediction files and structured metrics; document any deviations from the original protocol.
 - [x] Label evaluation on a subset and externally pretrained models accurately; do not claim an official leaderboard result.
-- [ ] Map each proposal research question to its evidence, or to an explicit "not run": RQ2's second domain and RQ3 are deferred (deviation register).
+- [x] Map each proposal research question to its evidence, or to an explicit "not run": RQ2's second domain and RQ3 are deferred (deviation register). **2026-10-20:** "Research-question mapping" section added to `docs/evaluation-results-g2.md` (PR #94).
 
 **Done when:** results trace to frozen inputs and model versions, and the report answers the primary model comparison and unfamiliar attack questions. Final test findings do not feed further tuning.
 
@@ -265,11 +265,11 @@ Depends on: a working application.
 
 - [ ] Log request ID, model version, audio duration, status and latency without raw recordings or secrets.
 - [ ] Long host jobs (extraction, CNN training, locked scoring) run detached (`tmux`/`systemd-run --user`) with file logs and are resumable (per-epoch checkpoints with optimizer/RNG state; atomic cache writes). API/UI bind to localhost and are reached via an SSH tunnel.
-- [ ] Measure p50/p95 latency, failure rate and memory on named hardware using a declared input mix and request count.
+- [x] Measure p50/p95 latency, failure rate and memory on named hardware using a declared input mix and request count. **2026-10-20:** benchmark on hp-xl420gen9-01 (Xeon E5-2650L v3 @ 1.80 GHz), 250 rounds × 5 clip types, 0 failures, p50 19.4 ms, p95 107.8 ms overall, peak RSS 1016 MiB. Config: `configs/latency_benchmark.yaml`; script: `scripts/latency_benchmark.py`.
 - [ ] Add focused tests for feature shapes, split leakage, inference preprocessing and API error handling.
 - [ ] Configure lightweight GitHub Actions checks that do not require downloading the full dataset or training models.
 - [x] Package API and UI in containers and document one startup command. One image, two services: `VOICE_DETECTOR_BUNDLE_DIR=<bundle> docker compose up --wait` (see `compose.yaml`; smoke: `scripts/docker_smoke.sh`).
-- [ ] Verify a clean local container startup and health check, in the presentation configuration on the DL120 host, which is the presentation machine (owner, 13 Oct), with image size and cold start recorded. Rehearse the venue access path (on-site, or an SSH tunnel to localhost-bound services) ([#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11)). **Partial, 2026-10-20 (hp-xl420gen9-01, not yet the DL120 presentation configuration):** build ~25 min, image 19.97 GB (CUDA torch wheels from `uv.lock`; shrinking needs a recorded lock decision), cold start 39 s, API 612 MiB / UI 49 MiB, `/ready` healthy, read-only root, generated-tone request scored. Venue access path not yet rehearsed.
+- [ ] Verify a clean local container startup and health check, in the presentation configuration on the DL120 host, which is the presentation machine (owner, 13 Oct), with image size and cold start recorded. Rehearse the venue access path (on-site, or an SSH tunnel to localhost-bound services) ([#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11)). **Partial, 2026-10-20 (hp-xl420gen9-01, not yet the DL120 presentation configuration):** build ~25 min, image 4.82 GB (CPU-only torch wheels via `[tool.uv.sources]`; was 19.97 GB with CUDA wheels), cold start 39 s, warmup 28.6 s + 71.8 ms, API 612 MiB / UI 49 MiB, `/ready` healthy, read-only root, `serve --check` bundle hash verified. Venue access path not yet rehearsed.
 - [x] Write the model card: intended use, data, language scope, metrics, known failures and limitations. See `docs/model-card.md`.
 - [ ] Document training, evaluation, artifacts, result reproduction and temporary audio handling.
 - [ ] Provide artifact retrieval instructions and checksums where redistribution is permitted.

@@ -3,8 +3,8 @@
 #   UI:  streamlit run src/voice_detector/ui.py
 # The image holds code and configs only. The pinned model bundle is mounted read-only at
 # /models/<candidate_id>; data, artifacts, reports and uploaded audio are never baked in.
-# Dependencies come from uv.lock unchanged (same torch as evaluation), so the image is large:
-# the lock resolves the CUDA-capable torch wheels. A CPU-only lock needs a recorded decision.
+# Dependencies come from uv.lock unchanged (same torch as evaluation). The lock resolves
+# CPU-only torch wheels (torch==2.14.1+cpu) via [tool.uv.sources]; image is ~4.8 GB.
 FROM python:3.12-slim-bookworm
 
 ARG UV_VERSION=0.12.0
