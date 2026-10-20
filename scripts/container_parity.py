@@ -19,6 +19,7 @@ import json
 import platform
 import random
 import time
+import urllib.error
 import urllib.request
 import uuid
 from pathlib import Path
@@ -40,8 +41,11 @@ def _post(url: str, data: bytes, filename: str) -> dict:
     request = urllib.request.Request(
         url, data=body, headers={"Content-Type": content_type}, method="POST"
     )
-    with urllib.request.urlopen(request, timeout=120) as response:  # noqa: S310 - local URL
-        return json.load(response)
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:  # noqa: S310 - local URL
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        return {"http_status": error.code, "error": error.read().decode(errors="replace")[:300]}
 
 
 def _pick(clip_dir: Path, count: int, seed: int) -> list[Path]:
@@ -84,9 +88,20 @@ def main() -> None:
             reference = {row["clip_id"]: float(row["score"]) for row in csv.DictReader(handle)}
 
     rows = []
+    rejected: list[dict] = []
     for clip in _pick(args.clip_dir, args.count, args.seed):
         served = _post(args.url, clip.read_bytes(), clip.name)
         library = scorer.score_waveform(load_waveform(clip, audio))
+        if "http_status" in served:
+            rejected.append(
+                {
+                    "clip_id": clip.stem,
+                    "n_windows": library.n_windows,
+                    "library_score": library.clip_score,
+                    **served,
+                }
+            )
+            continue
         row = {
             "clip_id": clip.stem,
             "n_windows": library.n_windows,
@@ -128,10 +143,13 @@ def main() -> None:
             "reference_flag",
             [r for r in rows if "reference_score" in r],
         ),
+        "n_rejected_by_service": len(rejected),
+        "rejected": rejected,
         "rows": rows,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
+    print("n_rejected_by_service", len(rejected), json.dumps(rejected[:3]))
     keys = ("container_vs_library", "container_vs_library_multiwindow", "container_vs_reference")
     for key in keys:
         print(key, json.dumps(report[key]))
