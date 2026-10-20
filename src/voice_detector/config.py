@@ -53,6 +53,12 @@ def _expand_values(value: Any) -> Any:
     return value
 
 
+def expand_environment_values(value: Any) -> Any:
+    """Expand ``${VAR}`` / ``${VAR:-default}`` in every string of a nested value."""
+
+    return _expand_values(value)
+
+
 def load_config(path: Path, *, project_root: Path | None = None) -> ProjectConfig:
     """Load a YAML configuration and resolve local storage paths."""
 

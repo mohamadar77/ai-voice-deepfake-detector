@@ -38,6 +38,7 @@ from voice_detector.prediction_store import (
     validate_prediction_completeness,
     write_predictions,
 )
+from voice_detector.runtime import configure_torch
 from voice_detector.scoring import (
     CNN_AGGREGATION_RULE,
     DECISION_RULE,
@@ -624,19 +625,6 @@ def score_clip(row: Mapping[str, Any], condition: str, ctx: WorkerContext) -> Cl
         shorter=int(conditioned.samples_delta < 0),
         kept_original=int(conditioned.kept_original),
     )
-
-
-def configure_torch(threads: int) -> None:
-    """Fix torch execution settings for scoring; a no-op when torch is absent."""
-
-    try:
-        import torch
-    except ImportError:
-        return
-    torch.set_num_threads(threads)
-    with contextlib.suppress(RuntimeError):  # already set, or parallel work has started
-        torch.set_num_interop_threads(1)
-    torch.use_deterministic_algorithms(True)
 
 
 def production_worker_context(

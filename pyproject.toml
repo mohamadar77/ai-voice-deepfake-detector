@@ -45,6 +45,9 @@ packages = ["src/voice_detector"]
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
 testpaths = ["tests"]
+markers = [
+    "parity: opt-in host test comparing serving scores with the evaluation scoring path (needs a real bundle and clips)",
+]
 
 [tool.ruff]
 line-length = 100

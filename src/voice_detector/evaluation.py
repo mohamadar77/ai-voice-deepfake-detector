@@ -27,6 +27,7 @@ from typing import Any
 
 import yaml
 
+from voice_detector.hashing import hash_directory  # noqa: F401 - re-exported for callers
 from voice_detector.manifest import compute_manifest_hash, git_commit, package_version
 from voice_detector.metrics import METRICS_VERSION
 from voice_detector.scoring import DECISION_RULE, SCORE_DIRECTION
@@ -165,21 +166,6 @@ def _hash_file(path: Path) -> str:
     with open(path, "rb") as fh:
         for chunk in iter(lambda: fh.read(65536), b""):
             digest.update(chunk)
-    return digest.hexdigest()
-
-
-def hash_directory(directory: Path) -> str:
-    """SHA-256 over every file's relative path and bytes, in sorted order."""
-
-    digest = hashlib.sha256()
-    for path in sorted(directory.rglob("*")):
-        if path.is_file():
-            digest.update(path.relative_to(directory).as_posix().encode("utf-8"))
-            digest.update(b"|")
-            with open(path, "rb") as fh:
-                for chunk in iter(lambda: fh.read(65536), b""):
-                    digest.update(chunk)
-            digest.update(b"\n")
     return digest.hexdigest()
 
 

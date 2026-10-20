@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -22,15 +23,16 @@ import torch
 
 from voice_detector.cnn_dataset import MelSpec, repeat_pad, segment_to_spectrogram
 from voice_detector.cnn_pilot import CompactMelCNN
-from voice_detector.evaluation import hash_directory
+from voice_detector.hashing import hash_directory
 from voice_detector.preprocessing import AudioConfig, load_waveform, window_spans
 from voice_detector.scoring import (
     CNN_AGGREGATION_RULE,
     SCORE_DIRECTION,
     AudioSource,
     ClipScore,
+    ScoredClip,
     WaveformScore,
-    decide_spoof,
+    clip_score_from,
 )
 
 CNN_SCHEMA_VERSION = "cnn-study-v1"
@@ -103,6 +105,26 @@ def _check_run_record(record: dict[str, Any]) -> None:
     )
 
 
+_THRESHOLD_BASIS_KEYS = ("value", "decision_rule", "target_fpr", "achieved_fpr", "n_bonafide")
+
+
+def _describe_record(record: dict[str, Any], candidate_id: str) -> dict[str, Any]:
+    """Allowlisted run-record summary for ``CnnClipScorer.describe`` (no paths)."""
+
+    mel = record.get("mel_config", {})
+    threshold = record.get("threshold", {})
+    return {
+        "candidate_id": candidate_id,
+        "run_label": record.get("run_label"),
+        "model_family": "cnn",
+        "mel": {
+            key: mel.get(key)
+            for key in ("sample_rate_hz", "n_fft", "hop_length", "n_mels", "window_seconds")
+        },
+        "threshold_basis": {k: threshold[k] for k in _THRESHOLD_BASIS_KEYS if k in threshold},
+    }
+
+
 class CnnClipScorer:
     """Scores decoded waveforms with a loaded CNN bundle."""
 
@@ -119,6 +141,8 @@ class CnnClipScorer:
         *,
         model_version: str,
         preprocessing_version: str,
+        bundle_hash: str | None = None,
+        description: Mapping[str, Any] | None = None,
     ) -> None:
         self._model = model.eval()
         self._mel_spec = mel_spec
@@ -128,13 +152,16 @@ class CnnClipScorer:
         self.threshold = float(threshold)
         self.model_version = model_version
         self.preprocessing_version = preprocessing_version
+        # Set only when the bundle was hash-verified at load time.
+        self.bundle_hash = bundle_hash
+        self._description = dict(description or {})
 
     @property
     def sample_rate_hz(self) -> int:
         return self._mel_spec.sample_rate_hz
 
-    def window_scores(self, waveform: np.ndarray) -> np.ndarray:
-        """Per-window ``logit[spoof] - logit[bonafide]`` as float64."""
+    def _windows(self, waveform: np.ndarray) -> tuple[np.ndarray, tuple[tuple[int, int], ...]]:
+        """Per-window ``logit[spoof] - logit[bonafide]`` (float64) and the window spans."""
 
         if waveform.ndim != 1 or waveform.size == 0:
             raise ValueError("waveform must be a non-empty 1-D array")
@@ -160,7 +187,12 @@ class CnnClipScorer:
                 batch = torch.stack(spectrograms[offset : offset + _WINDOW_CHUNK])
                 logits = self._model(batch)
                 scores.append((logits[:, 1] - logits[:, 0]).cpu().numpy())
-        return np.concatenate(scores).astype(np.float64)
+        return np.concatenate(scores).astype(np.float64), spans
+
+    def window_scores(self, waveform: np.ndarray) -> np.ndarray:
+        """Per-window ``logit[spoof] - logit[bonafide]`` as float64."""
+
+        return self._windows(waveform)[0]
 
     def score_waveform(self, waveform: np.ndarray) -> WaveformScore:
         window_scores = self.window_scores(waveform)
@@ -168,19 +200,29 @@ class CnnClipScorer:
             clip_score=float(np.mean(window_scores)), n_windows=int(window_scores.size)
         )
 
+    def score_decoded(self, waveform: np.ndarray) -> ScoredClip:
+        """Score a decoded waveform and keep the per-window evidence (serving entry point)."""
+
+        window_scores, spans = self._windows(waveform)
+        result = WaveformScore(
+            clip_score=float(np.mean(window_scores)), n_windows=int(window_scores.size)
+        )
+        return ScoredClip(
+            clip=clip_score_from(result, self.threshold),
+            window_scores=tuple(float(v) for v in window_scores),
+            window_real_samples=tuple(stop - start for start, stop in spans),
+        )
+
+    def describe(self) -> Mapping[str, Any]:
+        """Allowlisted run-record summary; never contains filesystem paths."""
+
+        return dict(self._description)
+
     def score_source(self, source: AudioSource) -> ClipScore:
         """Decode, score and label one source (the entry point for #9)."""
 
         waveform = load_waveform(source, AudioConfig(sample_rate_hz=self.sample_rate_hz))
-        result = self.score_waveform(waveform)
-        is_spoof = bool(decide_spoof(np.array([result.clip_score]), self.threshold)[0])
-        return ClipScore(
-            score=result.clip_score,
-            label="spoof" if is_spoof else "bonafide",
-            score_direction=SCORE_DIRECTION,
-            threshold=self.threshold,
-            n_windows=result.n_windows,
-        )
+        return clip_score_from(self.score_waveform(waveform), self.threshold)
 
 
 def load_cnn_scorer(
@@ -197,6 +239,7 @@ def load_cnn_scorer(
     """
 
     bundle_dir = Path(bundle_dir)
+    verified_hash: str | None = None
     if expected_bundle_hash is not None:
         actual = hash_directory(bundle_dir)
         _require(
@@ -204,6 +247,7 @@ def load_cnn_scorer(
             f"bundle hash mismatch for {bundle_dir.name!r}: "
             f"declared={expected_bundle_hash[:16]}…, current={actual[:16]}…",
         )
+        verified_hash = actual
 
     record_path = bundle_dir / CNN_RUN_RECORD
     for name in (CNN_RUN_RECORD, CNN_CHECKPOINT, CNN_NORM_STATS):
@@ -263,4 +307,6 @@ def load_cnn_scorer(
         float(threshold),
         model_version=f"cnn:{record.get('run_label', bundle_dir.name)}",
         preprocessing_version=str(record["mel_config"].get("mel_version", "mel-v1")),
+        bundle_hash=verified_hash,
+        description=_describe_record(record, bundle_dir.name),
     )
