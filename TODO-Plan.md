@@ -194,7 +194,7 @@ Depends on: working baseline and compute pilot.
 - [ ] Compare baseline and CNN on the same development protocol.
 - [ ] Run a second seed if the compute budget permits; otherwise document the unmeasured training variability.
 - [ ] If the #10 pilot exceeds the CPU caps, train on owner-run Kaggle/Colab under the external-compute protocol (architecture plan). Training/development data only; development predictions recomputed on the host for parity before freezing.
-- [ ] Select the deployed model using development results and practical resource requirements.
+- [x] Select the deployed model using development results and practical resource requirements. (`docs/deployed-model-decision.md`, 2026-10-20: cnn_augmented_seed1 by the pre-declared dev-only rule; issue #86)
 
 **Done when:** the CNN is reproducible and its development performance and inference cost are compared with the baseline. A stronger baseline is a valid outcome.
 
@@ -202,23 +202,23 @@ Depends on: working baseline and compute pilot.
 
 Depends on: model development complete.
 
-- [ ] Write `docs/evaluation-protocol.md` before final test predictions are inspected ([#35](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/35)).
-- [ ] Rehearse the whole freeze → score → metrics → report pipeline on `dev_select` with the LR bundle before the real freeze. No evaluation data is used.
-- [ ] Freeze LR, clean CNN and augmented CNN bundles (plus every declared seed), score direction, thresholds, membership, conditions, metrics, slices and the report template/outline before inspection.
-- [ ] Implement DRAFT/FROZEN/SCORED/REPORTED records, hash validation and refusal of silent result overwrite; a YAML Boolean is insufficient.
+- [x] Write `docs/evaluation-protocol.md` before final test predictions are inspected ([#35](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/35)).
+- [x] Rehearse the whole freeze → score → metrics → report pipeline on `dev_select` with the LR bundle before the real freeze. No evaluation data is used.
+- [x] Freeze LR, clean CNN and augmented CNN bundles (plus every declared seed), score direction, thresholds, membership, conditions, metrics, slices and the report template/outline before inspection.
+- [x] Implement DRAFT/FROZEN/SCORED/REPORTED records, hash validation and refusal of silent result overwrite; a YAML Boolean is insufficient.
 - [ ] Verify no final test data was used to fit scalers, select checkpoints, calibrate outputs or choose thresholds.
-- [ ] Generate clip level predictions on the locked ASVspoof 2019 LA evaluation set.
-- [ ] Report EER, macro F1, balanced accuracy, ROC AUC, class counts and confusion matrices.
-- [ ] Report human false positive rate and synthetic detection rate at the development chosen threshold. Treat the proposed 5% development false alarm target as a target, not a test guarantee.
-- [ ] Report unfamiliar attack detection rates/counts; predeclare and disclose a bona fide comparison pool when calculating attack-specific EER/AUC.
-- [ ] Report **known versus unseen attacks** as separate slices:
+- [x] Generate clip level predictions on the locked ASVspoof 2019 LA evaluation set. (R6, 2026-10-18; `docs/evaluation-results-g2.md`)
+- [x] Report EER, macro F1, balanced accuracy, ROC AUC, class counts and confusion matrices. (R7)
+- [x] Report human false positive rate and synthetic detection rate at the development chosen threshold. Treat the proposed 5% development false alarm target as a target, not a test guarantee.
+- [x] Report unfamiliar attack detection rates/counts; predeclare and disclose a bona fide comparison pool when calculating attack-specific EER/AUC.
+- [x] Report **known versus unseen attacks** as separate slices:
   - development A01–A06: known algorithms, unseen speakers;
   - evaluation A16/A19: these reuse the A04/A06 algorithms;
   - evaluation A07–A15, A17, A18: unseen algorithms; this is the headline unseen result, never pooled with A16/A19.
-- [ ] Predeclare duration bins <1, 1–<2, 2–<4, 4–10 and >10 s with per-class counts. Handle sub-1 s clips per #14.
-- [ ] Compute 95% bootstrap intervals grouped by original source recording. Where no source mapping exists, group by `speaker_id` (67 evaluation speakers). Paired differences use the same resamples. Disclose the speaker dependence and the small `dev_threshold` speaker count.
-- [ ] Save prediction files and structured metrics; document any deviations from the original protocol.
-- [ ] Label evaluation on a subset and externally pretrained models accurately; do not claim an official leaderboard result.
+- [x] Predeclare duration bins <1, 1–<2, 2–<4, 4–10 and >10 s with per-class counts. Handle sub-1 s clips per #14.
+- [ ] Compute 95% bootstrap intervals grouped by original source recording. Where no source mapping exists, group by `speaker_id` (67 evaluation speakers). Paired differences use the same resamples. Disclose the speaker dependence and the small `dev_threshold` speaker count. Partly done: R7 gives slice-EER intervals; other metrics and paired differences are in PR #82 (development rehearsal passed, not yet run on evaluation data).
+- [x] Save prediction files and structured metrics; document any deviations from the original protocol.
+- [x] Label evaluation on a subset and externally pretrained models accurately; do not claim an official leaderboard result.
 - [ ] Map each proposal research question to its evidence, or to an explicit "not run": RQ2's second domain and RQ3 are deferred (deviation register).
 
 **Done when:** results trace to frozen inputs and model versions, and the report answers the primary model comparison and unfamiliar attack questions. Final test findings do not feed further tuning.
