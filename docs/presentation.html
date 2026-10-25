@@ -1,0 +1,737 @@
+<title>Voice Deepfake Detector</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;1,9..144,400&display=swap">
+<style>
+/* Layout: full-viewport slide deck with keyboard/click navigation */
+:root {
+  --bg: #fafaf8;
+  --fg: #1a1a1a;
+  --fg-muted: #5a5a56;
+  --accent: #2d5a3d;
+  --accent-light: #e8f0eb;
+  --surface: #f0efec;
+  --border: #d8d6d0;
+  --code-bg: #eceae5;
+  --danger: #a83232;
+  --warn: #b8860b;
+  --good: #2d7a4d;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141413;
+    --fg: #e8e8e4;
+    --fg-muted: #9a9a94;
+    --accent: #5daa7a;
+    --accent-light: #1e2e24;
+    --surface: #1e1e1c;
+    --border: #333330;
+    --code-bg: #222220;
+    --danger: #e06060;
+    --warn: #d4a030;
+    --good: #5daa7a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141413;
+  --fg: #e8e8e4;
+  --fg-muted: #9a9a94;
+  --accent: #5daa7a;
+  --accent-light: #1e2e24;
+  --surface: #1e1e1c;
+  --border: #333330;
+  --code-bg: #222220;
+  --danger: #e06060;
+  --warn: #d4a030;
+  --good: #5daa7a;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; }
+
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+  overflow: hidden;
+}
+
+.deck {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.slide {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  padding: 2rem 1rem;
+  max-width: 56rem;
+  margin: 0 auto;
+  width: 100%;
+  overflow-y: auto;
+}
+.slide.active { display: flex; }
+
+.slide-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  line-height: 1.15;
+  text-wrap: balance;
+  margin-bottom: 1rem;
+  color: var(--fg);
+}
+
+h2 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  line-height: 1.2;
+  text-wrap: balance;
+  margin-bottom: 1rem;
+  color: var(--fg);
+}
+
+h3 {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: var(--fg-muted);
+  margin-bottom: 1.5rem;
+}
+
+p, li {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--fg);
+}
+
+ul {
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+li::marker { color: var(--accent); }
+
+.highlight {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.warn { color: var(--warn); font-weight: 700; }
+.danger { color: var(--danger); font-weight: 700; }
+.good { color: var(--good); font-weight: 700; }
+
+code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  background: var(--code-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+
+/* Tables */
+.table-wrap {
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+th {
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+tr.deployed td { background: var(--accent-light); }
+
+/* Stat cards */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+.stat {
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+.stat-value {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.2;
+}
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-top: 0.15rem;
+}
+
+/* Callout */
+.callout {
+  background: var(--accent-light);
+  border-left: 3px solid var(--accent);
+  padding: 0.75rem 1rem;
+  border-radius: 0 4px 4px 0;
+  margin: 1rem 0;
+  font-size: 0.95rem;
+}
+
+.negative {
+  background: color-mix(in srgb, var(--danger) 8%, var(--bg));
+  border-left-color: var(--danger);
+}
+
+/* Heatmap */
+.heatmap {
+  display: grid;
+  gap: 2px;
+  margin: 1rem 0;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.heatmap-cell {
+  padding: 0.3rem 0.4rem;
+  text-align: center;
+  border-radius: 3px;
+  font-weight: 500;
+}
+.heatmap-header {
+  font-weight: 700;
+  color: var(--fg-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+}
+
+/* Pipeline diagram */
+.pipeline {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+  font-size: 0.85rem;
+}
+.pipeline-step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.pipeline-arrow {
+  color: var(--fg-muted);
+  font-size: 1.1rem;
+}
+
+/* Bottom bar */
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+.controls button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+}
+.controls button:hover { background: var(--accent-light); }
+.controls button:disabled { opacity: 0.3; cursor: default; }
+.controls button:disabled:hover { background: var(--surface); }
+
+.progress-bar {
+  height: 2px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+/* Speaker notes toggle */
+.speaker-note {
+  display: none;
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  font-style: italic;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+}
+.show-notes .speaker-note { display: block; }
+
+/* Slide-specific */
+.title-slide {
+  text-align: center;
+  justify-content: center;
+}
+.title-slide h1 {
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  margin-bottom: 0.5rem;
+}
+.title-slide .subtitle {
+  font-size: 1.2rem;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin: 1rem 0;
+}
+@media (max-width: 600px) {
+  .two-col { grid-template-columns: 1fr; }
+}
+
+.conclusion-list {
+  counter-reset: findings;
+  list-style: none;
+  padding-left: 0;
+}
+.conclusion-list li {
+  counter-increment: findings;
+  padding-left: 2rem;
+  position: relative;
+  margin-bottom: 0.5rem;
+}
+.conclusion-list li::before {
+  content: counter(findings);
+  position: absolute;
+  left: 0;
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.future-list {
+  list-style: none;
+  padding-left: 0;
+}
+.future-list li {
+  padding-left: 1.25rem;
+  position: relative;
+}
+.future-list li::before {
+  content: "—";
+  position: absolute;
+  left: 0;
+  color: var(--fg-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill { transition: none; }
+}
+</style>
+
+<div class="deck">
+  <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+
+  <!-- Slide 1: Title -->
+  <div class="slide title-slide active" data-slide="1">
+    <div class="slide-number">Slide 1 of 12</div>
+    <h1>AI Voice Deepfake Detector</h1>
+    <p class="subtitle">Detecting Synthesized Speech on ASVspoof 2019 LA</p>
+    <p style="margin-top:1.5rem; color: var(--fg-muted);">
+      Mohamad Abo-Ras &middot; Graduation Project &middot; 5 November 2026
+    </p>
+  </div>
+
+  <!-- Slide 2: Motivation -->
+  <div class="slide" data-slide="2">
+    <div class="slide-number">Slide 2 &mdash; Motivation</div>
+    <h2>Why this matters</h2>
+    <ul>
+      <li>Voice cloning is cheap and fast: a few seconds of audio, a public model, a convincing fake. Real incidents include phone scams and deepfake political audio.</li>
+      <li>Automatic detection is a <span class="highlight">measurable signal</span>, not a verdict &mdash; it helps human reviewers focus, not replace them.</li>
+      <li>This project: build a detector, measure it honestly, show its limits.</li>
+    </ul>
+    <div class="callout">
+      The detector outputs a score, not ground truth. Every response carries a limitations notice.
+    </div>
+    <p class="speaker-note">Emphasize that the detector is a score, not a claim of fact.</p>
+  </div>
+
+  <!-- Slide 3: Dataset -->
+  <div class="slide" data-slide="3">
+    <div class="slide-number">Slide 3 &mdash; Dataset</div>
+    <h2>ASVspoof 2019 Logical Access</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-value">121,461</div><div class="stat-label">Total clips</div></div>
+      <div class="stat"><div class="stat-value">12,483</div><div class="stat-label">Bona fide</div></div>
+      <div class="stat"><div class="stat-value">108,978</div><div class="stat-label">Spoofed</div></div>
+      <div class="stat"><div class="stat-value">107</div><div class="stat-label">Speakers</div></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Partition</th><th>Speakers</th><th>Attacks</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td>Train</td><td>20</td><td>A01&ndash;A06 (known)</td><td>Fit models and scalers</td></tr>
+          <tr><td>Development</td><td>20</td><td>A01&ndash;A06 (known)</td><td>Select models, set thresholds</td></tr>
+          <tr><td>Evaluation</td><td>67</td><td>A07&ndash;A19 (unseen)</td><td>Locked final test</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:0.85rem; color:var(--fg-muted)">Standard benchmark (Todisco et al., 2019). Licence: ODC-By 1.0. Evaluation attacks unseen at training time.</p>
+    <p class="speaker-note">A16/A19 reuse A04/A06 algorithms and are reported separately as known-algorithm controls on unseen speakers.</p>
+  </div>
+
+  <!-- Slide 4: Evaluation integrity -->
+  <div class="slide" data-slide="4">
+    <div class="slide-number">Slide 4 &mdash; Evaluation Integrity</div>
+    <h2>Keeping the test honest</h2>
+    <ul>
+      <li><strong>Strict partition walls:</strong> no evaluation data in training, tuning, threshold setting, or checkpoint selection.</li>
+      <li><strong>Split before transformation:</strong> windows and augmentations assigned to their original clip and partition.</li>
+      <li><strong>Speaker-grouped reservation:</strong> 5 of 20 development speakers reserved for the operating threshold (SHA-256 ranked).</li>
+      <li><strong>Protocol frozen before inspection:</strong> candidates, thresholds, conditions and metrics locked before any evaluation prediction was read.</li>
+      <li><strong>One score per clip:</strong> mean of 4-second window logits, aggregated by <code>clip_id</code>.</li>
+    </ul>
+    <div class="callout">Honest evaluation is the contribution, not the model.</div>
+    <p class="speaker-note">This is the boring-but-crucial part. Spend time on why it matters, not on the mechanics.</p>
+  </div>
+
+  <!-- Slide 5: Methods — LR baseline -->
+  <div class="slide" data-slide="5">
+    <div class="slide-number">Slide 5 &mdash; LR Baseline</div>
+    <h2>MFCC + Logistic Regression</h2>
+    <div class="pipeline">
+      <span class="pipeline-step">Audio</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-step">Windows</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-step">40-bin MFCC</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-step">Pool (mean, var, skew)</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-step">LR</span>
+    </div>
+    <ul>
+      <li>Real audio only &mdash; no zero-pad contamination ("option D").</li>
+      <li>3 hyperparameter settings, class-balanced weights.</li>
+      <li>Selected on development EER; threshold at 5% false-positive rate on 5 reserved speakers.</li>
+      <li>Purpose: a reference that the CNN must beat on the same protocol.</li>
+    </ul>
+    <p class="speaker-note">Explain that the baseline exists to give the CNN comparison meaning, not to be competitive.</p>
+  </div>
+
+  <!-- Slide 6: Methods — CNN -->
+  <div class="slide" data-slide="6">
+    <div class="slide-number">Slide 6 &mdash; CNN Architecture</div>
+    <h2>Compact log-Mel CNN</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-value">~23.7K</div><div class="stat-label">Parameters</div></div>
+      <div class="stat"><div class="stat-value">64-bin</div><div class="stat-label">Log-Mel input</div></div>
+      <div class="stat"><div class="stat-value">4 s</div><div class="stat-label">Window @ 16 kHz</div></div>
+      <div class="stat"><div class="stat-value">CPU</div><div class="stat-label">Xeon E5-2650L</div></div>
+    </div>
+    <div class="pipeline">
+      <span class="pipeline-step">Conv 16</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-step">Conv 32</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-step">Conv 64</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-step">Avg pool</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-step">Linear</span>
+    </div>
+    <p style="margin-top:0.75rem">Each block: 3&times;3 conv, batch norm, ReLU, max pool. Trained with balanced cross-entropy, Adam, early stopping on dev clip EER.</p>
+    <div class="two-col" style="margin-top:0.75rem">
+      <div>
+        <h3>Clean condition</h3>
+        <p>Unmodified audio, 2 seeds.</p>
+      </div>
+      <div>
+        <h3>Augmented condition</h3>
+        <p>Opus 24 kbps + noise 10&ndash;30 dB SNR (each 50%), 2 seeds.</p>
+      </div>
+    </div>
+    <p class="speaker-note">The architecture is designed to be small enough for CPU. Same inference pipeline for evaluation and serving.</p>
+  </div>
+
+  <!-- Slide 7: Results — headline -->
+  <div class="slide" data-slide="7">
+    <div class="slide-number">Slide 7 &mdash; Headline Results</div>
+    <h2>Clean EER on unseen attacks</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Model</th><th>EER %</th><th>95% CI</th></tr></thead>
+        <tbody>
+          <tr><td>LR baseline</td><td>19.93</td><td>[17.18, 22.80]</td></tr>
+          <tr><td>CNN clean seed 1</td><td>8.30</td><td>[6.98, 9.50]</td></tr>
+          <tr><td>CNN clean seed 2</td><td>6.68</td><td>[5.52, 8.06]</td></tr>
+          <tr class="deployed"><td>CNN augmented seed 1 <span class="tag">deployed</span></td><td>11.77</td><td>[10.28, 13.04]</td></tr>
+          <tr><td>CNN augmented seed 2</td><td>7.35</td><td>[6.18, 8.38]</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul style="margin-top:0.75rem">
+      <li>CNNs cut the baseline error roughly in half.</li>
+      <li><span class="warn">Seed variance is large:</span> augmented seeds differ by 4.4 points with non-overlapping intervals.</li>
+      <li>Deployed model has the highest CNN EER &mdash; chosen by a post-hoc development-only rule (disclosed deviation).</li>
+    </ul>
+    <p class="speaker-note">Be transparent about the selection-order deviation. Clean-vs-augmented is not decided by point estimates alone.</p>
+  </div>
+
+  <!-- Slide 8: Results — robustness -->
+  <div class="slide" data-slide="8">
+    <div class="slide-number">Slide 8 &mdash; Robustness</div>
+    <h2>What happens under noise and compression?</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Model</th><th>Clean</th><th>Codec 24k</th><th>Noise 20 dB</th><th>Noise 10 dB</th></tr></thead>
+        <tbody>
+          <tr><td>LR</td><td>19.9</td><td>17.6</td><td>25.7</td><td>32.9</td></tr>
+          <tr><td>CNN clean s1</td><td>8.3</td><td>13.4</td><td>27.9</td><td class="danger">61.4</td></tr>
+          <tr class="deployed"><td>CNN aug s1 <span class="tag">deployed</span></td><td>11.8</td><td>13.1</td><td>19.7</td><td>20.6</td></tr>
+          <tr><td>CNN aug s2</td><td>7.4</td><td>7.7</td><td>17.8</td><td>22.1</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <strong>Augmentation helps dramatically:</strong> augmented CNNs hold up under 10 dB noise (EER ~20%) while the clean CNN drops to 61.4% (below chance).
+    </div>
+    <div class="callout negative">
+      <strong>Thresholds don't transfer:</strong> clean-dev thresholds flag 25&ndash;33% of human clips under noise/codec. Negative result published, not hidden.
+    </div>
+    <p class="speaker-note">The codec_24k and noise conditions overlap with training augmentation — these are matched-condition results, disclosed.</p>
+  </div>
+
+  <!-- Slide 9: Per-attack and failures -->
+  <div class="slide" data-slide="9">
+    <div class="slide-number">Slide 9 &mdash; Per-Attack &amp; Failures</div>
+    <h2>Not all attacks are equal</h2>
+    <ul>
+      <li><span class="good">A09 nearly solved</span> by every CNN (EER &asymp; 0%).</li>
+      <li><span class="danger">A17 is hardest</span> for all models (CNN EER 17&ndash;22%).</li>
+      <li>A10, A13, A15 remain challenging.</li>
+      <li>Known-algorithm attacks A16/A19 (reusing A04/A06) are much easier (CNN EER 0.4&ndash;6.5%).</li>
+    </ul>
+    <h3 style="margin-top:1rem">Silence shortcut diagnostic</h3>
+    <ul>
+      <li>Silence trimming raises CNN EER from 7&ndash;12% to 20&ndash;23%.</li>
+      <li>Evidence of partial reliance on silence cues &mdash; a shortcut diagnostic, not proof.</li>
+    </ul>
+    <div class="callout">
+      Honest reporting: some attacks are hard, one model seed has a below-chance result, and there is evidence of a silence shortcut.
+    </div>
+    <p class="speaker-note">Spend time on what we learned from failures, not on listing every attack. The shortcut finding is the most interesting negative result.</p>
+  </div>
+
+  <!-- Slide 10: Live demo -->
+  <div class="slide" data-slide="10">
+    <div class="slide-number">Slide 10 &mdash; Live Demo</div>
+    <h2>Show the detector working</h2>
+    <div style="display:flex; flex-direction:column; gap:0.5rem; margin:1rem 0;">
+      <div class="pipeline-step" style="display:flex; align-items:center; gap:0.5rem;">
+        <span style="font-weight:700; color:var(--accent); min-width:1.5rem;">1</span>
+        Open the Streamlit UI (SSH tunnel to host)
+      </div>
+      <div class="pipeline-step" style="display:flex; align-items:center; gap:0.5rem;">
+        <span style="font-weight:700; color:var(--accent); min-width:1.5rem;">2</span>
+        Upload a clean human speech clip &rarr; score, decision, spectrogram
+      </div>
+      <div class="pipeline-step" style="display:flex; align-items:center; gap:0.5rem;">
+        <span style="font-weight:700; color:var(--accent); min-width:1.5rem;">3</span>
+        Upload a synthetic clip &rarr; show the different score
+      </div>
+      <div class="pipeline-step" style="display:flex; align-items:center; gap:0.5rem;">
+        <span style="font-weight:700; color:var(--accent); min-width:1.5rem;">4</span>
+        Show an invalid input (MP3 or &lt;1 s clip) &rarr; structured rejection
+      </div>
+      <div class="pipeline-step" style="display:flex; align-items:center; gap:0.5rem;">
+        <span style="font-weight:700; color:var(--accent); min-width:1.5rem;">5</span>
+        Show model info &mdash; bundle hash, threshold, limitations
+      </div>
+    </div>
+    <div class="callout">
+      <code>flagged_spoof_like</code> is not "fake". <code>not_flagged</code> is not "real".
+    </div>
+    <p style="margin-top:0.75rem; font-size:0.9rem; color:var(--fg-muted)">Fallback: saved screenshots and pre-scored results if the live demo fails.</p>
+    <p class="speaker-note">Keep the demo quick. The point is that it works, shows measured limitations, and doesn't over-claim.</p>
+  </div>
+
+  <!-- Slide 11: Architecture and reliability -->
+  <div class="slide" data-slide="11">
+    <div class="slide-number">Slide 11 &mdash; Serving Stack</div>
+    <h2>Architecture and reliability</h2>
+    <div class="pipeline" style="margin-bottom:1rem">
+      <span class="pipeline-step">Upload</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-step">FastAPI</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-step">Scorer</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-step">Response</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-value">19.4 ms</div><div class="stat-label">p50 latency</div></div>
+      <div class="stat"><div class="stat-value">107.8 ms</div><div class="stat-label">p95 latency</div></div>
+      <div class="stat"><div class="stat-value">4.82 GB</div><div class="stat-label">Docker image</div></div>
+      <div class="stat"><div class="stat-value">0</div><div class="stat-label">Decision flips</div></div>
+    </div>
+    <ul style="margin-top:0.75rem">
+      <li>FastAPI + Streamlit, one Docker image, CPU-only torch.</li>
+      <li>Bundle mounted read-only, verified at startup by SHA-256 hash.</li>
+      <li>No audio logged or retained. Every response carries a limitations notice.</li>
+      <li><span class="highlight">Verified parity:</span> 198 dev clips, max score difference 0.0, 0 decision flips between container and library scorer.</li>
+    </ul>
+    <p class="speaker-note">Same inference code path for evaluation and serving — the parity result confirms it.</p>
+  </div>
+
+  <!-- Slide 12: Conclusions -->
+  <div class="slide" data-slide="12">
+    <div class="slide-number">Slide 12 &mdash; Conclusions</div>
+    <h2>What we learned</h2>
+    <ol class="conclusion-list">
+      <li>A 23.7K-parameter CNN on log-Mel spectrograms cuts the LR baseline's EER roughly in half on unseen attacks (6.7&ndash;11.8% vs 19.9%).</li>
+      <li>Training augmentation (noise + codec) dramatically improves robustness at some cost to clean accuracy.</li>
+      <li>Seed variance is large &mdash; single-seed results can be misleading.</li>
+      <li>Thresholds set on clean audio do not transfer under distortion.</li>
+      <li>There is evidence of partial reliance on silence cues.</li>
+      <li>Honest evaluation matters more than the number: frozen protocol, published negatives, disclosed limitations.</li>
+    </ol>
+    <h3 style="margin-top:1.25rem">Future work (Phase 2)</h3>
+    <ul class="future-list">
+      <li>ASVspoof 2021 DF transfer evaluation</li>
+      <li>Frozen wav2vec 2.0 embeddings (if compute allows)</li>
+      <li>Calibration and abstention on uncertain scores</li>
+    </ul>
+    <div class="callout" style="margin-top:1rem">
+      <strong>Not claimed:</strong> this is not an official leaderboard result, not a speaker verifier, and not proof of authenticity.
+    </div>
+    <p class="speaker-note">End on the methodology message: the honest evaluation is the contribution.</p>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button id="prev" disabled>&larr; Prev</button>
+    <span id="indicator">1 / 12</span>
+    <div style="display:flex; gap:0.5rem; align-items:center;">
+      <button id="notes-toggle" title="Toggle speaker notes" style="font-size:0.7rem; letter-spacing:0.03em;">NOTES</button>
+      <button id="next">Next &rarr;</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  const prev = document.getElementById('prev');
+  const next = document.getElementById('next');
+  const indicator = document.getElementById('indicator');
+  const progress = document.getElementById('progress');
+  const notesToggle = document.getElementById('notes-toggle');
+  const deck = document.querySelector('.deck');
+
+  function show(i) {
+    slides[current].classList.remove('active');
+    current = Math.max(0, Math.min(total - 1, i));
+    slides[current].classList.add('active');
+    prev.disabled = current === 0;
+    next.disabled = current === total - 1;
+    indicator.textContent = (current + 1) + ' / ' + total;
+    progress.style.width = ((current + 1) / total * 100) + '%';
+    try { localStorage.setItem('vdd-slide', current); } catch(e) {}
+  }
+
+  prev.addEventListener('click', function() { show(current - 1); });
+  next.addEventListener('click', function() { show(current + 1); });
+
+  notesToggle.addEventListener('click', function() {
+    deck.classList.toggle('show-notes');
+    notesToggle.style.background = deck.classList.contains('show-notes') ? 'var(--accent-light)' : '';
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(current + 1); }
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(current - 1); }
+    if (e.key === 'Home') { e.preventDefault(); show(0); }
+    if (e.key === 'End') { e.preventDefault(); show(total - 1); }
+    if (e.key === 'n' || e.key === 'N') { notesToggle.click(); }
+  });
+
+  // Touch swipe
+  let touchStartX = 0;
+  document.addEventListener('touchstart', function(e) { touchStartX = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener('touchend', function(e) {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) { dx < 0 ? show(current + 1) : show(current - 1); }
+  }, { passive: true });
+
+  // Restore position
+  try { var saved = parseInt(localStorage.getItem('vdd-slide')); if (!isNaN(saved)) show(saved); } catch(e) {}
+})();
+</script>
