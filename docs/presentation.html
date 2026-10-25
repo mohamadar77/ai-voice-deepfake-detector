@@ -387,6 +387,20 @@ tr.deployed td { background: var(--accent-light); }
   color: var(--fg-muted);
 }
 
+/* SVG diagrams */
+.diagram-wrap {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+.diagram-wrap svg {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+}
+.diagram-wrap svg text { font-family: 'DM Sans', system-ui, sans-serif; }
+.diagram-wrap svg .mono { font-family: 'JetBrains Mono', monospace; }
+
 @media (prefers-reduced-motion: reduce) {
   .progress-fill { transition: none; }
 }
@@ -448,74 +462,223 @@ tr.deployed td { background: var(--accent-light); }
   <div class="slide" data-slide="4">
     <div class="slide-number">Slide 4 &mdash; Evaluation Integrity</div>
     <h2>Keeping the test honest</h2>
-    <ul>
-      <li><strong>Strict partition walls:</strong> no evaluation data in training, tuning, threshold setting, or checkpoint selection.</li>
-      <li><strong>Split before transformation:</strong> windows and augmentations assigned to their original clip and partition.</li>
-      <li><strong>Speaker-grouped reservation:</strong> 5 of 20 development speakers reserved for the operating threshold (SHA-256 ranked).</li>
-      <li><strong>Protocol frozen before inspection:</strong> candidates, thresholds, conditions and metrics locked before any evaluation prediction was read.</li>
-      <li><strong>One score per clip:</strong> mean of 4-second window logits, aggregated by <code>clip_id</code>.</li>
-    </ul>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg">
+        <!-- Pipeline boxes -->
+        <rect x="10" y="30" width="120" height="50" rx="6" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="70" y="52" text-anchor="middle" fill="var(--fg)" font-size="11" font-weight="700">TRAIN</text>
+        <text x="70" y="68" text-anchor="middle" fill="var(--fg-muted)" font-size="9">20 spk, A01–A06</text>
+
+        <rect x="160" y="30" width="120" height="50" rx="6" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="220" y="48" text-anchor="middle" fill="var(--fg)" font-size="11" font-weight="700">DEV SELECT</text>
+        <text x="220" y="63" text-anchor="middle" fill="var(--fg-muted)" font-size="9">15 spk → model</text>
+        <text x="220" y="75" text-anchor="middle" fill="var(--fg-muted)" font-size="9">selection + EER</text>
+
+        <rect x="310" y="30" width="120" height="50" rx="6" fill="var(--accent-light)" stroke="var(--accent)"/>
+        <text x="370" y="48" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="700">DEV THRESHOLD</text>
+        <text x="370" y="63" text-anchor="middle" fill="var(--fg-muted)" font-size="9">5 spk (SHA-256</text>
+        <text x="370" y="75" text-anchor="middle" fill="var(--fg-muted)" font-size="9">ranked) → FPR 5%</text>
+
+        <rect x="460" y="30" width="100" height="50" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+        <text x="510" y="52" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="700">FREEZE</text>
+        <text x="510" y="68" text-anchor="middle" fill="var(--fg-muted)" font-size="9">Lock everything</text>
+
+        <rect x="590" y="30" width="100" height="50" rx="6" fill="var(--surface)" stroke="var(--danger)" stroke-width="2"/>
+        <text x="640" y="48" text-anchor="middle" fill="var(--danger)" font-size="11" font-weight="700">EVAL</text>
+        <text x="640" y="63" text-anchor="middle" fill="var(--fg-muted)" font-size="9">67 spk, A07–A19</text>
+        <text x="640" y="75" text-anchor="middle" fill="var(--fg-muted)" font-size="9">No feedback</text>
+
+        <!-- Arrows -->
+        <path d="M130 55 L160 55" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+        <path d="M280 55 L310 55" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+        <path d="M430 55 L460 55" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+        <path d="M560 55 L590 55" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Barrier line -->
+        <line x1="575" y1="15" x2="575" y2="90" stroke="var(--danger)" stroke-width="2" stroke-dasharray="4,3"/>
+        <text x="575" y="105" text-anchor="middle" fill="var(--danger)" font-size="9" font-weight="700">WALL</text>
+
+        <!-- Bottom: what flows where -->
+        <text x="70" y="120" text-anchor="middle" fill="var(--fg-muted)" font-size="9">Fit models,</text>
+        <text x="70" y="132" text-anchor="middle" fill="var(--fg-muted)" font-size="9">scalers, norms</text>
+        <text x="220" y="120" text-anchor="middle" fill="var(--fg-muted)" font-size="9">Pick best C,</text>
+        <text x="220" y="132" text-anchor="middle" fill="var(--fg-muted)" font-size="9">checkpoint, seed</text>
+        <text x="370" y="120" text-anchor="middle" fill="var(--fg-muted)" font-size="9">Set operating</text>
+        <text x="370" y="132" text-anchor="middle" fill="var(--fg-muted)" font-size="9">threshold only</text>
+        <text x="510" y="120" text-anchor="middle" fill="var(--fg-muted)" font-size="9">Candidates,</text>
+        <text x="510" y="132" text-anchor="middle" fill="var(--fg-muted)" font-size="9">metrics, slices</text>
+        <text x="640" y="120" text-anchor="middle" fill="var(--danger)" font-size="9">Read-only</text>
+        <text x="640" y="132" text-anchor="middle" fill="var(--danger)" font-size="9">report once</text>
+
+        <!-- Bottom flow: aggregation -->
+        <rect x="180" y="155" width="340" height="35" rx="5" fill="var(--code-bg)" stroke="var(--border)"/>
+        <text x="350" y="172" text-anchor="middle" fill="var(--fg)" font-size="10" class="mono">clip → 4s windows → logits → mean → 1 score/clip</text>
+        <text x="350" y="185" text-anchor="middle" fill="var(--fg-muted)" font-size="9">Split before windowing · aggregate before metrics</text>
+
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="var(--fg-muted)"/></marker></defs>
+      </svg>
+    </div>
     <div class="callout">Honest evaluation is the contribution, not the model.</div>
-    <p class="speaker-note">This is the boring-but-crucial part. Spend time on why it matters, not on the mechanics.</p>
+    <p class="speaker-note">Walk through the diagram left to right. Emphasize the wall: nothing flows back from eval to training or threshold selection.</p>
   </div>
 
   <!-- Slide 5: Methods — LR baseline -->
   <div class="slide" data-slide="5">
     <div class="slide-number">Slide 5 &mdash; LR Baseline</div>
     <h2>MFCC + Logistic Regression</h2>
-    <div class="pipeline">
-      <span class="pipeline-step">Audio</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-step">Windows</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-step">40-bin MFCC</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-step">Pool (mean, var, skew)</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-step">LR</span>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 700 160" xmlns="http://www.w3.org/2000/svg">
+        <!-- Audio input -->
+        <rect x="10" y="25" width="90" height="55" rx="5" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="55" y="47" text-anchor="middle" fill="var(--fg)" font-size="11" font-weight="700">Audio</text>
+        <text x="55" y="62" text-anchor="middle" fill="var(--fg-muted)" font-size="9">16 kHz mono</text>
+        <text x="55" y="73" text-anchor="middle" fill="var(--fg-muted)" font-size="9">1–30 s</text>
+
+        <path d="M100 52 L125 52" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Windowing -->
+        <rect x="125" y="25" width="90" height="55" rx="5" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="170" y="47" text-anchor="middle" fill="var(--fg)" font-size="11" font-weight="700">Windows</text>
+        <text x="170" y="62" text-anchor="middle" fill="var(--fg-muted)" font-size="9">4 s @ 16 kHz</text>
+        <text x="170" y="73" text-anchor="middle" fill="var(--accent)" font-size="8" font-weight="500">real samples only</text>
+
+        <path d="M215 52 L240 52" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- MFCC -->
+        <rect x="240" y="20" width="110" height="65" rx="5" fill="var(--accent-light)" stroke="var(--accent)"/>
+        <text x="295" y="42" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="700">MFCC</text>
+        <text x="295" y="57" text-anchor="middle" fill="var(--fg-muted)" font-size="9">40 bins per frame</text>
+        <text x="295" y="69" text-anchor="middle" fill="var(--fg)" font-size="9" class="mono">n_mfcc=40</text>
+        <text x="295" y="80" text-anchor="middle" fill="var(--fg-muted)" font-size="8">n_fft=400, hop=160</text>
+
+        <path d="M350 52 L375 52" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Pool -->
+        <rect x="375" y="20" width="115" height="65" rx="5" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="432" y="40" text-anchor="middle" fill="var(--fg)" font-size="11" font-weight="700">Pool</text>
+        <text x="432" y="55" text-anchor="middle" fill="var(--fg-muted)" font-size="9">mean + var + skew</text>
+        <text x="432" y="70" text-anchor="middle" fill="var(--fg)" font-size="9" class="mono">→ 120-dim vector</text>
+        <text x="432" y="82" text-anchor="middle" fill="var(--fg-muted)" font-size="8">(40 × 3 stats)</text>
+
+        <path d="M490 52 L515 52" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- LR -->
+        <rect x="515" y="25" width="80" height="55" rx="5" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="555" y="47" text-anchor="middle" fill="var(--fg)" font-size="11" font-weight="700">LR</text>
+        <text x="555" y="62" text-anchor="middle" fill="var(--fg-muted)" font-size="9">balanced</text>
+        <text x="555" y="73" text-anchor="middle" fill="var(--fg-muted)" font-size="8" class="mono">C∈{.01,1,100}</text>
+
+        <path d="M595 52 L620 52" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Score -->
+        <rect x="620" y="30" width="70" height="45" rx="5" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+        <text x="655" y="50" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="700">Score</text>
+        <text x="655" y="65" text-anchor="middle" fill="var(--fg-muted)" font-size="9">EER 19.93%</text>
+
+        <!-- Bottom: key design choice -->
+        <rect x="115" y="100" width="260" height="30" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
+        <text x="245" y="119" text-anchor="middle" fill="var(--fg)" font-size="9"><tspan font-weight="700">Option D:</tspan> pool over real (non-padded) samples only — no zero-pad contamination</text>
+
+        <rect x="400" y="100" width="200" height="30" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
+        <text x="500" y="119" text-anchor="middle" fill="var(--fg)" font-size="9">Selected on dev EER · threshold at 5% FPR</text>
+
+        <!-- Arrow from option D note to window -->
+        <path d="M170 100 L170 80" stroke="var(--accent)" fill="none" stroke-dasharray="3,2" marker-end="url(#arr)"/>
+      </svg>
     </div>
-    <ul>
-      <li>Real audio only &mdash; no zero-pad contamination ("option D").</li>
-      <li>3 hyperparameter settings, class-balanced weights.</li>
-      <li>Selected on development EER; threshold at 5% false-positive rate on 5 reserved speakers.</li>
-      <li>Purpose: a reference that the CNN must beat on the same protocol.</li>
-    </ul>
-    <p class="speaker-note">Explain that the baseline exists to give the CNN comparison meaning, not to be competitive.</p>
+    <p style="margin-top:0.5rem; font-size:0.9rem">Purpose: a reference that the CNN must beat on the same evaluation protocol.</p>
+    <p class="speaker-note">Explain option D — pooling over real samples avoids zero-pad contamination, which was a class shortcut. The baseline exists to give the CNN comparison meaning.</p>
   </div>
 
   <!-- Slide 6: Methods — CNN -->
   <div class="slide" data-slide="6">
     <div class="slide-number">Slide 6 &mdash; CNN Architecture</div>
-    <h2>Compact log-Mel CNN</h2>
-    <div class="stats">
-      <div class="stat"><div class="stat-value">~23.7K</div><div class="stat-label">Parameters</div></div>
-      <div class="stat"><div class="stat-value">64-bin</div><div class="stat-label">Log-Mel input</div></div>
-      <div class="stat"><div class="stat-value">4 s</div><div class="stat-label">Window @ 16 kHz</div></div>
-      <div class="stat"><div class="stat-value">CPU</div><div class="stat-label">Xeon E5-2650L</div></div>
+    <h2>Compact log-Mel CNN <span style="font-size:0.5em; color:var(--fg-muted); font-weight:400">(~23.7K params, CPU-only)</span></h2>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 700 230" xmlns="http://www.w3.org/2000/svg">
+        <!-- Input spectrogram -->
+        <rect x="5" y="40" width="70" height="80" rx="4" fill="var(--accent-light)" stroke="var(--accent)"/>
+        <text x="40" y="30" text-anchor="middle" fill="var(--fg)" font-size="10" font-weight="700">Input</text>
+        <text x="40" y="75" text-anchor="middle" fill="var(--accent)" font-size="9" font-weight="700">Log-Mel</text>
+        <text x="40" y="90" text-anchor="middle" fill="var(--fg-muted)" font-size="8" class="mono">1×64×401</text>
+        <text x="40" y="105" text-anchor="middle" fill="var(--fg-muted)" font-size="7">64 bins, 4s</text>
+
+        <path d="M75 80 L95 80" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Conv Block 1 -->
+        <rect x="95" y="30" width="80" height="100" rx="4" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="135" y="50" text-anchor="middle" fill="var(--fg)" font-size="10" font-weight="700">Block 1</text>
+        <text x="135" y="65" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Conv2d 3×3</text>
+        <text x="135" y="78" text-anchor="middle" fill="var(--fg-muted)" font-size="8">BatchNorm</text>
+        <text x="135" y="91" text-anchor="middle" fill="var(--fg-muted)" font-size="8">ReLU</text>
+        <text x="135" y="104" text-anchor="middle" fill="var(--fg-muted)" font-size="8">MaxPool 2×2</text>
+        <text x="135" y="120" text-anchor="middle" fill="var(--accent)" font-size="8" class="mono">16×32×200</text>
+
+        <path d="M175 80 L195 80" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Conv Block 2 -->
+        <rect x="195" y="30" width="80" height="100" rx="4" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="235" y="50" text-anchor="middle" fill="var(--fg)" font-size="10" font-weight="700">Block 2</text>
+        <text x="235" y="65" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Conv2d 3×3</text>
+        <text x="235" y="78" text-anchor="middle" fill="var(--fg-muted)" font-size="8">BatchNorm</text>
+        <text x="235" y="91" text-anchor="middle" fill="var(--fg-muted)" font-size="8">ReLU</text>
+        <text x="235" y="104" text-anchor="middle" fill="var(--fg-muted)" font-size="8">MaxPool 2×2</text>
+        <text x="235" y="120" text-anchor="middle" fill="var(--accent)" font-size="8" class="mono">32×16×100</text>
+
+        <path d="M275 80 L295 80" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Conv Block 3 -->
+        <rect x="295" y="30" width="80" height="100" rx="4" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="335" y="50" text-anchor="middle" fill="var(--fg)" font-size="10" font-weight="700">Block 3</text>
+        <text x="335" y="65" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Conv2d 3×3</text>
+        <text x="335" y="78" text-anchor="middle" fill="var(--fg-muted)" font-size="8">BatchNorm</text>
+        <text x="335" y="91" text-anchor="middle" fill="var(--fg-muted)" font-size="8">ReLU</text>
+        <text x="335" y="104" text-anchor="middle" fill="var(--fg-muted)" font-size="8">MaxPool 2×2</text>
+        <text x="335" y="120" text-anchor="middle" fill="var(--accent)" font-size="8" class="mono">64×8×50</text>
+
+        <path d="M375 80 L395 80" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Adaptive avg pool -->
+        <rect x="395" y="45" width="75" height="70" rx="4" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="432" y="67" text-anchor="middle" fill="var(--fg)" font-size="10" font-weight="700">AdaptAvg</text>
+        <text x="432" y="82" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Pool → 1×1</text>
+        <text x="432" y="102" text-anchor="middle" fill="var(--accent)" font-size="8" class="mono">64</text>
+
+        <path d="M470 80 L490 80" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Linear head -->
+        <rect x="490" y="50" width="70" height="60" rx="4" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="525" y="72" text-anchor="middle" fill="var(--fg)" font-size="10" font-weight="700">Linear</text>
+        <text x="525" y="87" text-anchor="middle" fill="var(--fg-muted)" font-size="8">64 → 2</text>
+        <text x="525" y="100" text-anchor="middle" fill="var(--accent)" font-size="8" class="mono">130 params</text>
+
+        <path d="M560 80 L580 80" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Output -->
+        <rect x="580" y="50" width="110" height="60" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+        <text x="635" y="70" text-anchor="middle" fill="var(--accent)" font-size="10" font-weight="700">Score</text>
+        <text x="635" y="85" text-anchor="middle" fill="var(--fg-muted)" font-size="8">logit[spoof] −</text>
+        <text x="635" y="97" text-anchor="middle" fill="var(--fg-muted)" font-size="8">logit[bonafide]</text>
+
+        <!-- Training details -->
+        <rect x="5" y="150" width="220" height="35" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
+        <text x="115" y="165" text-anchor="middle" fill="var(--fg)" font-size="9" font-weight="700">Training</text>
+        <text x="115" y="178" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Balanced CE · Adam · early stop on dev EER</text>
+
+        <rect x="240" y="150" width="210" height="35" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
+        <text x="345" y="165" text-anchor="middle" fill="var(--fg)" font-size="9" font-weight="700">Clean condition</text>
+        <text x="345" y="178" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Unmodified audio · 2 seeds</text>
+
+        <rect x="465" y="150" width="225" height="35" rx="4" fill="var(--accent-light)" stroke="var(--accent)"/>
+        <text x="577" y="165" text-anchor="middle" fill="var(--accent)" font-size="9" font-weight="700">Augmented condition</text>
+        <text x="577" y="178" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Opus 24k (50%) + noise 10–30 dB (50%) · 2 seeds</text>
+
+        <!-- Normalization note -->
+        <text x="40" y="145" text-anchor="start" fill="var(--fg-muted)" font-size="8">Per-bin standardization fitted on training data only (cnn_norm_stats.pt)</text>
+      </svg>
     </div>
-    <div class="pipeline">
-      <span class="pipeline-step">Conv 16</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-step">Conv 32</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-step">Conv 64</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-step">Avg pool</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-step">Linear</span>
-    </div>
-    <p style="margin-top:0.75rem">Each block: 3&times;3 conv, batch norm, ReLU, max pool. Trained with balanced cross-entropy, Adam, early stopping on dev clip EER.</p>
-    <div class="two-col" style="margin-top:0.75rem">
-      <div>
-        <h3>Clean condition</h3>
-        <p>Unmodified audio, 2 seeds.</p>
-      </div>
-      <div>
-        <h3>Augmented condition</h3>
-        <p>Opus 24 kbps + noise 10&ndash;30 dB SNR (each 50%), 2 seeds.</p>
-      </div>
-    </div>
-    <p class="speaker-note">The architecture is designed to be small enough for CPU. Same inference pipeline for evaluation and serving.</p>
+    <p style="font-size:0.85rem; color:var(--fg-muted); margin-top:0.25rem">Same inference code path for evaluation and serving. 4 runs total (2 conditions × 2 seeds), all on CPU (Xeon E5-2650L).</p>
+    <p class="speaker-note">Walk through the architecture left to right. Emphasize: this is tiny (23.7K params), deliberately designed for CPU inference. The augmented condition adds noise and codec BEFORE the random crop.</p>
   </div>
 
   <!-- Slide 7: Results — headline -->
@@ -624,28 +787,103 @@ tr.deployed td { background: var(--accent-light); }
   <div class="slide" data-slide="11">
     <div class="slide-number">Slide 11 &mdash; Serving Stack</div>
     <h2>Architecture and reliability</h2>
-    <div class="pipeline" style="margin-bottom:1rem">
-      <span class="pipeline-step">Upload</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-step">FastAPI</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-step">Scorer</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-step">Response</span>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg">
+        <!-- Upload -->
+        <rect x="5" y="30" width="80" height="60" rx="5" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="45" y="55" text-anchor="middle" fill="var(--fg)" font-size="10" font-weight="700">Upload</text>
+        <text x="45" y="70" text-anchor="middle" fill="var(--fg-muted)" font-size="8">WAV / FLAC</text>
+        <text x="45" y="82" text-anchor="middle" fill="var(--fg-muted)" font-size="7">&le;20 MiB</text>
+
+        <path d="M85 60 L105 60" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Validate -->
+        <rect x="105" y="30" width="80" height="60" rx="5" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="145" y="52" text-anchor="middle" fill="var(--fg)" font-size="10" font-weight="700">Validate</text>
+        <text x="145" y="66" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Format check</text>
+        <text x="145" y="78" text-anchor="middle" fill="var(--fg-muted)" font-size="8">1–30 s duration</text>
+
+        <path d="M185 60 L205 60" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Decode -->
+        <rect x="205" y="30" width="75" height="60" rx="5" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="242" y="52" text-anchor="middle" fill="var(--fg)" font-size="10" font-weight="700">Decode</text>
+        <text x="242" y="66" text-anchor="middle" fill="var(--fg-muted)" font-size="8">→ 16 kHz mono</text>
+        <text x="242" y="78" text-anchor="middle" fill="var(--fg-muted)" font-size="8">float32</text>
+
+        <path d="M280 60 L300 60" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Window -->
+        <rect x="300" y="30" width="75" height="60" rx="5" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="337" y="52" text-anchor="middle" fill="var(--fg)" font-size="10" font-weight="700">Window</text>
+        <text x="337" y="66" text-anchor="middle" fill="var(--fg-muted)" font-size="8">4 s segments</text>
+        <text x="337" y="78" text-anchor="middle" fill="var(--fg-muted)" font-size="8">no zero-pad</text>
+
+        <path d="M375 60 L395 60" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Log-Mel -->
+        <rect x="395" y="30" width="75" height="60" rx="5" fill="var(--accent-light)" stroke="var(--accent)"/>
+        <text x="432" y="52" text-anchor="middle" fill="var(--accent)" font-size="10" font-weight="700">Log-Mel</text>
+        <text x="432" y="66" text-anchor="middle" fill="var(--fg-muted)" font-size="8">64 bins</text>
+        <text x="432" y="78" text-anchor="middle" fill="var(--fg-muted)" font-size="8">+ norm stats</text>
+
+        <path d="M470 60 L490 60" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- CNN -->
+        <rect x="490" y="25" width="70" height="70" rx="5" fill="var(--accent-light)" stroke="var(--accent)" stroke-width="2"/>
+        <text x="525" y="52" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="700">CNN</text>
+        <text x="525" y="66" text-anchor="middle" fill="var(--fg-muted)" font-size="8">23.7K params</text>
+        <text x="525" y="80" text-anchor="middle" fill="var(--fg-muted)" font-size="7">CPU inference</text>
+
+        <path d="M560 60 L580 60" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Aggregate + threshold -->
+        <rect x="580" y="20" width="110" height="80" rx="5" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="635" y="42" text-anchor="middle" fill="var(--fg)" font-size="10" font-weight="700">Aggregate</text>
+        <text x="635" y="57" text-anchor="middle" fill="var(--fg-muted)" font-size="8">mean(logits)</text>
+        <text x="635" y="72" text-anchor="middle" fill="var(--fg-muted)" font-size="8">→ threshold</text>
+        <text x="635" y="87" text-anchor="middle" fill="var(--accent)" font-size="7" class="mono">-1.2520</text>
+
+        <!-- Response box -->
+        <rect x="180" y="115" width="330" height="50" rx="5" fill="var(--code-bg)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="345" y="136" text-anchor="middle" fill="var(--accent)" font-size="10" font-weight="700">JSON Response</text>
+        <text x="345" y="152" text-anchor="middle" fill="var(--fg-muted)" font-size="8" class="mono">{"score": float, "decision": "flagged_spoof_like"|"not_flagged", "bundle_hash": "999bd10a...", "limitations": "..."}</text>
+
+        <!-- Arrow from aggregate to response -->
+        <path d="M635 100 L635 110 L510 110 L510 115" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
+
+        <!-- Docker container outline -->
+        <rect x="95" y="8" width="600" height="100" rx="8" fill="none" stroke="var(--border)" stroke-dasharray="5,3"/>
+        <text x="105" y="18" fill="var(--fg-muted)" font-size="8">Docker container (FastAPI · CPU-only torch 2.14.1)</text>
+
+        <!-- Streamlit box -->
+        <rect x="5" y="115" width="160" height="50" rx="5" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="85" y="135" text-anchor="middle" fill="var(--fg)" font-size="10" font-weight="700">Streamlit UI</text>
+        <text x="85" y="150" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Upload · spectrogram · result</text>
+        <path d="M85 115 L85 95 L105 80" stroke="var(--border)" fill="none" stroke-dasharray="3,2"/>
+
+        <!-- Stats row -->
+        <rect x="5" y="185" width="165" height="32" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
+        <text x="87" y="200" text-anchor="middle" fill="var(--fg)" font-size="9" font-weight="700">Latency</text>
+        <text x="87" y="212" text-anchor="middle" fill="var(--fg-muted)" font-size="8">p50 19.4 ms · p95 107.8 ms</text>
+
+        <rect x="180" y="185" width="165" height="32" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
+        <text x="262" y="200" text-anchor="middle" fill="var(--fg)" font-size="9" font-weight="700">Image</text>
+        <text x="262" y="212" text-anchor="middle" fill="var(--fg-muted)" font-size="8">4.82 GB · 91 packages</text>
+
+        <rect x="355" y="185" width="165" height="32" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
+        <text x="437" y="200" text-anchor="middle" fill="var(--fg)" font-size="9" font-weight="700">Parity</text>
+        <text x="437" y="212" text-anchor="middle" fill="var(--fg-muted)" font-size="8">198 clips · max Δ 0.0 · 0 flips</text>
+
+        <rect x="530" y="185" width="160" height="32" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
+        <text x="610" y="200" text-anchor="middle" fill="var(--fg)" font-size="9" font-weight="700">Privacy</text>
+        <text x="610" y="212" text-anchor="middle" fill="var(--fg-muted)" font-size="8">No audio logged or retained</text>
+
+        <!-- Bundle verification note -->
+        <text x="350" y="243" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Bundle SHA-256 verified at startup · read-only mount · every response carries limitations notice</text>
+      </svg>
     </div>
-    <div class="stats">
-      <div class="stat"><div class="stat-value">19.4 ms</div><div class="stat-label">p50 latency</div></div>
-      <div class="stat"><div class="stat-value">107.8 ms</div><div class="stat-label">p95 latency</div></div>
-      <div class="stat"><div class="stat-value">4.82 GB</div><div class="stat-label">Docker image</div></div>
-      <div class="stat"><div class="stat-value">0</div><div class="stat-label">Decision flips</div></div>
-    </div>
-    <ul style="margin-top:0.75rem">
-      <li>FastAPI + Streamlit, one Docker image, CPU-only torch.</li>
-      <li>Bundle mounted read-only, verified at startup by SHA-256 hash.</li>
-      <li>No audio logged or retained. Every response carries a limitations notice.</li>
-      <li><span class="highlight">Verified parity:</span> 198 dev clips, max score difference 0.0, 0 decision flips between container and library scorer.</li>
-    </ul>
-    <p class="speaker-note">Same inference code path for evaluation and serving — the parity result confirms it.</p>
+    <p class="speaker-note">Same inference code path for evaluation and serving — the parity result confirms it. Walk through the pipeline: upload, validate, decode, window, features, model, aggregate, respond.</p>
   </div>
 
   <!-- Slide 12: Conclusions -->
