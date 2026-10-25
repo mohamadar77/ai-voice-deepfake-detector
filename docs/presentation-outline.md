@@ -199,7 +199,7 @@ measured limitations, and doesn't over-claim.
 - Latency: p50 19.4 ms, p95 107.8 ms (benchmark on declared input mix).
 - Bundle mounted read-only, verified at startup by hash.
 - No audio logged or retained. Every response carries a limitations notice.
-- Same inference code path for evaluation and serving (parity checked on development clips; see model-card §6 once the container check is recorded).
+- Same inference code path for evaluation and serving (verified: 198 dev clips, max score difference 0.0, 0 decision flips).
 
 Visual: simple serving diagram (upload → API → scorer → response).
 

@@ -155,6 +155,11 @@ Measured on hp-xl420gen9-01 (Xeon E5-2650L v3 @ 1.80 GHz), CPU only, torch
 - Memory: API container 612 MiB, UI container 49 MiB.
 - Image size 4.82 GB (CPU-only torch wheels via `[tool.uv.sources]`; was 19.97 GB with
   CUDA wheels, a 76% reduction). 91 packages (was 110).
+- **Container-vs-library score parity** (`scripts/container_parity.py`, seed 20261021,
+  198 development clips on hp-xl420gen9-01):
+  max |score_container − score_library| = 0.0, 0 decision flips, 67 multi-window clips
+  included. 2 clips rejected by the service (duration < 1 s). Same inference code path
+  confirmed between the Docker container (via HTTP) and the in-process library scorer.
 
 ## 7. Provenance and reproducibility
 
