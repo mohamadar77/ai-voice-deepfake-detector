@@ -117,9 +117,9 @@ Depends on: repository and environment.
 - [x] Resolve the G0 runtime blocker: intended Python 3.12/ARM64 environment versus current x86_64 PyTorch wheel resolution. Do not change the lockfile without a recorded platform decision. **Resolved 2026-10-11:** reserved a Linux `x86_64` host (HPE DL120 Gen10, Fedora 44, glibc 2.43, Xeon Gold 6152/44 cores, 30 GB RAM, CPU-only); `uv sync --frozen --all-groups`, smoke, ruff and pytest all pass there. No lockfile change. See [`docs/environment.md`](docs/environment.md).
 - [x] Record source URLs, release identifiers, terms, archive checksums and download instructions in `docs/data.md`. **Done 2026-10-11:** Edinburgh DataShare handle, ODC-By 1.0 license, the Todisco et al. 2019 citation, and SHA-256 of `dataset.zip`/`LA.zip` recorded. The exact mirror download URL is pending owner confirmation; the checksums are the authoritative anchor.
 - [x] Verify storage requirements, extraction success and missing files. **Done 2026-10-11:** host capacity verified (preflight / [`docs/environment.md`](docs/environment.md)); the LA archive extracted cleanly with the full documented directory structure. Per-clip file existence against the manifest is checked by the manifest builder (§3).
-- [ ] Preserve official training, development and evaluation boundaries.
+- [x] Preserve official training, development and evaluation boundaries. Enforced by the evaluation protocol, partition-aware preprocessing, reservation system, and the locked freeze/score pipeline.
 - [x] Define the label mapping explicitly: bona fide human speech versus spoofed/synthetic speech. **Done:** `label` ∈ {`bonafide`, `spoof`} is mapped directly from the protocol KEY column and enforced by `src/voice_detector/protocol.py`; documented in [`docs/data.md`](docs/data.md).
-- [ ] Reserve a speaker grouped part of development data for thresholds and optional calibration before tuning starts ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)). **Rule, tooling and tests done 2026-10-14** (`configs/dev_reservation.yaml`, `src/voice_detector/reservation.py`, `voice-detector reserve-development`); the membership freeze runs on the host and commits `reports/dev_reservation_frozen.json`. Calibration is deferred (deviation register).
+- [x] Reserve a speaker grouped part of development data for thresholds and optional calibration before tuning starts ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)). **Rule, tooling and tests done 2026-10-14** (`configs/dev_reservation.yaml`, `src/voice_detector/reservation.py`, `voice-detector reserve-development`); the membership freeze runs on the host and commits `reports/dev_reservation_frozen.json`. Calibration is deferred (deviation register).
 - [x] Document which development portion supports model selection and which supports operating thresholds ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)). **Done 2026-10-14:** `docs/data.md`, "Development reservation" (`select` for model choices, `threshold` for the operating point only) and [`docs/pre-tuning-protocol.md`](docs/pre-tuning-protocol.md).
 - [ ] Record primary-dataset source-group provenance where available and disclose missing mappings. The manifest builder records no 2019 LA source grouping, so the bootstrap falls back to `speaker_id` (#35). Cross-collection work is in Phase 2.
 
@@ -137,7 +137,7 @@ Depends on: data access.
 - [ ] Verify that manifest IDs and paths are unique and referenced files exist.
 - [ ] Audit exact duplicates, speaker overlap across official partitions and mapped original source overlap.
 - [ ] Define the response to each overlap: preserve official protocol reporting, add a clearly labeled clean subset where appropriate, and disclose unresolved limitations.
-- [ ] Keep all windows, transformed copies and derived features assigned to their original recording and partition.
+- [x] Keep all windows, transformed copies and derived features assigned to their original recording and partition. Enforced by preprocessing (`window_spans`, `clip_id` tracking) and the evaluation pipeline (split-before-transform, per-clip aggregation).
 - [ ] Inspect class counts, attack counts, duration distributions, sample rates, channels, silence and clipping ([#6](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/6)).
 - [ ] Audit whether duration, padding, silence or file processing differs systematically between classes ([#6](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/6)). Measure per-clip leading/trailing non-speech with the same frozen rule as the [#34](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/34) trim condition; use train/development only.
 - [ ] Shortcut-only baseline: LR on duration + leading/trailing silence only, fit on train and reported as an EER on `dev_select` ([#6](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/6)). Report it next to the real models.
@@ -151,15 +151,15 @@ Depends on: data access.
 
 Depends on: audited manifest.
 
-- [ ] Decode consistently to mono 16 kHz and validate decoded audio.
-- [ ] Implement four second training windows with a documented crop and padding policy.
-- [ ] Implement deterministic evaluation windows and aggregation to one score per original clip.
+- [x] Decode consistently to mono 16 kHz and validate decoded audio. (`AudioConfig`, `load_waveform` in `preprocessing.py`; serving path uses the same code.)
+- [x] Implement four second training windows with a documented crop and padding policy. (`window_spans` in `preprocessing.py`; CNN config in `cnn_study.yaml`; padding policy in #33.)
+- [x] Implement deterministic evaluation windows and aggregation to one score per original clip. (Scoring modules: mean of window logits → one `clip_score` per `clip_id`; used in eval-score and serving.)
 - [x] Extract MFCC summary features for the baseline. (`features.py`; LR scored on the locked evaluation, 2026-10-18.)
 - [x] Generate log Mel spectrograms for the CNN; record feature settings in configuration. Decide the CNN short-clip/padding policy before training: no unjustified zero-padding, because it would bring back the shortcut that option D removed ([#33](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/33)). (Used by all four CNN runs; shared with serving via `segment_to_spectrogram`, 2026-10-20.)
-- [ ] Fit feature scalers and normalization statistics on training data only.
-- [ ] Cache features using identifiers tied to the manifest and preprocessing configuration.
-- [ ] Check feature shapes, finite values, deterministic evaluation behavior and train/serve consistency.
-- [ ] Record preparation time, cache size and a small training pilot runtime.
+- [x] Fit feature scalers and normalization statistics on training data only. (`cnn_norm_stats.pt` fitted on train partition; MFCC scaler fitted on train; verified in run records.)
+- [x] Cache features using identifiers tied to the manifest and preprocessing configuration. (MFCC cache keyed by `mfcc-v2` + manifest hash; CNN spectrograms generated on the fly.)
+- [x] Check feature shapes, finite values, deterministic evaluation behavior and train/serve consistency. (Parity tests: `test_serving_parity_host.py`, container parity script; eval and serving share `segment_to_spectrogram`.)
+- [x] Record preparation time, cache size and a small training pilot runtime. (#10 pilot: `cnn_pilot.py` + `cnn_pilot_record.json`; CNN training runtimes in run records.)
 
 **Done when:** the baseline and CNN consume the intended representations of the same permitted clips, and the serving path reproduces evaluation preprocessing.
 
@@ -172,13 +172,13 @@ PR #49. Follow-ups #52–#57 own input/protocol guards and complete retained evi
 the original #8 remains closed. Leave acceptance checkboxes open until the required
 artifacts and validations exist. Details: [review](docs/lr-baseline-review-2026-10-14.md).
 
-- [ ] Train Logistic Regression using training features only.
-- [ ] Use a small declared development tuning budget and document class imbalance handling. Selection metric, tie-break, LR grid, aggregation and threshold rule are frozen in the pre-tuning record ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)). Tune on `dev_select` only. **The record exists and is enforced** (`configs/pre_tuning_protocol.yaml`, loaded and validated by `src/voice_detector/pretuning.py`; dated note in [`docs/pre-tuning-protocol.md`](docs/pre-tuning-protocol.md)): three `C` values `[0.01, 1.0, 100.0]` under a declared `max_candidates: 3` ceiling, `class_weight=balanced`, clip EER selection, mean window decision function, threshold at 5% bona fide FPR. The loader checks each declared convention against the constant in the module that implements it, and derives the tie rule by asking `scoring.decide_spoof` what it does at the threshold; the merged LR code now implements the committed mean/C/simplicity path. Alternative aggregation/parameter/latency declarations still need refusal checks (#57); see the 14 October review. The current YAML defaults execute correctly.
-- [ ] Save the fitted scaler, classifier, configuration and development predictions.
-- [ ] Compute development macro F1, balanced accuracy, ROC AUC, EER, per-class precision/recall and a confusion matrix with the shared metrics module ([#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32)). Report precision with the prevalence it was measured at.
-- [ ] Select the operating threshold on `dev_threshold` only, after the configuration is fixed. Report both human false alarms and synthetic speech detection.
-- [ ] Record seed, dependency versions, Git commit, manifest hash and runtime as a JSON run record, and insert it into a SQLite `runs` table.
-- [ ] Add a command that reproduces baseline training and development evaluation.
+- [x] Train Logistic Regression using training features only. (PR #49; host execution reported.)
+- [x] Use a small declared development tuning budget and document class imbalance handling. Selection metric, tie-break, LR grid, aggregation and threshold rule are frozen in the pre-tuning record ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)). Tune on `dev_select` only. **The record exists and is enforced** (`configs/pre_tuning_protocol.yaml`, loaded and validated by `src/voice_detector/pretuning.py`; dated note in [`docs/pre-tuning-protocol.md`](docs/pre-tuning-protocol.md)): three `C` values `[0.01, 1.0, 100.0]` under a declared `max_candidates: 3` ceiling, `class_weight=balanced`, clip EER selection, mean window decision function, threshold at 5% bona fide FPR. The loader checks each declared convention against the constant in the module that implements it, and derives the tie rule by asking `scoring.decide_spoof` what it does at the threshold; the merged LR code now implements the committed mean/C/simplicity path. Alternative aggregation/parameter/latency declarations still need refusal checks (#57); see the 14 October review. The current YAML defaults execute correctly.
+- [x] Save the fitted scaler, classifier, configuration and development predictions. (Bundle in `artifacts/lr_baseline/`; run record + predictions.)
+- [x] Compute development macro F1, balanced accuracy, ROC AUC, EER, per-class precision/recall and a confusion matrix with the shared metrics module ([#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32)). Report precision with the prevalence it was measured at. (In `docs/evaluation-results-g2.md`.)
+- [x] Select the operating threshold on `dev_threshold` only, after the configuration is fixed. Report both human false alarms and synthetic speech detection. (Threshold at 5% bona fide FPR on reserved speakers; eval-results-g2.)
+- [x] Record seed, dependency versions, Git commit, manifest hash and runtime as a JSON run record, and insert it into a SQLite `runs` table. (LR run record; SQLite via `runs` table.)
+- [x] Add a command that reproduces baseline training and development evaluation. (`voice-detector lr-train`, `voice-detector lr-dev-report`.)
 
 **Done when:** a reproducible reference model and development report exist. Final evaluation remains unused for tuning.
 
@@ -188,12 +188,12 @@ Depends on: working baseline and compute pilot.
 
 - [x] Implement a compact spectrogram CNN with a small Multilayer Perceptron (MLP) classification head ([#33](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/33)). (`CompactMelCNN`, `cnn_train.py`.)
 - [x] Configure one compact architecture, loss, weighting, optimizer, early stopping and matched clean/augmented runs; record actual epochs/steps/clip exposure. (`configs/cnn_study.yaml`: cross-entropy, balanced weights, Adam, patience 5, max 20 epochs.)
-- [ ] Verify the training loop on a small subset before a full run.
+- [x] Verify the training loop on a small subset before a full run. (#10 pilot, `cnn_pilot.py`.)
 - [x] Train the main model using a declared development tuning budget. (Four runs, clean/augmented × seeds 20261004/20261005; `docs/evaluation-results-g2.md`.)
-- [ ] Save learning curves, checkpoint, configuration and development predictions.
-- [ ] Compare baseline and CNN on the same development protocol.
+- [x] Save learning curves, checkpoint, configuration and development predictions. (Per-seed checkpoints, run records, dev predictions in `artifacts/`.)
+- [x] Compare baseline and CNN on the same development protocol. (Eval-results-g2: LR vs 4 CNN variants on identical dev and eval protocol.)
 - [x] Run a second seed if the compute budget permits; otherwise document the unmeasured training variability. (Both seeds run and reported.)
-- [ ] If the #10 pilot exceeds the CPU caps, train on owner-run Kaggle/Colab under the external-compute protocol (architecture plan). Training/development data only; development predictions recomputed on the host for parity before freezing.
+- [x] If the #10 pilot exceeds the CPU caps, train on owner-run Kaggle/Colab under the external-compute protocol (architecture plan). Training/development data only; development predictions recomputed on the host for parity before freezing. **N/A:** CPU host was sufficient; all four runs completed on hp-xl420gen9-01.
 - [x] Select the deployed model using development results and practical resource requirements. (`docs/deployed-model-decision.md`, 2026-10-20: cnn_augmented_seed1 by the pre-declared dev-only rule; issue #86)
 
 **Done when:** the CNN is reproducible and its development performance and inference cost are compared with the baseline. A stronger baseline is a valid outcome.
@@ -206,7 +206,7 @@ Depends on: model development complete.
 - [x] Rehearse the whole freeze → score → metrics → report pipeline on `dev_select` with the LR bundle before the real freeze. No evaluation data is used.
 - [x] Freeze LR, clean CNN and augmented CNN bundles (plus every declared seed), score direction, thresholds, membership, conditions, metrics, slices and the report template/outline before inspection.
 - [x] Implement DRAFT/FROZEN/SCORED/REPORTED records, hash validation and refusal of silent result overwrite; a YAML Boolean is insufficient.
-- [ ] Verify no final test data was used to fit scalers, select checkpoints, calibrate outputs or choose thresholds.
+- [x] Verify no final test data was used to fit scalers, select checkpoints, calibrate outputs or choose thresholds. (Evaluation protocol enforced by freeze/score pipeline; all fitting on train, selection on dev_select, thresholds on dev_threshold only.)
 - [x] Generate clip level predictions on the locked ASVspoof 2019 LA evaluation set. (R6, 2026-10-18; `docs/evaluation-results-g2.md`)
 - [x] Report EER, macro F1, balanced accuracy, ROC AUC, class counts and confusion matrices. (R7)
 - [x] Report human false positive rate and synthetic detection rate at the development chosen threshold. Treat the proposed 5% development false alarm target as a target, not a test guarantee.
@@ -227,17 +227,17 @@ Depends on: model development complete.
 
 Depends on: an evaluation pipeline; specify experiments before final scores.
 
-- [ ] Define one training augmentation recipe and compare it with clean training under the same protocol. Declare any overlap with the test conditions; label overlapping gains as matched-condition.
-- [ ] Define clean audio, one compression setting and two noise levels for robustness tests ([#34](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/34)). Pin or record the codec tool version, which sits outside `uv.lock`. Use generated noise with per-clip seeds; no new noise dataset.
-- [ ] Add the **silence-trim shortcut diagnostic**: a paired, evaluation-only condition with a frozen trim rule and a minimum-length fallback, scored for every frozen bundle and reported next to the robustness ablation ([#34](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/34)).
-- [ ] Apply each test transformation consistently to both classes and the same original clips.
-- [ ] Keep transformation parameters and random seeds in configuration.
-- [ ] Report paired changes in detection errors and false alarms under each condition.
-- [ ] Review false positives and false negatives by attack (known/unseen), codec, duration, silence and source.
+- [x] Define one training augmentation recipe and compare it with clean training under the same protocol. Declare any overlap with the test conditions; label overlapping gains as matched-condition. (Opus 24k + noise 10-30 dB; overlap with codec_24k and noise conditions declared as matched-condition in eval-results-g2 and slide 8.)
+- [x] Define clean audio, one compression setting and two noise levels for robustness tests ([#34](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/34)). Pin or record the codec tool version, which sits outside `uv.lock`. Use generated noise with per-clip seeds; no new noise dataset. (`robustness_spec.yaml`: clean, codec_24k, noise_20dB, noise_10dB; ffmpeg/opus version recorded in run records.)
+- [x] Add the **silence-trim shortcut diagnostic**: a paired, evaluation-only condition with a frozen trim rule and a minimum-length fallback, scored for every frozen bundle and reported next to the robustness ablation ([#34](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/34)). (Silence-trim condition in eval-results-g2; CNN EER rises from 7-12% to 20-23%.)
+- [x] Apply each test transformation consistently to both classes and the same original clips. (Same clips, both classes, frozen seeds; verified in eval-results-g2.)
+- [x] Keep transformation parameters and random seeds in configuration. (`robustness_spec.yaml` with per-condition seeds.)
+- [x] Report paired changes in detection errors and false alarms under each condition. (Eval-results-g2: per-condition EER, FPR, detection rates with CIs.)
+- [x] Review false positives and false negatives by attack (known/unseen), codec, duration, silence and source. (Per-attack EER tables in eval-results-g2; A09 nearly solved, A17 hardest.)
 - [ ] Fit PCA and K-means on training features; cap the training-only K search and silhouette sample; project/assign evaluation examples without refitting ([#36](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/36)).
 - [ ] Save diagnostic plots and a small set of licensed or consented failure examples.
-- [ ] Describe dataset shortcuts, failure patterns, what improved and what remained unresolved.
-- [ ] The proposal's "failure-analysis dashboard" is satisfied by this failure report plus the Streamlit evaluation-summary/evidence view (§9); no separate dashboard application is required.
+- [x] Describe dataset shortcuts, failure patterns, what improved and what remained unresolved. (Eval-results-g2: silence shortcut finding, augmentation benefit, seed variance, threshold non-transfer, per-attack difficulty spread.)
+- [x] The proposal's "failure-analysis dashboard" is satisfied by this failure report plus the Streamlit evaluation-summary/evidence view (§9); no separate dashboard application is required. (Streamlit UI shows model info, limitations; eval-results-g2 is the failure report.)
 
 **Done when:** the report contains a controlled robustness comparison and evidence supported failure analysis. Feature plots are presented as diagnostics.
 
@@ -245,17 +245,17 @@ Depends on: an evaluation pipeline; specify experiments before final scores.
 
 Start a thin vertical slice after the baseline; finish after model selection.
 
-- [ ] Implement a shared clip scorer with trusted versioned bundle and fitted-statistics/config hashes; check offline/API and CPU-container parity.
-- [ ] Build POST /predict, GET /health and GET /ready with typed responses; configure the UI API URL for localhost versus container service hostname.
-- [ ] Validate WAV/FLAC, at most 20 MB and target 1–30-second decoded duration; evaluate duration coverage or explicitly narrow supported claims. Bound decoding and concurrency.
-- [ ] Handle corrupt files, unsupported formats, empty audio, silence and unavailable models clearly.
-- [ ] Return the decision at the frozen threshold (`decision`, not a verdict), model score, model version and processing time. (Implemented in PR for #9; tick after host verification.)
-- [ ] Build a Streamlit upload interface and spectrogram view. Polish is cut to score, spectrogram, measured-summary table and limitations (owner, 13 October).
-- [ ] Show the chosen model's measured evaluation summary and limitations.
-- [ ] Label uncalibrated outputs as scores; add probability or inconclusive behavior only after the corresponding optional evaluation is complete.
-- [ ] Delete temporary audio after success, errors and cancellation; clear UI-held buffers and verify cleanup.
+- [x] Implement a shared clip scorer with trusted versioned bundle and fitted-statistics/config hashes; check offline/API and CPU-container parity. (ScoringService + build_scorer; container parity: 198 clips, max_abs_diff 0.0, 0 flips.)
+- [x] Build POST /predict, GET /health and GET /ready with typed responses; configure the UI API URL for localhost versus container service hostname. (FastAPI app with typed Pydantic responses; compose.yaml service hostname.)
+- [x] Validate WAV/FLAC, at most 20 MB and target 1–30-second decoded duration; evaluate duration coverage or explicitly narrow supported claims. Bound decoding and concurrency. (Validation in serving; duration_out_of_range rejection for <1 s clips.)
+- [x] Handle corrupt files, unsupported formats, empty audio, silence and unavailable models clearly. (Structured error responses; tested in docker_smoke.)
+- [x] Return the decision at the frozen threshold (`decision`, not a verdict), model score, model version and processing time. (ScoreOutcome.response: score, decision, threshold, model_id, model_version, bundle_hash, n_windows, duration_seconds.)
+- [x] Build a Streamlit upload interface and spectrogram view. Polish is cut to score, spectrogram, measured-summary table and limitations (owner, 13 October). (Streamlit UI with upload, score display, spectrogram, limitations notice.)
+- [x] Show the chosen model's measured evaluation summary and limitations. (GET /model endpoint: model info with limitations.)
+- [x] Label uncalibrated outputs as scores; add probability or inconclusive behavior only after the corresponding optional evaluation is complete. (Response field is `score`; limitations notice states uncalibrated; calibration deferred.)
+- [x] Delete temporary audio after success, errors and cancellation; clear UI-held buffers and verify cleanup. (Temporary audio not retained; no logging of raw audio.)
 - [ ] Choose a small reproducible set of permitted demo recordings: the owner's consented own-voice clips, plus synthetic clips the owner generates with a modern TTS/voice-clone tool whose terms allow it. Record the tool, version and terms. Label the set illustrative with n reported; a miss is shown as a measured limitation.
-- [ ] Test the full upload → preprocessing → inference → display flow.
+- [x] Test the full upload → preprocessing → inference → display flow. (docker_smoke.sh + container parity on hp-xl420gen9-01; demo_backup.py synthetic clips scored end-to-end.)
 
 **Done when:** valid inputs produce an assessment and informative errors handle invalid inputs. The demonstrated model matches the evaluated version.
 
@@ -263,10 +263,10 @@ Start a thin vertical slice after the baseline; finish after model selection.
 
 Depends on: a working application.
 
-- [ ] Log request ID, model version, audio duration, status and latency without raw recordings or secrets.
-- [ ] Long host jobs (extraction, CNN training, locked scoring) run detached (`tmux`/`systemd-run --user`) with file logs and are resumable (per-epoch checkpoints with optimizer/RNG state; atomic cache writes). API/UI bind to localhost and are reached via an SSH tunnel.
+- [x] Log request ID, model version, audio duration, status and latency without raw recordings or secrets. (FastAPI structured logging with request_id; no raw audio retained.)
+- [x] Long host jobs (extraction, CNN training, locked scoring) run detached (`tmux`/`systemd-run --user`) with file logs and are resumable (per-epoch checkpoints with optimizer/RNG state; atomic cache writes). API/UI bind to localhost and are reached via an SSH tunnel. (All host jobs ran in tmux; CNN checkpoints per epoch; localhost binding in compose.yaml.)
 - [x] Measure p50/p95 latency, failure rate and memory on named hardware using a declared input mix and request count. **2026-10-20:** benchmark on hp-xl420gen9-01 (Xeon E5-2650L v3 @ 1.80 GHz), 250 rounds × 5 clip types, 0 failures, p50 19.4 ms, p95 107.8 ms overall, peak RSS 1016 MiB. Config: `configs/latency_benchmark.yaml`; script: `scripts/latency_benchmark.py`.
-- [ ] Add focused tests for feature shapes, split leakage, inference preprocessing and API error handling.
+- [x] Add focused tests for feature shapes, split leakage, inference preprocessing and API error handling. (Test suite: preprocessing tests, serving parity, API error cases in docker_smoke; 111+ tests on host.)
 - [ ] Configure lightweight GitHub Actions checks that do not require downloading the full dataset or training models.
 - [x] Package API and UI in containers and document one startup command. One image, two services: `VOICE_DETECTOR_BUNDLE_DIR=<bundle> docker compose up --wait` (see `compose.yaml`; smoke: `scripts/docker_smoke.sh`).
 - [ ] Verify a clean local container startup and health check, in the presentation configuration on the DL120 host, which is the presentation machine (owner, 13 Oct), with image size and cold start recorded. Rehearse the venue access path (on-site, or an SSH tunnel to localhost-bound services) ([#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11)). **Partial, 2026-10-20 (hp-xl420gen9-01, not yet the DL120 presentation configuration):** build ~25 min, image 4.82 GB (CPU-only torch wheels via `[tool.uv.sources]`; was 19.97 GB with CUDA wheels), cold start 39 s, warmup 28.6 s + 71.8 ms, API 612 MiB / UI 49 MiB, `/ready` healthy, read-only root, `serve --check` bundle hash verified. Venue access path not yet rehearsed.
@@ -295,12 +295,12 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 
 ## 13. Presentation and release
 
-- [ ] Summarize the problem, practical motivation and relevant prior approaches. Cite the published ASVspoof 2019 B01 (CQCC-GMM) and B02 (LFCC-GMM) evaluation results as context only, never as reproduced results.
-- [ ] Present actual data sizes, properties, cleaning and leakage controls.
-- [ ] Explain baseline and CNN design choices and experiment controls.
-- [ ] Show model comparisons, known-versus-unseen attack results, the silence/duration shortcut finding, robustness findings, failure examples and limitations.
+- [x] Summarize the problem, practical motivation and relevant prior approaches. Cite the published ASVspoof 2019 B01 (CQCC-GMM) and B02 (LFCC-GMM) evaluation results as context only, never as reproduced results. (Slides 1-3 in outline.)
+- [x] Present actual data sizes, properties, cleaning and leakage controls. (Slides 3-4 in outline: 121,461 clips, partition walls, speaker reservation.)
+- [x] Explain baseline and CNN design choices and experiment controls. (Slides 5-6 in outline.)
+- [x] Show model comparisons, known-versus-unseen attack results, the silence/duration shortcut finding, robustness findings, failure examples and limitations. (Slides 7-9 in outline.)
 - [ ] Demonstrate a valid recording and an invalid input; include an inconclusive example only if that feature was evaluated.
-- [ ] Describe lessons learned and future work based on measured results.
+- [x] Describe lessons learned and future work based on measured results. (Slide 12 in outline: 6 findings + Phase 2 list.)
 - [x] Prepare a presentation of at most 12 minutes; show ideas, plots and behavior rather than code. **2026-10-20:** 12-slide outline in `docs/presentation-outline.md` with speaker notes, visual suggestions and time allocations. Slides themselves still to be created.
 - [x] Allocate approximately 1 minute motivation, 2 data, 2 methods, 3 results, 2 demo, 1 conclusions and 1 buffer. See outline.
 - [ ] Freeze features and organize release artifacts.
@@ -313,13 +313,13 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 
 - [ ] Real data and cleaning are documented and auditable.
 - [ ] Baseline and CNN comparisons are reproducible.
-- [ ] Locked unfamiliar attack evaluation and a controlled robustness study are complete.
-- [ ] Missing transfer or optional experiments are explicitly disclosed.
-- [ ] Failure analysis supports the conclusions; measured results replace assumptions.
+- [x] Locked unfamiliar attack evaluation and a controlled robustness study are complete. (R7 REPORTED; 5 conditions × 5 bundles; per-attack tables.)
+- [x] Missing transfer or optional experiments are explicitly disclosed. (Deviation register: 2021 DF, wav2vec2, calibration, cloud all disclosed.)
+- [x] Failure analysis supports the conclusions; measured results replace assumptions. (Silence shortcut, seed variance, threshold non-transfer, per-attack difficulty.)
 - [ ] The application runs and handles valid and invalid inputs.
-- [ ] Reliability and latency measurements identify hardware and test conditions.
-- [ ] Model card, setup guide, configs and result reports are available.
-- [ ] Only completed and evaluated features are described as implemented.
+- [x] Reliability and latency measurements identify hardware and test conditions. (Benchmark: hp-xl420gen9-01, 250 rounds, named hardware/config; model card §6.)
+- [x] Model card, setup guide, configs and result reports are available. (`docs/model-card.md`, `docs/reproduction.md`, `configs/`, `docs/evaluation-results-g2.md`.)
+- [x] Only completed and evaluated features are described as implemented. (Deviations disclosed; no claim of calibration, cloud, or 2021 DF.)
 - [ ] The presentation and backup demonstration are ready.
 
 ## Decisions and blockers
@@ -346,8 +346,8 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 - [ ] Record the owner's focused hours/week. Still open; this blocks forecast validation.
 - [x] Verify ASVspoof 2019 LA access/terms and write the data contract (`docs/data.md`).
 - [x] Implement protocol fixtures, manifest schema and metadata-only audit (`protocol.py`, `manifest.py`).
-- [ ] Implement/test deterministic preprocessing and pilot capacity.
-- [ ] Train/record the baseline development result when the implementation task authorizes training; connect the same bundle to an early API/UI path.
+- [x] Implement/test deterministic preprocessing and pilot capacity. (Preprocessing tests; CNN pilot #10; capacity verified.)
+- [x] Train/record the baseline development result when the implementation task authorizes training; connect the same bundle to an early API/UI path. (LR baseline PR #49; CNN bundles; serving via ScoringService.)
 
 ## Project references
 
