@@ -41,6 +41,10 @@ uncalibrated, and no calibration was fitted or evaluated.
 ASVspoof 2019 Logical Access, official partitions preserved (`docs/data.md`). Licence
 ODC-By 1.0; required attribution and citation are recorded there.
 
+> Contains information from the ASVspoof 2019 database
+> (<https://datashare.ed.ac.uk/handle/10283/3336>), made available under the ODC
+> Attribution License (<https://opendatacommons.org/licenses/by/1-0/>).
+
 | Partition | Bona fide | Spoof | Attacks | Speakers | Used for |
 | --- | --- | --- | --- | --- | --- |
 | Train | 2,580 | 22,800 | A01-A06 | 20 | fitting, scaler statistics |
@@ -162,6 +166,9 @@ Measured on hp-xl420gen9-01 (Xeon E5-2650L v3 @ 1.80 GHz), CPU only, torch
 - Archive with SHA-256 checksums (outside Git): `archive_g2_20261020`, 80 files, written
   2026-10-20 by `scripts/archive_artifacts.sh`.
 - Code commit of the evaluation: `c4445f5083d80a91b2014fa57937eb328eb8ae5d`.
+- Selection-order deviation: the development-only rule that chose this model was written
+  after the locked report had been read (`docs/deployed-model-decision.md`; deviation
+  register in `docs/architecture-and-delivery-plan.md`). It is not a blind selection.
 - Model weights are not committed. Redistribution of the bundle has not been decided.
 
 ## 8. Ethical and misuse considerations
