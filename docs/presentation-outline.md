@@ -96,13 +96,14 @@ Visual: MFCC feature pipeline diagram (audio → windows → MFCC → pool → L
 **Compact log-Mel CNN (~23.7K parameters)**
 
 - 64-bin log-Mel spectrogram, 4-second windows at 16 kHz.
-- 3 conv blocks (16 → 32 → 64 channels, 3×3, batch norm, ReLU, max pool),
-  adaptive average pool, linear head.
+- 3 conv blocks (16 → 32 → 64 channels, 3×3, batch norm, ReLU; max-pool after
+  blocks 1 and 2 only), adaptive average pool, linear head.
 - Trained with balanced cross-entropy, Adam, early stopping on dev clip EER.
 - Two training conditions × two seeds:
   - **Clean:** trained on unmodified audio.
   - **Augmented:** per-clip Opus 24 kbps codec and white noise 10-30 dB SNR
-    (each with 50% probability), applied before the random crop.
+    (each 50%, drawn only for the 50% of clips that are augmented, so about 25% of
+    clips per epoch get each), applied before the random crop.
 - Same inference pipeline for evaluation and serving.
 - CPU-only: Xeon E5-2650L, no GPU. The architecture is designed to be
   small enough.
@@ -123,7 +124,7 @@ Visual: CNN architecture diagram. Keep it simple — 3 blocks + pool + head.
 | CNN augmented seed 1 (deployed) | 11.77 [10.28, 13.04] |
 | CNN augmented seed 2 | 7.35 [6.18, 8.38] |
 
-- CNNs cut LR's error roughly in half.
+- CNNs reduce LR's EER by 41–66% (6.7–11.8% vs 19.9%).
 - Seed variance is large: augmented seeds differ by 4.4 points with
   non-overlapping intervals. Clean-vs-augmented is not decided by these
   point estimates alone.
@@ -166,7 +167,8 @@ Visual: line chart, EER by condition, one line per model family.
 **Not all attacks are equal**
 
 - A09 is nearly solved by every CNN (EER ≈ 0%).
-- A17 is hardest for all models (CNN EER 17-22%).
+- A17 is hardest for LR and three of the four CNNs (CNN EER 17-22%); for the
+  deployed model A10 is (27.1% vs 19.5% on A17).
 - A10, A13, A15 remain challenging.
 - Silence trimming raises CNN EER from 7-12% → 20-23% (partial reliance
   on silence cues — shortcut diagnostic, not proof).
@@ -225,7 +227,7 @@ Visual: simple serving diagram (upload → API → scorer → response).
 **What we learned**
 
 1. A 23.7K-parameter CNN on log-Mel spectrograms cuts the LR baseline's
-   EER roughly in half on unseen attacks (6.7-11.8% vs 19.9%).
+   EER by 41-66% on unseen attacks (6.7-11.8% vs 19.9%).
 2. Training augmentation (noise + codec) improves robustness under the matched
    conditions; seed 1 of the augmented family also has the highest clean EER,
    but seed 2 does not, so the clean cost is not established.

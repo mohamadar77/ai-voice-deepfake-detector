@@ -30,13 +30,13 @@ uncalibrated, and no calibration was fitted or evaluated.
 | --- | --- |
 | Model id / version | `cnn_augmented_seed1` / `cnn:augmented_seed1` |
 | Bundle hash (pinned, checked at startup) | `999bd10a831fcdff43829fbc197c3d4991491153fcead7cf594c1a971e3fe8a0` |
-| Architecture | 3 conv blocks (16, 32, 64 channels; 3x3; batch norm; ReLU; max pool), adaptive average pool, linear head to 2 classes. About 23.7 thousand trainable parameters (computed from the layer definitions in `cnn_pilot.py`) |
+| Architecture | 3 conv blocks (16, 32, 64 channels; 3x3; batch norm; ReLU), 2x2 max pool after blocks 1 and 2 only, adaptive average pool, linear head to 2 classes. About 23.7 thousand trainable parameters (computed from the layer definitions in `cnn_pilot.py`) |
 | Input | 4-second windows at 16 kHz mono; 64-bin log-Mel (`mel-v1`: n_fft 400, hop 160, 20-8000 Hz); per-bin standardization fitted on training data only |
 | Clip score | Mean of the per-window logits (`mean_window_logit`); higher means more spoof-like |
 | Operating threshold | -1.2519543 (float64 `-1.251954287290573`), fixed on clean development audio from 5 reserved development speakers (574 bona fide clips; achieved false-positive rate 4.88% against a 5% target) |
 | Decision | `flagged_spoof_like` if score >= threshold, else `not_flagged`. The API never returns "real", "fake", a probability or a confidence |
 | Training | Cross-entropy, balanced class weights, Adam (lr 0.001, weight decay 0.0001), batch 32, at most 20 epochs, early stopping (patience 5) on development clip EER. Declared seeds 20261004 and 20261005; see `configs/cnn_study.yaml` |
-| Augmentation (this model) | Per clip with probability 0.5: Opus 24 kbps codec (probability 0.5) and white noise at 10-30 dB SNR (probability 0.5), applied before the random crop. The clean model family was trained without it |
+| Augmentation (this model) | Per clip with probability 0.5: Opus 24 kbps codec (probability 0.5) and white noise at 10-30 dB SNR (probability 0.5), applied before the random crop. The probabilities are nested and redrawn each epoch, so each transform reaches about 25% of clips per epoch and about 62.5% of clips are left clean. The clean model family was trained without it |
 
 ## 2. Intended use
 

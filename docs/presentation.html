@@ -577,7 +577,7 @@ tr.deployed td { background: var(--accent-light); }
 
         <!-- Bottom: key design choice -->
         <rect x="115" y="100" width="260" height="30" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
-        <text x="245" y="119" text-anchor="middle" fill="var(--fg)" font-size="9"><tspan font-weight="700">Option D:</tspan> pool over real (non-padded) samples only — no zero-pad contamination</text>
+        <text x="245" y="119" text-anchor="middle" fill="var(--fg)" font-size="9"><tspan font-weight="700">Option D:</tspan> real samples only, no zero-padding</text>
 
         <rect x="400" y="100" width="200" height="30" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
         <text x="500" y="119" text-anchor="middle" fill="var(--fg)" font-size="9">Selected on dev EER · threshold at 5% FPR</text>
@@ -633,8 +633,8 @@ tr.deployed td { background: var(--accent-light); }
         <text x="335" y="65" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Conv2d 3×3</text>
         <text x="335" y="78" text-anchor="middle" fill="var(--fg-muted)" font-size="8">BatchNorm</text>
         <text x="335" y="91" text-anchor="middle" fill="var(--fg-muted)" font-size="8">ReLU</text>
-        <text x="335" y="104" text-anchor="middle" fill="var(--fg-muted)" font-size="8">MaxPool 2×2</text>
-        <text x="335" y="120" text-anchor="middle" fill="var(--accent)" font-size="8" class="mono">64×8×50</text>
+        <text x="335" y="104" text-anchor="middle" fill="var(--fg-muted)" font-size="8">(no max-pool)</text>
+        <text x="335" y="120" text-anchor="middle" fill="var(--accent)" font-size="8" class="mono">64×16×100</text>
 
         <path d="M375 80 L395 80" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
 
@@ -661,17 +661,18 @@ tr.deployed td { background: var(--accent-light); }
         <text x="635" y="97" text-anchor="middle" fill="var(--fg-muted)" font-size="8">logit[bonafide]</text>
 
         <!-- Training details -->
-        <rect x="5" y="150" width="220" height="35" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
+        <rect x="5" y="150" width="220" height="46" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
         <text x="115" y="165" text-anchor="middle" fill="var(--fg)" font-size="9" font-weight="700">Training</text>
         <text x="115" y="178" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Balanced CE · Adam · early stop on dev EER</text>
 
-        <rect x="240" y="150" width="210" height="35" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
+        <rect x="240" y="150" width="210" height="46" rx="4" fill="var(--code-bg)" stroke="var(--border)"/>
         <text x="345" y="165" text-anchor="middle" fill="var(--fg)" font-size="9" font-weight="700">Clean condition</text>
         <text x="345" y="178" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Unmodified audio · 2 seeds</text>
 
-        <rect x="465" y="150" width="225" height="35" rx="4" fill="var(--accent-light)" stroke="var(--accent)"/>
+        <rect x="465" y="150" width="225" height="46" rx="4" fill="var(--accent-light)" stroke="var(--accent)"/>
         <text x="577" y="165" text-anchor="middle" fill="var(--accent)" font-size="9" font-weight="700">Augmented condition</text>
-        <text x="577" y="178" text-anchor="middle" fill="var(--fg-muted)" font-size="8">Opus 24k (50%) + noise 10–30 dB (50%) · 2 seeds</text>
+        <text x="577" y="178" text-anchor="middle" fill="var(--fg-muted)" font-size="8">50% of clips augmented · 2 seeds</text>
+        <text x="577" y="189" text-anchor="middle" fill="var(--fg-muted)" font-size="8">then Opus 24k ½ and noise 10–30 dB ½ (≈25% of clips each)</text>
 
         <!-- Normalization note -->
         <text x="40" y="145" text-anchor="start" fill="var(--fg-muted)" font-size="8">Per-bin standardization fitted on training data only (cnn_norm_stats.pt)</text>
@@ -698,7 +699,7 @@ tr.deployed td { background: var(--accent-light); }
       </table>
     </div>
     <ul style="margin-top:0.75rem">
-      <li>CNNs cut the baseline error roughly in half.</li>
+      <li>CNNs reduce the baseline&rsquo;s EER by 41&ndash;66% (6.7&ndash;11.8% vs 19.9%).</li>
       <li><span class="warn">Seed variance is large:</span> augmented seeds differ by 4.4 points with non-overlapping intervals.</li>
       <li>Deployed model has the highest clean CNN EER &mdash; chosen by a development-only rule written after the locked report was read (disclosed deviation).</li>
     </ul>
@@ -735,7 +736,7 @@ tr.deployed td { background: var(--accent-light); }
     <h2>Not all attacks are equal</h2>
     <ul>
       <li><span class="good">A09 nearly solved</span> by every CNN (EER &asymp; 0%).</li>
-      <li><span class="danger">A17 is hardest</span> for all models (CNN EER 17&ndash;22%).</li>
+      <li><span class="danger">A17 is hardest</span> for LR and three of the four CNNs (CNN EER 17&ndash;22%); for the deployed model A10 is (27.1% vs 19.5% on A17).</li>
       <li>A10, A13, A15 remain challenging.</li>
       <li>Known-algorithm attacks A16/A19 (reusing A04/A06) are much easier (CNN EER 0.4&ndash;6.5%).</li>
     </ul>
@@ -891,7 +892,7 @@ tr.deployed td { background: var(--accent-light); }
     <div class="slide-number">Slide 12 &mdash; Conclusions</div>
     <h2>What we learned</h2>
     <ol class="conclusion-list">
-      <li>A 23.7K-parameter CNN on log-Mel spectrograms cuts the LR baseline's EER roughly in half on unseen attacks (6.7&ndash;11.8% vs 19.9%).</li>
+      <li>A 23.7K-parameter CNN on log-Mel spectrograms reduces the LR baseline's EER by 41&ndash;66% on unseen attacks (6.7&ndash;11.8% vs 19.9%).</li>
       <li>Training augmentation (noise + codec) improves robustness under the matched conditions. A clean-accuracy cost is not established: augmented seed 1 is worse than both clean seeds, augmented seed 2 is not clearly different.</li>
       <li>Seed variance is large &mdash; single-seed results can be misleading.</li>
       <li>Thresholds set on clean audio do not transfer under distortion.</li>
