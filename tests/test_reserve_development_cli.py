@@ -8,10 +8,12 @@ reservation without re-hashing 121k files.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from collections.abc import Callable
 from dataclasses import replace as dc_replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -266,6 +268,10 @@ def test_a_rebuilt_manifest_cannot_silently_move_a_committed_membership(
     assert forced["forced"] is True
     assert forced["matched_committed_record"] is False
     assert forced["speakers"] != frozen["speakers"]
+    # A moved membership rewrites the record, and says so.
+    assert forced["record_preserved"] is False
+    assert forced["commit_this"] == str(record_out)
+    assert record_out.read_text(encoding="utf-8") != committed
 
 
 def test_an_unreadable_committed_record_is_refused(
@@ -372,3 +378,484 @@ def test_a_catalog_without_local_path_keeps_its_columns(
     after, _ = read_manifest_sqlite(manifest_dir / "manifest.sqlite")
     assert "local_path" not in after[0]
     assert "development_role" in after[0]
+
+
+# --- a restore keeps the committed record as it is (#56, #68) -----------------
+
+
+class _Clock(datetime):
+    """A ``datetime`` whose ``now`` is set by the test, so freeze times are exact."""
+
+    current: datetime = datetime(2026, 10, 14, 12, 0, 0, tzinfo=UTC)
+
+    @classmethod
+    def now(cls, tz: Any = None) -> datetime:  # type: ignore[override]
+        return cls.current if tz is None else cls.current.astimezone(tz)
+
+
+@pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> type[_Clock]:
+    _Clock.current = datetime(2026, 10, 14, 12, 0, 0, tzinfo=UTC)
+    monkeypatch.setattr(r, "datetime", _Clock)
+    return _Clock
+
+
+FROZEN_UTC = "2026-10-14T12:00:00+00:00"
+_RESERVATION_META_KEYS = (
+    "reservation_schema_version",
+    "reservation_method",
+    "reservation_seed",
+    "reservation_frozen_utc",
+    "reservation_manifest_hash_before",
+    "reservation_record_sha256",
+    "reservation_forced",
+)
+
+
+def _meta(manifest_dir: Path) -> dict[str, str]:
+    return read_manifest_sqlite(manifest_dir / "manifest.sqlite")[1]
+
+
+def _freeze(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    rows: list[dict[str, Any]],
+    *extra: str,
+) -> tuple[Path, Path, dict[str, Any], bytes]:
+    """Freeze at the clock's time; return the dirs, the payload and the record bytes."""
+
+    manifest_dir = _catalog(tmp_path, rows)
+    record_out = tmp_path / "reports" / "dev_reservation_frozen.json"
+    assert _run(manifest_dir, record_out, *extra) == 0
+    payload = json.loads(capsys.readouterr().out)
+    return manifest_dir, record_out, payload, record_out.read_bytes()
+
+
+def test_restoring_onto_a_rebuilt_catalog_keeps_the_committed_record_byte_for_byte(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+) -> None:
+    """The committed record is provenance: a restore a minute later must not touch it.
+
+    This is the deterministic form of the intermittent failure in #68: the record
+    carries a one-second ``frozen_utc``, so rewriting it on a restore changed its
+    bytes (and its SHA-256) whenever the two runs fell in different seconds.
+    """
+
+    rows = make_rows()
+    manifest_dir, record_out, frozen, original = _freeze(tmp_path, capsys, rows)
+    original_record = json.loads(original)
+    assert original_record["frozen_utc"] == FROZEN_UTC
+    assert frozen["record_preserved"] is False
+    assert frozen["commit_this"] == str(record_out)
+
+    # The host rebuilds the identical catalog (no roles) a minute later.
+    _catalog(tmp_path, rows)
+    (manifest_dir / "dev_reservation_frozen.json").unlink()
+    clock.current += timedelta(minutes=1)
+    assert _run(manifest_dir, record_out) == 0
+    restored = json.loads(capsys.readouterr().out)
+
+    assert record_out.read_bytes() == original
+    assert restored["record_preserved"] is True
+    assert restored["commit_this"] is None
+    assert restored["matched_committed_record"] is True
+    assert restored["speakers"] == frozen["speakers"]
+    assert restored["manifest_hash_after"] == frozen["manifest_hash_after"]
+
+    # The catalog cites the original freeze, not the restore, and its copy of the record is
+    # the committed bytes.
+    meta = _meta(manifest_dir)
+    assert meta["reservation_frozen_utc"] == FROZEN_UTC
+    assert meta["reservation_record_sha256"] == hashlib.sha256(original).hexdigest()
+    assert meta["reservation_manifest_hash_before"] == original_record["manifest_hash_before"]
+    assert meta["reservation_forced"] == "false"
+    assert (manifest_dir / "dev_reservation_frozen.json").read_bytes() == original
+    # And the restored catalog satisfies the preserved record, hash included.
+    r.verify_frozen_reservation(
+        read_manifest_sqlite(manifest_dir / "manifest.sqlite")[0], original_record
+    )
+    assert not list(manifest_dir.glob("*.tmp"))
+
+
+def test_repeating_the_command_on_a_frozen_catalog_changes_no_provenance(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+) -> None:
+    manifest_dir, record_out, frozen, original = _freeze(tmp_path, capsys, make_rows())
+    before = _meta(manifest_dir)
+
+    clock.current += timedelta(hours=1)
+    assert _run(manifest_dir, record_out) == 0
+    again = json.loads(capsys.readouterr().out)
+
+    assert again["changed"] is False
+    assert again["record_preserved"] is True
+    assert record_out.read_bytes() == original
+    after = _meta(manifest_dir)
+    for key in _RESERVATION_META_KEYS:
+        assert after[key] == before[key], key
+    # The role-free hash from the original freeze survives; this run's own starting
+    # point was already role-bearing.
+    assert after["reservation_manifest_hash_before"] == frozen["manifest_hash_before"]
+    assert again["manifest_hash_before"] == again["manifest_hash_after"]
+
+
+def test_a_note_cannot_change_a_preserved_record_and_is_reported_as_ignored(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+) -> None:
+    manifest_dir, record_out, _, original = _freeze(tmp_path, capsys, make_rows())
+
+    assert _run(manifest_dir, record_out, "--note", "a second opinion") == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert "note_ignored" in payload
+    assert record_out.read_bytes() == original
+    assert "note" not in json.loads(original)
+
+
+def test_a_dry_run_on_a_restore_shows_the_record_in_force_and_writes_nothing(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+) -> None:
+    rows = make_rows()
+    manifest_dir, record_out, _, original = _freeze(tmp_path, capsys, rows)
+    _catalog(tmp_path, rows)
+    catalog_before = (manifest_dir / "manifest.sqlite").read_bytes()
+    clock.current += timedelta(minutes=1)
+
+    assert _run(manifest_dir, record_out, "--dry-run") == 0
+
+    # The committed record, with its original freeze time, not a freshly built one.
+    assert json.loads(capsys.readouterr().out) == json.loads(original)
+    assert record_out.read_bytes() == original
+    assert (manifest_dir / "manifest.sqlite").read_bytes() == catalog_before
+
+
+def _different_manifest(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The same development speakers (so the same reservation) in a different manifest.
+
+    The manifest hash covers each clip's checksum, so one changed train checksum is
+    enough.
+    """
+
+    different = [
+        {**row, "checksum_sha256": "0" * 64} if row["clip_id"] == "LA_T_1" else row
+        for row in rows
+    ]
+    assert different != rows
+    return different
+
+
+def test_a_record_frozen_against_a_different_manifest_is_refused_without_force(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+) -> None:
+    """Same membership is not enough: the record must describe this catalog.
+
+    The manifest hash covers each clip's checksum, so a catalog with a different
+    train clip is a different manifest even though the development speakers, and
+    so the reservation, are identical. Rewriting the record quietly would replace
+    its provenance, so it needs an explicit, recorded override.
+    """
+
+    rows = make_rows()
+    manifest_dir, record_out, frozen, original = _freeze(tmp_path, capsys, rows)
+    _catalog(tmp_path, _different_manifest(rows))
+    catalog_before = (manifest_dir / "manifest.sqlite").read_bytes()
+
+    assert _run(manifest_dir, record_out) == 1
+    refusal = json.loads(capsys.readouterr().out)
+    assert refusal["reason"] == "record_manifest_mismatch"
+    assert refusal["committed_manifest_hash_after"] == frozen["manifest_hash_after"]
+    assert refusal["derived_manifest_hash_after"] != frozen["manifest_hash_after"]
+    # Nothing moved: the record is as it was and the catalog was not stamped.
+    assert record_out.read_bytes() == original
+    assert (manifest_dir / "manifest.sqlite").read_bytes() == catalog_before
+
+    # The override rewrites the record with this manifest's hashes, and says so.
+    clock.current += timedelta(minutes=5)
+    assert _run(manifest_dir, record_out, "--force") == 0
+    forced = json.loads(capsys.readouterr().out)
+    assert forced["forced"] is True
+    assert forced["record_preserved"] is False
+    assert forced["commit_this"] == str(record_out)
+    rewritten = json.loads(record_out.read_bytes())
+    assert rewritten["manifest_hash_after"] == forced["manifest_hash_after"]
+    assert rewritten["manifest_hash_after"] != json.loads(original)["manifest_hash_after"]
+    assert rewritten["frozen_utc"] == "2026-10-14T12:05:00+00:00"
+    assert _meta(manifest_dir)["reservation_forced"] == "true"
+
+
+def test_a_committed_record_without_a_manifest_hash_cannot_be_preserved(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+) -> None:
+    rows = make_rows()
+    manifest_dir, record_out, _, original = _freeze(tmp_path, capsys, rows)
+    stripped = json.loads(original)
+    del stripped["manifest_hash_after"]
+    record_out.write_text(json.dumps(stripped, indent=2, sort_keys=True), encoding="utf-8")
+    kept = record_out.read_bytes()
+    _catalog(tmp_path, rows)
+
+    assert _run(manifest_dir, record_out) == 1
+    refusal = json.loads(capsys.readouterr().out)
+    assert refusal["reason"] == "record_manifest_mismatch"
+    assert refusal["committed_manifest_hash_after"] is None
+    assert record_out.read_bytes() == kept
+
+
+def test_force_on_a_matching_restore_keeps_the_record_and_a_later_restore_keeps_the_flag(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+) -> None:
+    """``--force`` overrides a catalog guard, not the record; a restore never clears it."""
+
+    manifest_dir, record_out, _, original = _freeze(tmp_path, capsys, make_rows())
+
+    clock.current += timedelta(minutes=1)
+    assert _run(manifest_dir, record_out, "--force") == 0
+    forced = json.loads(capsys.readouterr().out)
+    assert forced["forced"] is True
+    assert forced["record_preserved"] is True
+    assert record_out.read_bytes() == original
+    assert _meta(manifest_dir)["reservation_forced"] == "true"
+
+    clock.current += timedelta(minutes=1)
+    assert _run(manifest_dir, record_out) == 0
+    capsys.readouterr()
+    assert record_out.read_bytes() == original
+    assert _meta(manifest_dir)["reservation_forced"] == "true"
+
+
+# --- the rest of "same freeze": the rule, complete provenance, exact bytes -----
+
+
+def test_a_restore_under_a_drifted_reservation_config_is_refused_without_force(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+    reservation_spec: r.ReservationSpec,
+) -> None:
+    """The same membership under a different rule is not the same freeze.
+
+    A threshold fraction of 0.26 rounds to the same five reserved speakers as 0.25,
+    so only the recorded rule differs. Keeping the record and exiting 0 would leave
+    the versioned config and the authoritative record disagreeing without a word.
+    """
+
+    rows = make_rows()
+    manifest_dir, record_out, _, original = _freeze(tmp_path, capsys, rows)
+    drifted = _config_with_fraction(tmp_path, "0.26")
+    same_membership = r.plan_reservation(
+        rows, dc_replace(reservation_spec, threshold_fraction=0.26)
+    ).assignment
+    assert same_membership == r.record_assignment(json.loads(original))
+    _catalog(tmp_path, rows)
+    catalog_before = (manifest_dir / "manifest.sqlite").read_bytes()
+
+    assert _run(manifest_dir, record_out, config=drifted) == 1
+    refusal = json.loads(capsys.readouterr().out)
+    assert refusal["reason"] == "record_spec_mismatch"
+    assert refusal["committed_spec"]["threshold_fraction"] == 0.25
+    assert refusal["current_spec"]["threshold_fraction"] == 0.26
+    assert "scratch" in refusal["hint"]
+    assert record_out.read_bytes() == original
+    assert (manifest_dir / "manifest.sqlite").read_bytes() == catalog_before
+
+    # An explicit override re-records the rule, with the same membership.
+    clock.current += timedelta(minutes=5)
+    assert _run(manifest_dir, record_out, "--force", config=drifted) == 0
+    forced = json.loads(capsys.readouterr().out)
+    assert forced["forced"] is True
+    assert forced["record_preserved"] is False
+    rewritten = json.loads(record_out.read_bytes())
+    assert rewritten["spec"]["threshold_fraction"] == 0.26
+    assert rewritten["speakers"] == json.loads(original)["speakers"]
+
+
+_MISSING = object()
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("frozen_utc", _MISSING),
+        ("manifest_hash_before", _MISSING),
+        ("frozen_utc", None),
+        ("manifest_hash_before", ""),
+    ],
+)
+@pytest.mark.parametrize("extra", [(), ("--dry-run",)])
+def test_a_record_without_the_provenance_the_catalog_cites_is_refused_not_a_traceback(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+    key: str,
+    value: object,
+    extra: tuple[str, ...],
+) -> None:
+    rows = make_rows()
+    manifest_dir, record_out, _, original = _freeze(tmp_path, capsys, rows)
+    incomplete = json.loads(original)
+    if value is _MISSING:
+        del incomplete[key]
+    else:
+        incomplete[key] = value
+    record_out.write_text(json.dumps(incomplete, indent=2, sort_keys=True), encoding="utf-8")
+    kept = record_out.read_bytes()
+    _catalog(tmp_path, rows)
+
+    assert _run(manifest_dir, record_out, *extra) == 1
+    refusal = json.loads(capsys.readouterr().out)
+    assert refusal["reason"] == "record_provenance_incomplete"
+    assert refusal["missing"] == [key]
+    assert record_out.read_bytes() == kept
+    assert not r.extract_role_assignment(read_manifest_sqlite(manifest_dir / "manifest.sqlite")[0])
+
+
+def test_force_rewrites_a_record_that_lacks_provenance_with_this_runs_provenance(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+) -> None:
+    rows = make_rows()
+    manifest_dir, record_out, _, original = _freeze(tmp_path, capsys, rows)
+    incomplete = json.loads(original)
+    del incomplete["frozen_utc"]
+    record_out.write_text(json.dumps(incomplete, indent=2, sort_keys=True), encoding="utf-8")
+    _catalog(tmp_path, rows)
+    clock.current += timedelta(minutes=5)
+
+    assert _run(manifest_dir, record_out, "--force") == 0
+    forced = json.loads(capsys.readouterr().out)
+    assert forced["record_preserved"] is False
+    assert json.loads(record_out.read_bytes())["frozen_utc"] == "2026-10-14T12:05:00+00:00"
+    assert _meta(manifest_dir)["reservation_frozen_utc"] == "2026-10-14T12:05:00+00:00"
+
+
+def test_a_committed_record_in_any_formatting_is_kept_byte_for_byte(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+) -> None:
+    """Byte-for-byte means the file's bytes, not a re-serialization of its content.
+
+    Every other test writes the canonical form, which a re-serializing
+    implementation would reproduce exactly. This record has the same content with
+    4-space indentation, CRLF line ends and a trailing newline.
+    """
+
+    rows = make_rows()
+    manifest_dir, record_out, _, canonical = _freeze(tmp_path, capsys, rows)
+    lines = json.dumps(json.loads(canonical), indent=4).splitlines()
+    raw = ("\r\n".join(lines) + "\r\n").encode("utf-8")
+    assert raw != canonical
+    record_out.write_bytes(raw)
+    _catalog(tmp_path, rows)
+    (manifest_dir / "dev_reservation_frozen.json").unlink()
+    clock.current += timedelta(minutes=1)
+
+    assert _run(manifest_dir, record_out) == 0
+    assert json.loads(capsys.readouterr().out)["record_preserved"] is True
+
+    assert record_out.read_bytes() == raw
+    assert _meta(manifest_dir)["reservation_record_sha256"] == hashlib.sha256(raw).hexdigest()
+    assert (manifest_dir / "dev_reservation_frozen.json").read_bytes() == raw
+
+
+def test_a_restore_onto_a_catalog_with_another_membership_needs_force_and_repairs_it(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+    reservation_spec: r.ReservationSpec,
+) -> None:
+    rows = make_rows()
+    manifest_dir, record_out, _, original = _freeze(tmp_path, capsys, rows)
+    committed = r.record_assignment(json.loads(original))
+    other = r.plan_reservation(rows, dc_replace(reservation_spec, seed=reservation_spec.seed + 1))
+    assert other.assignment != committed
+    _catalog(tmp_path, other.rows)  # a catalog stamped with a different membership
+
+    assert _run(manifest_dir, record_out) == 1
+    assert json.loads(capsys.readouterr().out)["reason"] == "already_frozen_differently"
+    assert record_out.read_bytes() == original
+
+    assert _run(manifest_dir, record_out, "--force") == 0
+    forced = json.loads(capsys.readouterr().out)
+    assert forced["record_preserved"] is True
+    assert forced["forced"] is True
+    assert record_out.read_bytes() == original
+    repaired, _ = read_manifest_sqlite(manifest_dir / "manifest.sqlite")
+    assert r.extract_role_assignment(repaired) == committed
+    r.verify_frozen_reservation(repaired, json.loads(original))
+
+
+def test_force_on_a_catalog_without_provenance_still_preserves_a_matching_record(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+) -> None:
+    rows = make_rows()
+    manifest_dir, record_out, _, original = _freeze(tmp_path, capsys, rows)
+    write_manifest_sqlite(rows, manifest_dir / "manifest.sqlite")  # rebuilt without catalog_meta
+
+    assert _run(manifest_dir, record_out) == 1
+    assert json.loads(capsys.readouterr().out)["reason"] == "catalog_provenance_missing"
+
+    assert _run(manifest_dir, record_out, "--force") == 0
+    assert json.loads(capsys.readouterr().out)["record_preserved"] is True
+    assert record_out.read_bytes() == original
+    meta = _meta(manifest_dir)
+    assert meta["build_provenance"] == "unknown"
+    assert meta["reservation_forced"] == "true"
+    assert meta["reservation_record_sha256"] == hashlib.sha256(original).hexdigest()
+
+
+def test_a_dry_run_on_a_mismatched_record_is_refused_like_a_real_run(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    make_rows: Rows,
+    clock: type[_Clock],
+) -> None:
+    rows = make_rows()
+    manifest_dir, record_out, _, original = _freeze(tmp_path, capsys, rows)
+    _catalog(tmp_path, _different_manifest(rows))
+
+    assert _run(manifest_dir, record_out, "--dry-run") == 1
+    assert json.loads(capsys.readouterr().out)["reason"] == "record_manifest_mismatch"
+    assert record_out.read_bytes() == original
+
+
+def test_force_does_not_override_an_unreadable_committed_record(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], make_rows: Rows
+) -> None:
+    manifest_dir = _catalog(tmp_path, make_rows())
+    record_out = tmp_path / "record.json"
+    record_out.write_text("{not json", encoding="utf-8")
+
+    assert _run(manifest_dir, record_out, "--force") == 1
+    assert json.loads(capsys.readouterr().out)["reason"] == "unreadable_frozen_record"
+    assert record_out.read_text(encoding="utf-8") == "{not json"

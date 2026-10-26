@@ -75,19 +75,29 @@ recorded in the Phase 1 evidence is `b172e50c…`.
 ## 3. Development reservation
 
 The speaker-grouped `select` / `threshold` split is committed as
-`reports/dev_reservation_frozen.json` (commit `81c3cf7`). This step re-derives it
-from `configs/dev_reservation.yaml` and stamps the roles into the manifest. It
-refuses if the derived membership differs from the committed record.
+`reports/dev_reservation_frozen.json` (commit `81c3cf7`) and is the authoritative
+membership. This step re-derives the split from `configs/dev_reservation.yaml` and
+stamps the roles into the manifest.
 
 ```bash
 uv run voice-detector reserve-development --dry-run
 uv run voice-detector reserve-development
+git status --short reports/    # must print nothing
 ```
 
-This changes the manifest hash by design (role-bearing hash `b932b859…`), so it
+Because the committed record already freezes exactly this membership against exactly
+this manifest, the run is a *restore*: the committed record is kept byte-for-byte
+(the output shows `record_preserved: true` and `commit_this: null`) and only the
+catalog is re-stamped. The command refuses, and writes nothing, if the derived
+membership, the manifest (`manifest_hash_after`) or the reservation rule differs from
+the committed record (`record_disagrees`, `record_manifest_mismatch`,
+`record_spec_mismatch`). Treat a refusal as evidence about your rebuilt manifest or
+your config and investigate it; do not pass `--force`, which rewrites the committed
+record. To inspect without touching it, add `--record-out` pointing at a scratch path.
+
+The step changes the manifest hash by design (role-bearing hash `b932b859…`), so it
 must run before feature extraction. Defaults: `--reservation-config
 configs/dev_reservation.yaml`, `--record-out reports/dev_reservation_frozen.json`.
-Do not pass `--force` unless deliberately replacing a frozen reservation.
 
 ## 4. MFCC features
 

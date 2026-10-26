@@ -11,7 +11,7 @@ import json
 import os
 import platform
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -31,11 +31,12 @@ from voice_detector.manifest import (
 )
 from voice_detector.protocol import parse_protocol_file, summarize_protocol
 from voice_detector.reservation import (
-    RESERVATION_SCHEMA_VERSION,
+    ReservationPlan,
+    ReservationSpec,
     build_reservation_record,
     load_reservation_spec,
+    parse_frozen_record,
     plan_reservation,
-    read_frozen_record,
     verify_frozen_reservation,
 )
 
@@ -163,6 +164,95 @@ def _refuse(reason: str, **fields: Any) -> int:
     return 1
 
 
+def _reservation_meta(
+    record: Mapping[str, Any], record_sha256: str, *, forced: bool
+) -> dict[str, str]:
+    """The catalog's own description of the reservation record it satisfies.
+
+    Always read from the record that is in force and from the hash of that
+    record's exact bytes, so the catalog never cites a record that exists
+    nowhere on disk.
+    """
+
+    spec = record["spec"]
+    return {
+        "reservation_schema_version": str(record["schema_version"]),
+        "reservation_method": str(spec["method"]),
+        "reservation_seed": str(spec["seed"]),
+        "reservation_frozen_utc": str(record["frozen_utc"]),
+        "reservation_manifest_hash_before": str(record["manifest_hash_before"]),
+        "reservation_record_sha256": record_sha256,
+        "reservation_forced": str(forced).lower(),
+    }
+
+
+# Provenance the catalog cites from the record in force. ``validate_frozen_record``
+# checks the membership, schema version and rule but not these, so a record that
+# lacks them has to be caught here rather than failing with a ``KeyError``.
+_RECORD_PROVENANCE_KEYS = ("frozen_utc", "manifest_hash_before")
+_INSPECT_HINT = "To inspect without touching the committed record, write to a scratch --record-out."
+
+
+def _restore_blocker(
+    record: Mapping[str, Any],
+    plan: ReservationPlan,
+    spec: ReservationSpec,
+    record_out: Path,
+) -> tuple[str, dict[str, Any]] | None:
+    """Why a committed record that agrees on membership still cannot be kept as it is.
+
+    A restore keeps the record byte-for-byte, so the record has to describe what
+    this run would freeze: the same manifest, the same reservation rule and the
+    provenance fields the catalog will cite. Returns the refusal reason and its
+    evidence, or ``None`` when the record can be kept.
+    """
+
+    recorded_after = record.get("manifest_hash_after")
+    if recorded_after != plan.manifest_hash_after:
+        return "record_manifest_mismatch", {
+            "record": str(record_out),
+            "committed_manifest_hash_after": recorded_after,
+            "derived_manifest_hash_after": plan.manifest_hash_after,
+            "hint": (
+                "the committed record freezes this membership against a different manifest "
+                "than the one in this catalog, so the catalog is not the one it was frozen "
+                "against. Rebuild the manifest from the same inputs, or pass --force with a "
+                "recorded decision to rewrite the committed record with this manifest's "
+                f"hashes. {_INSPECT_HINT}"
+            ),
+        }
+    current_spec = json.loads(json.dumps(spec.as_dict()))
+    if record.get("spec") != current_spec:
+        return "record_spec_mismatch", {
+            "record": str(record_out),
+            "committed_spec": record.get("spec"),
+            "current_spec": current_spec,
+            "hint": (
+                "the committed record was frozen under a different reservation "
+                "specification than the one in the config, although both derive the same "
+                "membership. Restore the config from Git or, if the specification really "
+                "changed, pass --force with a recorded decision to rewrite the committed "
+                f"record. {_INSPECT_HINT}"
+            ),
+        }
+    missing = [
+        key
+        for key in _RECORD_PROVENANCE_KEYS
+        if not isinstance(record.get(key), str) or not record[key]
+    ]
+    if missing:
+        return "record_provenance_incomplete", {
+            "record": str(record_out),
+            "missing": missing,
+            "hint": (
+                "the committed record lacks provenance fields the catalog would cite, so it "
+                "cannot be kept as it is. Restore it from Git; --force rewrites it with this "
+                f"run's provenance. {_INSPECT_HINT}"
+            ),
+        }
+    return None
+
+
 def _reserve_development(
     manifest_dir: Path | None,
     config_path: Path,
@@ -184,6 +274,16 @@ def _reserve_development(
     only one that survives a manifest rebuild, and the manifest's own role
     column. Either disagreement refuses without ``--force``, because moving a
     protocol boundary that tuning may already depend on cannot be undone.
+
+    A committed record that already freezes exactly this membership against
+    exactly this manifest (same ``manifest_hash_after``) and under exactly this
+    reservation rule is a *restore*: the record is kept byte-for-byte, because
+    its freeze time, commit and hashes are provenance that a routine re-run must
+    not replace (#56). The catalog is still re-stamped with the roles, and the
+    catalog's own reservation metadata cites that record. A record that agrees
+    on membership but names a different manifest or rule, or lacks the
+    provenance the catalog would cite, is refused, and only ``--force`` rewrites
+    a committed record.
     """
 
     spec = load_reservation_spec(reservation_config)
@@ -269,9 +369,14 @@ def _reserve_development(
     # without this check a re-run could not tell a first freeze from a silent
     # re-freeze under an edited fraction.
     committed: dict[str, str] | None = None
+    committed_record: dict[str, Any] | None = None
+    committed_bytes: bytes | None = None
     if record_out.is_file():
         try:
-            _, committed = read_frozen_record(record_out)
+            committed_bytes = record_out.read_bytes()
+            committed_record, committed = parse_frozen_record(
+                committed_bytes.decode("utf-8"), source=str(record_out)
+            )
         except (OSError, ValueError) as error:
             return _refuse(
                 "unreadable_frozen_record",
@@ -296,6 +401,25 @@ def _reserve_development(
                 ),
             )
 
+    # A committed record that already freezes exactly this membership against
+    # exactly this manifest, under exactly this rule, stays authoritative and is
+    # not rewritten (#56). The membership alone is not enough: a record that
+    # names a different manifest or rule no longer describes what is being
+    # stamped, and replacing it quietly would replace its provenance, so that
+    # needs the same explicit override.
+    restored: tuple[dict[str, Any], bytes] | None = None
+    if (
+        committed_record is not None
+        and committed_bytes is not None
+        and committed == plan.assignment
+    ):
+        blocker = _restore_blocker(committed_record, plan, spec, record_out)
+        if blocker is None:
+            restored = (committed_record, committed_bytes)
+        elif not force:
+            reason, evidence = blocker
+            return _refuse(reason, **evidence)
+
     if plan.conflicts_with_existing and not force:
         return _refuse(
             "already_frozen_differently",
@@ -312,10 +436,18 @@ def _reserve_development(
         expected_counts_enforced=meta.get("expected_counts_enforced") == "true",
     )
     summary_json = json.dumps(summary, indent=2, sort_keys=True)
-    record_json = json.dumps(record, indent=2, sort_keys=True)
+    # The record in force: the committed one, byte-for-byte, on a restore; the
+    # freshly built one on a first freeze or a forced re-freeze.
+    if restored is None:
+        record_in_force = record
+        record_bytes = json.dumps(record, indent=2, sort_keys=True).encode("utf-8")
+    else:
+        record_in_force, record_bytes = restored
+    record_text = record_bytes.decode("utf-8")
+    record_sha256 = hashlib.sha256(record_bytes).hexdigest()
 
     if dry_run:
-        print(record_json)
+        print(record_text)
         return 0
 
     # Keep the original build provenance. When the catalog carried none, record
@@ -332,17 +464,13 @@ def _reserve_development(
                 "build commit, build time and checksum coverage are unknown"
             ),
         }
+    # A restore never clears an override the catalog already records.
+    forced = force or (restored is not None and meta.get("reservation_forced") == "true")
     new_meta.update(
         {
             "manifest_hash": plan.manifest_hash_after,
             "summary_json": summary_json,
-            "reservation_schema_version": RESERVATION_SCHEMA_VERSION,
-            "reservation_method": spec.method,
-            "reservation_seed": str(spec.seed),
-            "reservation_frozen_utc": str(record["frozen_utc"]),
-            "reservation_manifest_hash_before": plan.manifest_hash_before,
-            "reservation_record_sha256": hashlib.sha256(record_json.encode("utf-8")).hexdigest(),
-            "reservation_forced": str(force).lower(),
+            **_reservation_meta(record_in_force, record_sha256, forced=forced),
         }
     )
     if overrode_inconsistent:
@@ -362,7 +490,7 @@ def _reserve_development(
     # failure leaves every committed artifact untouched.
     staged_rows, _ = read_manifest_sqlite(db_temp)
     try:
-        verify_frozen_reservation(staged_rows, record)
+        verify_frozen_reservation(staged_rows, record_in_force)
     except ValueError as error:
         csv_temp.unlink(missing_ok=True)
         db_temp.unlink(missing_ok=True)
@@ -377,33 +505,35 @@ def _reserve_development(
     os.replace(db_temp, catalog_path)
     os.replace(csv_temp, manifest_dir / "manifest.csv")
     _atomic_write_text(manifest_dir / "manifest_summary.json", summary_json)
-    _atomic_write_text(manifest_dir / "dev_reservation_frozen.json", record_json)
-    _atomic_write_text(record_out, record_json)
+    _atomic_write_text(manifest_dir / "dev_reservation_frozen.json", record_text)
+    if restored is None:
+        _atomic_write_text(record_out, record_text)
 
     matched_record = None if committed is None else committed == plan.assignment
-    print(
-        json.dumps(
-            {
-                "status": "frozen",
-                "changed": not plan.already_frozen,
-                "matched_committed_record": matched_record,
-                "forced": force,
-                "manifest_hash_before": plan.manifest_hash_before,
-                "manifest_hash_after": plan.manifest_hash_after,
-                "n_speakers": record["n_speakers"],
-                "speakers": record["speakers"],
-                "outputs": {
-                    "csv": str(manifest_dir / "manifest.csv"),
-                    "sqlite": str(catalog_path),
-                    "summary_json": str(manifest_dir / "manifest_summary.json"),
-                    "frozen_record": str(record_out),
-                },
-                "commit_this": str(record_out),
-            },
-            indent=2,
-            sort_keys=True,
+    payload: dict[str, Any] = {
+        "status": "frozen",
+        "changed": not plan.already_frozen,
+        "matched_committed_record": matched_record,
+        "record_preserved": restored is not None,
+        "forced": force,
+        "manifest_hash_before": plan.manifest_hash_before,
+        "manifest_hash_after": plan.manifest_hash_after,
+        "n_speakers": record["n_speakers"],
+        "speakers": record["speakers"],
+        "outputs": {
+            "csv": str(manifest_dir / "manifest.csv"),
+            "sqlite": str(catalog_path),
+            "summary_json": str(manifest_dir / "manifest_summary.json"),
+            "frozen_record": str(record_out),
+        },
+        # Nothing to commit when the committed record was kept as it was.
+        "commit_this": None if restored is not None else str(record_out),
+    }
+    if restored is not None and note:
+        payload["note_ignored"] = (
+            "the committed record was kept byte-for-byte, so --note was not stored"
         )
-    )
+    print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
 
 
@@ -1543,7 +1673,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--record-out",
         type=Path,
         default=Path("reports/dev_reservation_frozen.json"),
-        help="path for the committed frozen membership record (speaker IDs only)",
+        help=(
+            "path for the committed frozen membership record (speaker IDs only); an existing "
+            "record that already freezes this membership against this manifest is kept unchanged"
+        ),
     )
     reserve.add_argument(
         "--note",
@@ -1558,7 +1691,10 @@ def build_parser() -> argparse.ArgumentParser:
     reserve.add_argument(
         "--force",
         action="store_true",
-        help="allow replacing an existing, different frozen reservation",
+        help=(
+            "allow replacing an existing, different frozen reservation, or a committed record "
+            "frozen against a different manifest"
+        ),
     )
 
     extract = subparsers.add_parser(
