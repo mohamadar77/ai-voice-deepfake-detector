@@ -75,19 +75,35 @@ recorded in the Phase 1 evidence is `b172e50c…`.
 ## 3. Development reservation
 
 The speaker-grouped `select` / `threshold` split is committed as
-`reports/dev_reservation_frozen.json` (commit `81c3cf7`). This step re-derives it
-from `configs/dev_reservation.yaml` and stamps the roles into the manifest. It
-refuses if the derived membership differs from the committed record.
+`reports/dev_reservation_frozen.json` (commit `81c3cf7`) and is the authoritative
+membership. This step re-derives the split from `configs/dev_reservation.yaml`,
+stamps the roles into the manifest, and then checks the result against the
+committed record.
+
+**Write the re-derived record to a scratch path.** `reserve-development` rewrites
+whatever `--record-out` points to with a freshly built record (new `frozen_utc` and
+`git_commit`), and the default is the committed file. Running it with the default
+therefore modifies the authoritative record (issue #56; it is also why the test in
+#68 is flaky).
 
 ```bash
-uv run voice-detector reserve-development --dry-run
-uv run voice-detector reserve-development
+uv run voice-detector reserve-development --dry-run \
+    --record-out artifacts/repro/dev_reservation_frozen.json    # prints, writes nothing
+uv run voice-detector reserve-development \
+    --record-out artifacts/repro/dev_reservation_frozen.json
+uv run python -c "import json; a = json.load(open('reports/dev_reservation_frozen.json'))['speakers']; b = json.load(open('artifacts/repro/dev_reservation_frozen.json'))['speakers']; print('membership identical' if a == b else 'MEMBERSHIP DIFFERS'); raise SystemExit(a != b)"
+git status --short reports/    # must print nothing
 ```
 
-This changes the manifest hash by design (role-bearing hash `b932b859…`), so it
+With a scratch path the command's own cross-check against the committed record is
+skipped, so the comparison in the third command is the check; stop if it prints
+`MEMBERSHIP DIFFERS`. Later steps keep reading the committed record through their
+default `--frozen-record reports/dev_reservation_frozen.json`.
+
+The step changes the manifest hash by design (role-bearing hash `b932b859…`), so it
 must run before feature extraction. Defaults: `--reservation-config
-configs/dev_reservation.yaml`, `--record-out reports/dev_reservation_frozen.json`.
-Do not pass `--force` unless deliberately replacing a frozen reservation.
+configs/dev_reservation.yaml`. Do not pass `--force` unless deliberately replacing a
+frozen reservation.
 
 ## 4. MFCC features
 
