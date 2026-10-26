@@ -6,6 +6,7 @@ fast without audio, a manifest catalog, or a trained checkpoint.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -307,6 +308,64 @@ class TestTrainAndSelect:
         assert full["human_false_positive_rate"] is not None
         assert full["synthetic_detection_rate"] is not None
         assert full["confusion"] is not None
+
+
+class TestScalerIsFittedOnTrainingRowsOnly:
+    """AGENTS.md: scalers and normalization statistics are fitted on training data only."""
+
+    def test_scaler_statistics_are_the_training_window_statistics(self):
+        train = _make_split_features(20, "train")
+        pipeline = train_candidate(train, C=1.0, class_weight="balanced", seed=SEED)
+
+        scaler = pipeline.named_steps["scaler"]
+        windows = train.features.astype(np.float64)
+        np.testing.assert_allclose(scaler.mean_, windows.mean(axis=0), rtol=1e-5, atol=1e-6)
+        np.testing.assert_allclose(scaler.scale_, windows.std(axis=0), rtol=1e-5, atol=1e-6)
+
+    def test_scoring_other_data_does_not_refit_the_scaler(self):
+        rng = np.random.default_rng(SEED)
+        train = _make_split_features(20, "train", rng=rng)
+        dev = _make_split_features(10, "development", rng=rng)
+        # A development split whose distribution is nothing like training, so that
+        # any statistics taken from it would be unmistakable.
+        shifted_dev = dataclasses.replace(dev, features=dev.features + 50.0)
+
+        pipeline = train_candidate(train, C=1.0, class_weight="balanced", seed=SEED)
+        scaler = pipeline.named_steps["scaler"]
+        mean_before, scale_before = scaler.mean_.copy(), scaler.scale_.copy()
+
+        score_split(pipeline, shifted_dev)
+
+        np.testing.assert_array_equal(scaler.mean_, mean_before)
+        np.testing.assert_array_equal(scaler.scale_, scale_before)
+        assert not np.allclose(scaler.mean_, shifted_dev.features.astype(np.float64).mean(axis=0))
+
+    @patch("voice_detector.baseline.validate_frozen_record")
+    @patch("voice_detector.baseline.git_commit", return_value="abc123")
+    @patch("voice_detector.baseline.package_version", return_value="0.1.0")
+    def test_train_and_select_fits_every_candidate_on_the_training_split(
+        self, _pkg, _git, mock_validate
+    ):
+        select_speakers = ["S01", "S02", "S03"]
+        threshold_speakers = ["S04"]
+        mock_validate.return_value = {
+            s: "select" for s in select_speakers
+        } | {s: "threshold" for s in threshold_speakers}
+
+        rng = np.random.default_rng(SEED)
+        train = _make_split_features(40, "train", rng=rng)
+        dev = _make_split_features(20, "development", rng=rng)
+        dev_rows = _make_dev_rows(dev, select_speakers, threshold_speakers)
+        protocol = _make_protocol()
+        frozen_record = _make_frozen_record(select_speakers, threshold_speakers)
+
+        with patch("voice_detector.baseline.train_candidate", wraps=train_candidate) as spy:
+            train_and_select(train, dev, dev_rows, protocol, frozen_record, seed=SEED)
+
+        assert spy.call_count == len(protocol.lr_budget.values)
+        for call in spy.call_args_list:
+            assert call.args[0] is train
+            assert call.args[0].split == "train"
 
 
 class TestSaveBundle:

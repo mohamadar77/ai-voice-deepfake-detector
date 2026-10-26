@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import Counter
+
 import numpy as np
 import pytest
 
@@ -144,3 +146,114 @@ class TestPairedBootstrap:
             spec=spec, score_direction=SCORE_DIRECTION,
         )
         assert ci.n_resamples == 50
+
+
+# ---------------------------------------------------------------------------
+# Resampling unit: whole speakers, never individual clips
+# ---------------------------------------------------------------------------
+
+# Unequal group sizes so that a clip-level bootstrap is distinguishable: it would
+# always return exactly ``n`` clips, while whole-speaker resampling returns a
+# varying number.
+_SPEAKER_SIZES = {"spk_a": 1, "spk_b": 2, "spk_c": 3, "spk_d": 4, "spk_e": 5, "spk_f": 6}
+
+
+def _grouped_data() -> tuple[list[str], list[str], np.ndarray, list[str]]:
+    clip_ids: list[str] = []
+    speaker_ids: list[str] = []
+    for speaker, size in _SPEAKER_SIZES.items():
+        for j in range(size):
+            clip_ids.append(f"{speaker}_c{j}")
+            speaker_ids.append(speaker)
+    labels = ["bonafide" if i % 2 == 0 else "spoof" for i in range(len(clip_ids))]
+    scores = np.arange(len(clip_ids), dtype=np.float64)  # score identifies its clip
+    return clip_ids, labels, scores, speaker_ids
+
+
+def _recording_metric(calls: list[tuple[list[str], list[str], np.ndarray]]):
+    def metric(clip_ids, labels, scores, *, score_direction, threshold=None) -> float:
+        calls.append((list(clip_ids), list(labels), np.array(scores)))
+        return 0.0
+
+    return metric
+
+
+def _speaker_draw_counts(resample: list[str]) -> dict[str, int]:
+    """How many times each speaker was drawn, requiring all its clips to agree."""
+
+    counts = Counter(resample)
+    draws: dict[str, int] = {}
+    for speaker, size in _SPEAKER_SIZES.items():
+        per_clip = {counts[f"{speaker}_c{j}"] for j in range(size)}
+        assert len(per_clip) == 1, (
+            f"clips of {speaker} were resampled independently: {sorted(per_clip)}"
+        )
+        draws[speaker] = per_clip.pop()
+    return draws
+
+
+class TestResamplingUnitIsTheSpeaker:
+    def test_every_resample_is_a_whole_speaker_draw_with_replacement(self):
+        clip_ids, labels, scores, speaker_ids = _grouped_data()
+        calls: list[tuple[list[str], list[str], np.ndarray]] = []
+
+        speaker_grouped_bootstrap(
+            clip_ids, labels, scores, speaker_ids,
+            metric_fn=_recording_metric(calls), metric_name="spy",
+            spec=_spec(n_resamples=200), score_direction=SCORE_DIRECTION,
+        )
+
+        point_estimate, resamples = calls[0], calls[1:]
+        assert len(resamples) == 200
+        assert point_estimate[0] == clip_ids  # the point estimate uses every clip once
+
+        all_draws = []
+        for resample_ids, _, _ in resamples:
+            draws = _speaker_draw_counts(resample_ids)
+            # One draw per speaker in the pool, with replacement.
+            assert sum(draws.values()) == len(_SPEAKER_SIZES)
+            all_draws.append(draws)
+
+        # The test must be able to see resampling happen: some speakers are drawn
+        # twice or more, some not at all, and the clip total varies.
+        assert any(max(d.values()) >= 2 for d in all_draws)
+        assert any(min(d.values()) == 0 for d in all_draws)
+        assert len({len(ids) for ids, _, _ in resamples}) > 1
+
+    def test_resampling_keeps_each_clip_with_its_own_label_and_score(self):
+        clip_ids, labels, scores, speaker_ids = _grouped_data()
+        calls: list[tuple[list[str], list[str], np.ndarray]] = []
+
+        speaker_grouped_bootstrap(
+            clip_ids, labels, scores, speaker_ids,
+            metric_fn=_recording_metric(calls), metric_name="spy",
+            spec=_spec(n_resamples=50), score_direction=SCORE_DIRECTION,
+        )
+
+        by_clip = {cid: (lab, sc) for cid, lab, sc in zip(clip_ids, labels, scores, strict=True)}
+        for resample_ids, resample_labels, resample_scores in calls:
+            for cid, lab, sc in zip(resample_ids, resample_labels, resample_scores, strict=True):
+                assert by_clip[cid] == (lab, sc)
+
+    def test_paired_bootstrap_scores_both_candidates_on_identical_whole_speaker_resamples(self):
+        clip_ids, labels, scores, speaker_ids = _grouped_data()
+        seen: list[tuple[str, list[str]]] = []
+
+        def metric(ids, labs, scs, *, score_direction, threshold=None) -> float:
+            # Candidate B's scores are shifted far above candidate A's.
+            seen.append(("b" if np.min(scs) >= 100.0 else "a", list(ids)))
+            return 0.0
+
+        paired_bootstrap(
+            clip_ids, labels, scores, scores + 100.0, speaker_ids,
+            metric_fn=metric, metric_name="spy",
+            candidate_a="a", candidate_b="b",
+            spec=_spec(n_resamples=100), score_direction=SCORE_DIRECTION,
+        )
+
+        resamples_a = [ids for who, ids in seen if who == "a"][1:]  # drop the point estimate
+        resamples_b = [ids for who, ids in seen if who == "b"][1:]
+        assert len(resamples_a) == len(resamples_b) == 100
+        assert resamples_a == resamples_b
+        for ids in resamples_a:
+            assert sum(_speaker_draw_counts(ids).values()) == len(_SPEAKER_SIZES)
