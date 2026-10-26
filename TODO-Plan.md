@@ -264,13 +264,14 @@ Depends on: a working application.
 - [x] Long host jobs (extraction, CNN training, locked scoring) run detached (`tmux`/`systemd-run --user`) with file logs and are resumable (per-epoch checkpoints with optimizer/RNG state; atomic cache writes). API/UI bind to localhost and are reached via an SSH tunnel. (All host jobs ran in tmux; CNN checkpoints per epoch; localhost binding in compose.yaml.)
 - [x] Measure p50/p95 latency, failure rate and memory on named hardware using a declared input mix and request count. **2026-10-20:** benchmark on hp-xl420gen9-01 (Xeon E5-2650L v3 @ 1.80 GHz), 250 rounds × 5 clip types, 0 failures, p50 19.4 ms, p95 107.8 ms overall, peak RSS 1016 MiB. Config: `configs/latency_benchmark.yaml`; script: `scripts/latency_benchmark.py`.
 - [x] Add focused tests for feature shapes, split leakage, inference preprocessing and API error handling. (Test suite: preprocessing tests, serving parity, API error cases in docker_smoke; 111+ tests on host.)
+- [ ] Confirm, or add tests for, two invariants named in `AGENTS.md`: the bootstrap resamples speaker groups, not clips or windows, and scalers / normalization statistics are fitted on training rows only. No test with that purpose was found by name on 2026-10-27 (`tests/test_bootstrap.py` covers seeding, shared resamples and input validation; the train-only claim rests on code and run records). Either point to the existing test or add one; no behavior change.
 - [x] Configure lightweight GitHub Actions checks that do not require downloading the full dataset or training models. (`.github/workflows/ci.yml`: on push and pull request it runs `uv sync --frozen --all-groups`, `ruff check` and `pytest`, all dataset-free. Hardening #15–#29 stays parked.)
 - [x] Package API and UI in containers and document one startup command. One image, two services: `VOICE_DETECTOR_BUNDLE_DIR=<bundle> docker compose up --wait` (see `compose.yaml`; smoke: `scripts/docker_smoke.sh`).
 - [ ] Verify a clean local container startup and health check, in the presentation configuration on the DL120 host, which is the presentation machine (owner, 13 Oct), with image size and cold start recorded. Rehearse the venue access path (on-site, or an SSH tunnel to localhost-bound services) ([#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11)). **Partial, 2026-10-20 (hp-xl420gen9-01, not yet the DL120 presentation configuration):** build ~25 min, image 4.82 GB (CPU-only torch wheels via `[tool.uv.sources]`; was 19.97 GB with CUDA wheels), cold start 39 s, warmup 28.6 s + 71.8 ms, API 612 MiB / UI 49 MiB, `/ready` healthy, read-only root, `serve --check` bundle hash verified. Venue access path not yet rehearsed. Which machine presents is unresolved (see `docs/environment.md`).
 - [x] Write the model card: intended use, data, language scope, metrics, known failures and limitations. See `docs/model-card.md`, which is **still marked draft**; its status line lists the five open items (serving code review #89, fresh-checkout reproduction, demo provenance, real-device audio, bundle redistribution and eval-only durations).
 - [x] Document training, evaluation, artifacts, result reproduction and temporary audio handling. See `docs/reproduction.md` (commands verified against the CLI help on 2026-10-27; the procedure itself has not been re-run).
 - [ ] Provide artifact retrieval instructions and checksums where redistribution is permitted.
-- [x] Archive frozen bundles, freeze records, per-clip predictions, run records and the manifest, with SHA-256 checksums, in a retained location outside Git. Phase 2 comparisons depend on them. **2026-10-20:** `scripts/archive_artifacts.sh` wrote `/root/archive_g2_20261020` on hp-xl420gen9-01 (80 files, 572 MB, `SHA256SUMS`, copy verified against source, FROZEN/REPORTED/report hashes equal the published values). Off-host copy verified on Mac (`/Users/mohamadabo-ras/tmp/archive_g2_20261020`); external device backup confirmed by owner 2026-10-20.
+- [x] Archive frozen bundles, freeze records, per-clip predictions, run records and the manifest, with SHA-256 checksums, in a retained location outside Git. Phase 2 comparisons depend on them. **2026-10-20:** `scripts/archive_artifacts.sh` wrote `/root/archive_g2_20261020` on hp-xl420gen9-01 (80 files, 572 MB, `SHA256SUMS`, copy verified against source, FROZEN/REPORTED/report hashes equal the published values). Off-host copy verified on the owner's Mac; external device backup confirmed by owner 2026-10-20.
 - [ ] Verify fresh-checkout reproduction of data preparation, baseline training, CNN training and the report (not baseline only), following `docs/reproduction.md`, and correct that guide where it diverges. Not done; no record of any such run exists.
 
 **Done when:** another developer can follow the setup and reproduction instructions, and the application has measured reliability and a model card.
@@ -303,8 +304,9 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 - [ ] Freeze features and organize release artifacts.
 - [ ] Test demonstration startup and prepared samples on the presentation machine.
 - [ ] Prepare a short backup recording, saved plots and a local fallback. The demo runs remotely over an SSH tunnel to the host, so the local fallback is the presentation image, frozen bundle and demo clips loaded on the laptop's Docker (`docker save`/`load`, `linux/amd64`), verified offline with score parity in G4. **Partial:** `scripts/demo_backup.py` generates pre-scored fallback JSON; needs host run.
-- [ ] Rehearse and time the presentation.
-- [ ] Tag the final release and record its commit, model version and manifest hash.
+- [ ] Rehearse and time the presentation, at least twice, and check every number shown against `docs/evaluation-results-g2.md` and the model card. Slides 3, 7, 8, 9, 11 and 12 were spot-checked against the results document on 2026-10-27 (found consistent after the MFCC, `notice` and robustness-wording fixes in PR #106); the sweep against the report JSON hash and the rehearsal itself are outstanding.
+- [ ] Release hygiene sweep at the tag: no secrets, `.env`, local absolute paths, raw or private audio, checkpoints or databases in Git. Partial check 2026-10-27 on tracked files: no audio, checkpoint, database, `.env` or `.DS_Store` files; the one local absolute path in this file was removed; `scripts/demo_setup.sh` and `scripts/setup_dl120.sh` still contain host-side `/root/...` paths, which are host paths, not personal data. Repeat at the tag.
+- [ ] Tag the final release and fill in the sign-off record at the end of the Final acceptance checklist (commit, model version, manifest hash and the other listed fields).
 
 ## Final acceptance checklist
 
@@ -318,6 +320,27 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 - [x] Model card, setup guide, configs and result reports are available. (`docs/model-card.md` is still a draft with listed open items; `docs/reproduction.md`, `configs/`, `docs/evaluation-results-g2.md`.)
 - [x] Only completed and evaluated features are described as implemented. (Deviations disclosed; no claim of calibration, cloud, or 2021 DF.)
 - [ ] The presentation and backup demonstration are ready.
+
+Any acceptance line that is waived rather than met needs a reason, its impact and an owner/date recorded in the decisions table below; an unmet line with no waiver blocks sign-off.
+
+### Release sign-off record
+
+Filled in when the release is tagged. Values already established are shown with their source; the rest stay pending until verified.
+
+| Field | Value |
+| --- | --- |
+| Release commit / tag | pending |
+| Manifest hash | role-free `b172e50c…`; role-bearing `b932b859…` (the one used by the locked evaluation); confirm the release-time value |
+| Selected model and checkpoint hash | `cnn_augmented_seed1`, bundle hash `999bd10a831fcdff43829fbc197c3d4991491153fcead7cf594c1a971e3fe8a0` (`docs/model-card.md`) |
+| Preprocessing version | `mel-v1` (CNN), `mfcc-v2` (LR) |
+| Operating threshold and selection rule | -1.251954287290573; 5% bona fide FPR on 5 reserved development speakers (`docs/model-card.md`, `docs/pre-tuning-protocol.md`) |
+| Primary evaluation report | `docs/evaluation-results-g2.md`; report file sha256 `c0116ce2…` |
+| Robustness report | same document, section 4 |
+| Test / CI command and result | pending (`uv run ruff check .` and `uv run pytest` on the release commit, host and CI) |
+| Demo startup command and result | pending (`docs/reproduction.md` sections 8-9 on the presentation setup) |
+| Unresolved acceptance items | pending (must be empty or waived) |
+| Approved scope limitations | the deviation register in `docs/architecture-and-delivery-plan.md` |
+| Sign-off date | pending |
 
 ## Decisions and blockers
 
