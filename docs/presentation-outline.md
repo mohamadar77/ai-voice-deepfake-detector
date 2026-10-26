@@ -1,5 +1,11 @@
 # Presentation outline — AI Voice Deepfake Detector
 
+Speaker notes and timing for [`presentation.html`](presentation.html), which is the
+delivered deck. Slide order, titles, metrics and claims were synchronized with the
+HTML on 2026-10-27; if the two ever differ, the HTML wins and this file is corrected.
+The "Visual" lines are the original design suggestions; the delivered visuals are
+the ones in the HTML.
+
 Target: 12 minutes. Planned talk time 11:00 (slide timings below) leaving a 1-minute
 buffer. Allocation: 1 motivation, 2 data, 2 methods, 3 results, 2 demo, 1 conclusions. Show ideas, plots and behavior, not code.
 
@@ -72,8 +78,10 @@ the contribution, not the model.
 
 **MFCC + Logistic Regression baseline**
 
-- 40-bin MFCC summary per clip (mean, variance, skew of real audio only —
-  no zero-pad contamination, "option D").
+- 20 MFCCs plus their first-order deltas per frame; per 4 s window the mean and
+  standard deviation of each of the 40 channels give an 80-dimensional vector
+  (`configs/default.yaml`, `preprocessing.py`). Pooled over real audio only — no
+  zero-pad contamination, "option D".
 - Logistic Regression, 3 hyperparameter settings, class-balanced.
 - Selected on development EER; threshold at 5% false-positive rate on
   5 reserved speakers.
@@ -119,6 +127,9 @@ Visual: CNN architecture diagram. Keep it simple — 3 blocks + pool + head.
 - Seed variance is large: augmented seeds differ by 4.4 points with
   non-overlapping intervals. Clean-vs-augmented is not decided by these
   point estimates alone.
+- The deployed model (augmented seed 1) has the highest clean CNN EER. It was chosen
+  by a development-only rule written after the locked report was read: disclosed,
+  not blind.
 
 Visual: grouped bar chart or dot plot with CI whiskers.
 
@@ -177,7 +188,7 @@ shortcut.
 1. Open the Streamlit UI (via SSH tunnel to the host).
 2. Upload a clean human speech clip → show score, decision, spectrogram.
 3. Upload a synthetic clip → show the score. Clips come from the predeclared demo
-   set (N, sentences, tool, version and terms recorded); each is scored once and all
+   set (N, sentences, tool, version and terms to be recorded; still open in the TODO plan); each is scored once and all
    results are shown, including misses. Report as "n=..., illustrative".
 4. Upload an invalid input (for example an MP3 or a 0.5 s clip) → show the clear error.
 5. Discuss what the output means: "flagged_spoof_like" is not "fake",
@@ -185,6 +196,10 @@ shortcut.
 6. Show the model info endpoint — bundle hash, threshold, limitations notice.
 
 Fallback: saved screenshots and pre-recorded results if the live demo fails.
+
+If a real-voice phone recording is flagged spoof-like, say so (issue #103: both of
+the owner's two test recordings were; anecdotal, n = 2). It is the measured
+threshold-transfer limitation (#83), not a bug and not a finding about the speaker.
 
 Speaker note: keep the demo quick. The point is that it works, shows
 measured limitations, and doesn't over-claim.

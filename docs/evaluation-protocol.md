@@ -143,6 +143,14 @@ The deployed model for the demo is chosen from development results and resource
 cost only, before and independently of the locked report (TODO-Plan section 6).
 It is not a post-test winner and is not changed after R7.
 
+> **Amendment, 2026-10-27 (annotation only; the paragraph above is the text committed
+> before R7).** The order stated above was not followed. The development-only
+> selection rule was written down and accepted (2026-10-19) after the locked report
+> had been read, then applied mechanically to development numbers; the choice
+> (`cnn_augmented_seed1`) is therefore not a blind or pre-registered selection. It is
+> disclosed in [`deployed-model-decision.md`](deployed-model-decision.md) and in the
+> deviation register of the [architecture plan](architecture-and-delivery-plan.md).
+
 ## 8. Rules after R7
 
 - No retuning, no threshold change, no calibration, no checkpoint swap, no

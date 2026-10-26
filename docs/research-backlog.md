@@ -45,10 +45,11 @@ small design rules, not extra features:
   inside its own builder. Features, training, evaluation and serving consume the
   manifest, never raw dataset layouts. Adding 2021 DF or In-the-Wild later should
   mean writing a new builder, not touching the pipeline.
-- **Experiment tracking.** Every run writes a JSON run record and a row in the SQLite
-  `runs` table (#8): config, seed, commit, manifest hash, preprocessing version,
-  runtime, hardware and the paths/hashes of predictions and metrics. Phase 2
-  comparisons query this table.
+- **Experiment tracking.** Every run writes a JSON run record: config, seed, commit,
+  manifest hash, preprocessing version, runtime, hardware and the paths/hashes of
+  predictions and metrics. The planned SQLite `runs` table that Phase 2 comparisons
+  would query is not implemented (#54), so Phase 2 starts from the JSON records and
+  the retained archive.
 - **Versioned preprocessing.** `PREPROCESSING_VERSION` / config versions per feature
   type (`mfcc-v2`, the log-Mel spec in #33). New front-ends get new versions; the
   existing ones are never mutated.

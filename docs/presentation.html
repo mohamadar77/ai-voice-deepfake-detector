@@ -547,8 +547,8 @@ tr.deployed td { background: var(--accent-light); }
         <!-- MFCC -->
         <rect x="240" y="20" width="110" height="65" rx="5" fill="var(--accent-light)" stroke="var(--accent)"/>
         <text x="295" y="42" text-anchor="middle" fill="var(--accent)" font-size="11" font-weight="700">MFCC</text>
-        <text x="295" y="57" text-anchor="middle" fill="var(--fg-muted)" font-size="9">40 bins per frame</text>
-        <text x="295" y="69" text-anchor="middle" fill="var(--fg)" font-size="9" class="mono">n_mfcc=40</text>
+        <text x="295" y="57" text-anchor="middle" fill="var(--fg-muted)" font-size="9">20 MFCC + 20 delta</text>
+        <text x="295" y="69" text-anchor="middle" fill="var(--fg)" font-size="9" class="mono">n_mfcc=20</text>
         <text x="295" y="80" text-anchor="middle" fill="var(--fg-muted)" font-size="8">n_fft=400, hop=160</text>
 
         <path d="M350 52 L375 52" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
@@ -556,9 +556,9 @@ tr.deployed td { background: var(--accent-light); }
         <!-- Pool -->
         <rect x="375" y="20" width="115" height="65" rx="5" fill="var(--surface)" stroke="var(--border)"/>
         <text x="432" y="40" text-anchor="middle" fill="var(--fg)" font-size="11" font-weight="700">Pool</text>
-        <text x="432" y="55" text-anchor="middle" fill="var(--fg-muted)" font-size="9">mean + var + skew</text>
-        <text x="432" y="70" text-anchor="middle" fill="var(--fg)" font-size="9" class="mono">→ 120-dim vector</text>
-        <text x="432" y="82" text-anchor="middle" fill="var(--fg-muted)" font-size="8">(40 × 3 stats)</text>
+        <text x="432" y="55" text-anchor="middle" fill="var(--fg-muted)" font-size="9">mean + std</text>
+        <text x="432" y="70" text-anchor="middle" fill="var(--fg)" font-size="9" class="mono">→ 80-dim vector</text>
+        <text x="432" y="82" text-anchor="middle" fill="var(--fg-muted)" font-size="8">(40 channels × 2 stats)</text>
 
         <path d="M490 52 L515 52" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
 
@@ -700,7 +700,7 @@ tr.deployed td { background: var(--accent-light); }
     <ul style="margin-top:0.75rem">
       <li>CNNs cut the baseline error roughly in half.</li>
       <li><span class="warn">Seed variance is large:</span> augmented seeds differ by 4.4 points with non-overlapping intervals.</li>
-      <li>Deployed model has the highest CNN EER &mdash; chosen by a post-hoc development-only rule (disclosed deviation).</li>
+      <li>Deployed model has the highest clean CNN EER &mdash; chosen by a development-only rule written after the locked report was read (disclosed deviation).</li>
     </ul>
     <p class="speaker-note">Be transparent about the selection-order deviation. Clean-vs-augmented is not decided by point estimates alone.</p>
   </div>
@@ -721,7 +721,7 @@ tr.deployed td { background: var(--accent-light); }
       </table>
     </div>
     <div class="callout">
-      <strong>Augmentation helps dramatically:</strong> augmented CNNs hold up under 10 dB noise (EER ~20%) while the clean CNN drops to 61.4% (below chance).
+      <strong>Augmentation helps under matched noise:</strong> augmented CNNs hold up under 10 dB noise (EER 20.6&ndash;22.1%) while clean seed 1 drops to 61.4% (below chance; clean seed 2: 30.1%).
     </div>
     <div class="callout negative">
       <strong>Thresholds don't transfer:</strong> clean-dev thresholds flag 25&ndash;33% of human clips under noise/codec. Negative result published, not hidden.
@@ -765,7 +765,7 @@ tr.deployed td { background: var(--accent-light); }
       </div>
       <div class="pipeline-step" style="display:flex; align-items:center; gap:0.5rem;">
         <span style="font-weight:700; color:var(--accent); min-width:1.5rem;">3</span>
-        Upload a synthetic clip &rarr; show the different score
+        Upload a synthetic clip from the predeclared demo set &rarr; show its score (misses are shown too)
       </div>
       <div class="pipeline-step" style="display:flex; align-items:center; gap:0.5rem;">
         <span style="font-weight:700; color:var(--accent); min-width:1.5rem;">4</span>
@@ -780,7 +780,7 @@ tr.deployed td { background: var(--accent-light); }
       <code>flagged_spoof_like</code> is not "fake". <code>not_flagged</code> is not "real".
     </div>
     <p style="margin-top:0.75rem; font-size:0.9rem; color:var(--fg-muted)">Fallback: saved screenshots and pre-scored results if the live demo fails.</p>
-    <p class="speaker-note">Keep the demo quick. The point is that it works, shows measured limitations, and doesn't over-claim.</p>
+    <p class="speaker-note">Keep the demo quick. The point is that it works, shows measured limitations, and doesn't over-claim. If a real-voice phone recording is flagged spoof-like (issue #103: 2 of 2, anecdotal), say so: it is the measured threshold-transfer limitation, not a bug.</p>
   </div>
 
   <!-- Slide 11: Architecture and reliability -->
@@ -847,7 +847,7 @@ tr.deployed td { background: var(--accent-light); }
         <!-- Response box -->
         <rect x="180" y="115" width="330" height="50" rx="5" fill="var(--code-bg)" stroke="var(--accent)" stroke-width="1.5"/>
         <text x="345" y="136" text-anchor="middle" fill="var(--accent)" font-size="10" font-weight="700">JSON Response</text>
-        <text x="345" y="152" text-anchor="middle" fill="var(--fg-muted)" font-size="8" class="mono">{"score": float, "decision": "flagged_spoof_like"|"not_flagged", "bundle_hash": "999bd10a...", "limitations": "..."}</text>
+        <text x="345" y="152" text-anchor="middle" fill="var(--fg-muted)" font-size="8" class="mono">{"score": float, "decision": "flagged_spoof_like"|"not_flagged", "bundle_hash": "999bd10a...", "notice": "..."}</text>
 
         <!-- Arrow from aggregate to response -->
         <path d="M635 100 L635 110 L510 110 L510 115" stroke="var(--fg-muted)" fill="none" marker-end="url(#arr)"/>
@@ -892,11 +892,11 @@ tr.deployed td { background: var(--accent-light); }
     <h2>What we learned</h2>
     <ol class="conclusion-list">
       <li>A 23.7K-parameter CNN on log-Mel spectrograms cuts the LR baseline's EER roughly in half on unseen attacks (6.7&ndash;11.8% vs 19.9%).</li>
-      <li>Training augmentation (noise + codec) dramatically improves robustness at some cost to clean accuracy.</li>
+      <li>Training augmentation (noise + codec) improves robustness under the matched conditions. A clean-accuracy cost is not established: augmented seed 1 is worse than both clean seeds, augmented seed 2 is not clearly different.</li>
       <li>Seed variance is large &mdash; single-seed results can be misleading.</li>
       <li>Thresholds set on clean audio do not transfer under distortion.</li>
       <li>There is evidence of partial reliance on silence cues.</li>
-      <li>Honest evaluation matters more than the number: frozen protocol, published negatives, disclosed limitations.</li>
+      <li>Honest evaluation matters more than the number: frozen protocol, published negatives, disclosed limitations. The deployed model was chosen by a development-only rule written after the locked report was read, and it has the highest clean unseen-attack EER of the four CNNs.</li>
     </ol>
     <h3 style="margin-top:1.25rem">Future work (Phase 2)</h3>
     <ul class="future-list">

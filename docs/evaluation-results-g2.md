@@ -238,6 +238,15 @@ sign-off. No transfer-learning claim is made. See the Phase 2 research backlog.
 
 ## Open items
 
+> **Status annotation, 2026-10-27** (the findings above are unchanged). #86 is
+> resolved: the deployed model is recorded in
+> [`deployed-model-decision.md`](deployed-model-decision.md), selected by a
+> development-only rule written after this report had been read. The PR #82
+> supplementary analysis was dropped from Phase 1 (deviation register in the
+> [architecture plan](architecture-and-delivery-plan.md)), so no evaluation-only
+> duration table or paired differences exist. #83 and #84 remain open as findings;
+> #85 is closed. The list below is the original 2026-10-18 text.
+
 - #83 threshold transfer and noise result; #84 silence-cue follow-up (development
   data only); #85 duration slices pool partitions; #86 record the deployed model
   from development results only; #71 run-record follow-ups (lessons from R6/R7).

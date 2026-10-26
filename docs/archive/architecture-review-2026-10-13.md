@@ -83,7 +83,7 @@ methodology claim goes into the report or slides until these artifacts exist:
 **Model choice follows the same principle.** No advanced or pretrained models in
 Phase 1. A reliable, thoroughly evaluated classical model is better research than an
 impressive pretrained model with weak evaluation. SSL front-ends (wav2vec 2.0 and
-others) go to the [post-graduation research backlog](research-backlog.md).
+others) go to the [post-graduation research backlog](../research-backlog.md).
 
 ## Where it will under-impress, and the cheap fixes
 
@@ -92,7 +92,7 @@ others) go to the [post-graduation research backlog](research-backlog.md).
 | 1 | The silence/duration shortcut is only audited in EDA | ASVspoof 2019 LA's best-known pitfall is that leading/trailing silence differs by class, and models can lean on it (Müller et al., ASVspoof 2021 Workshop). The proposal's risk table already commits to "inspect silence and duration effects". | (a) A shortcut-only baseline: LR on duration + silence, evaluated on `dev_select`. (b) A paired, evaluation-only **silence-trimmed condition** declared before the freeze, scored for all three bundles. Likely the most memorable result slide. About 4–6 h. | #6, #34 |
 | 2 | Headline EERs have no reference point | A 10% EER on unseen attacks sounds bad, but it is comparable to the published B01/B02 challenge baselines. Without context the audience cannot read the number. | Cite the published B01 (CQCC-GMM) and B02 (LFCC-GMM) evaluation results, labeled as published numbers that were not reproduced. Min t-DCF is deferred to Phase 2. About 1 h. | TODO §13 (#38 → Phase 2) |
 | 3 | The demo shows only benchmark-style clips | The proposal itself says old benchmarks do not establish performance on current generators. Showing that live is the strongest possible demo moment. | Demo set: the owner's own consented recordings, plus synthetic clips the owner generates with a modern TTS/voice-clone tool whose terms permit it. Label the set *illustrative* and report n. A miss is a planned "honest failure". About 2–3 h. | TODO §9 |
-| 4 | Two of three research questions are only partly answered | RQ2's "second evaluation domain" (2021 DF) and RQ3 (wav2vec 2.0) are deferred. The proposal requires unavailable transfer experiments to be clearly identified. | Final report and slides map each RQ to its evidence or to an explicit "not run". 2021 DF transfer leads the Phase 2 backlog. | TODO §7/§13, [research backlog](research-backlog.md) |
+| 4 | Two of three research questions are only partly answered | RQ2's "second evaluation domain" (2021 DF) and RQ3 (wav2vec 2.0) are deferred. The proposal requires unavailable transfer experiments to be clearly identified. | Final report and slides map each RQ to its evidence or to an explicit "not run". 2021 DF transfer leads the Phase 2 backlog. | TODO §7/§13, [research backlog](../research-backlog.md) |
 | 5 | The model comparison confounds features with architecture | MFCC+LR versus log-Mel CNN does not show which of the two caused a difference. The plan already caveats this. | Phase 1: state the caveat. The matched control (LR on pooled log-Mel statistics) is deferred to Phase 2. | #39 (Phase 2) |
 
 ## Plan and milestone findings
@@ -198,7 +198,7 @@ evidence and delivery**.
 
   Experimental correctness is never traded for the deadline.
 - **Phase 2 (post-graduation research)** lives in a separate
-  [research backlog](research-backlog.md). Phase 1 keeps the interfaces extensible
+  [research backlog](../research-backlog.md). Phase 1 keeps the interfaces extensible
   and preserves artifacts, but builds no research-only extensions.
 - **Decided, ending #37:** the S1 evidence assistant (RAG) is a **no-go for this
   release**. RAG/MCP are outside the research track. In Phase 2, cross-domain
@@ -218,4 +218,4 @@ evidence and delivery**.
   detector, and scientifically demonstrate where it succeeds, where it fails, and
   why?*
 
-The Phase 1 critical path is in the [roadmap](roadmap.md).
+The Phase 1 critical path is in the [roadmap](../roadmap.md).
