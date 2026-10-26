@@ -132,15 +132,20 @@ name (`cli.py`, `eval-freeze`), so write each bundle to its candidate directory 
 `--out-dir`; the default `artifacts/cnn_study/<run_label>` would be refused.
 
 ```bash
-uv run voice-detector train-cnn --run-label clean_seed1 --seed 20261004 \
+uv run voice-detector train-cnn --run-label clean --seed 20261004 \
     --out-dir artifacts/cnn_clean_seed1
-uv run voice-detector train-cnn --run-label clean_seed2 --seed 20261005 \
+uv run voice-detector train-cnn --run-label clean-seed2 --seed 20261005 \
     --out-dir artifacts/cnn_clean_seed2
 uv run voice-detector train-cnn --run-label augmented_seed1 --seed 20261004 --augmented \
     --out-dir artifacts/cnn_augmented_seed1
 uv run voice-detector train-cnn --run-label augmented_seed2 --seed 20261005 --augmented \
     --out-dir artifacts/cnn_augmented_seed2
 ```
+
+The run labels are the ones recorded in `reports/evaluation_freeze_g2.json` (`clean`,
+`clean-seed2`, `augmented_seed1`, `augmented_seed2`). A label only names the run and
+the bundle's `model_version` (`cnn:<label>`; `cnn:augmented_seed1` for the deployed
+model); the candidate id still comes from the directory name.
 
 Defaults: `--study-config configs/cnn_study.yaml`, `--robustness-config
 configs/robustness_spec.yaml` (used with `--augmented`), `--frozen-record
