@@ -774,6 +774,22 @@ def validate_frozen_record(record: Mapping[str, Any]) -> dict[str, str]:
     return assignment
 
 
+def parse_frozen_record(
+    text: str, *, source: str = "frozen record"
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Parse a frozen record's JSON text and validate the membership it declares.
+
+    Split from :func:`read_frozen_record` so a caller that also needs the file's
+    exact bytes (to hash or preserve them) can read the file once and parse that
+    same read, rather than reading it twice.
+    """
+
+    raw = json.loads(text)
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"frozen record must be a JSON object: {source}")
+    return dict(raw), validate_frozen_record(raw)
+
+
 def read_frozen_record(path: Path | str) -> tuple[dict[str, Any], dict[str, str]]:
     """Load the committed frozen record and the validated membership it declares.
 
@@ -784,10 +800,7 @@ def read_frozen_record(path: Path | str) -> tuple[dict[str, Any], dict[str, str]
     silent re-freeze.
     """
 
-    raw = json.loads(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(raw, Mapping):
-        raise ValueError(f"frozen record must be a JSON object: {path}")
-    return dict(raw), validate_frozen_record(raw)
+    return parse_frozen_record(Path(path).read_text(encoding="utf-8"), source=str(path))
 
 
 def verify_frozen_reservation(

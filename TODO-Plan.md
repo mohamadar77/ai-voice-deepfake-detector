@@ -51,13 +51,14 @@ the [roadmap](docs/roadmap.md).
 | Open | [#36](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/36) | Training-fitted PCA / K-means diagnostics | G2 | §8 |
 | Open (findings) | [#83](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/83), [#84](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/84), [#103](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/103) | Threshold non-transfer, silence-cue reliance, own-voice false alarm (anecdotal) | n/a | §8/§13 |
 | Open (review) | [#89](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/89) | `/code-review` of the merged serving slice | n/a | §9 |
-| Phase 2 | [#52](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/52)-[#59](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/59) | LR review follow-ups (input/protocol guards, SQLite run entry, bundle publication, capacity forecast, test collection) | Phase 2 | §5 |
+| In review | [#56](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/56), [#68](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/68) | `reserve-development` keeps a matching committed frozen record byte-for-byte; fixes the flaky reservation test (bug fix after the freeze; review done) | G1 / test | §2 |
+| Phase 2 | [#52](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/52)-[#55](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/55), [#57](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/57)-[#59](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/59) | LR review follow-ups (input/protocol guards, SQLite run entry, bundle publication, capacity forecast, test collection) | Phase 2 | §5 |
 | Phase 2 | [#38](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/38), [#39](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/39) | min t-DCF, matched-input control | Phase 2 | n/a |
 | Parked | [#15](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/15)-[#29](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/29) | CI / DevEx hardening until core ML is done | n/a | §10 |
 
 The 14 October LR review ([archived](docs/archive/lr-baseline-review-2026-10-14.md))
 decided that completed issues stay closed and repairs get new linked issues. The
-G1 repair issues #52-#59 were moved to the Phase 2 milestone and are still open; none
+G1 repair issues #52-#55 and #57-#59 were moved to the Phase 2 milestone and are still open (#56 is fixed separately, see the decisions table); none
 changes a locked result.
 
 ## Milestones
@@ -65,7 +66,7 @@ changes a locked result.
 | Target dates (baseline) | Status (27 Oct) | Milestone | Completion evidence |
 | --- | --- | --- | --- |
 | 6-7 October | Closed 11 Oct | G0: feasibility and data contract | Revalidated environment, terms/access, capacity/hours and manifest/split contracts |
-| 8-12 October | Done (G1 repairs #52-#59 moved to Phase 2) | G1: data and baseline | Features, development reservation, metrics, LR development report and bundle, CNN timing pilot |
+| 8-12 October | Done (G1 repairs #52-#55, #57-#59 moved to Phase 2; #56 fixed separately) | G1: data and baseline | Features, development reservation, metrics, LR development report and bundle, CNN timing pilot |
 | 13-18 October | Done 18 Oct, except #6 and #36 | G2: CNN and protocol freeze | Clean/augmented CNN, development selection, reserved thresholds and all-candidate freeze |
 | 19-25 October | Locked report REPORTED 18 Oct; serving, UI, Docker, benchmark and parity merged; model card still draft | G3: evaluation and complete demo | Locked paired results, uncertainty/failures, model card draft and real-model UI |
 | 26 October | Passed | Feature freeze | No new models, datasets or extensions |
@@ -163,7 +164,7 @@ Depends on: audited manifest.
 Depends on: preprocessing.
 
 **14 October review:** implementation is merged and host execution is reported in
-PR #49. Follow-ups #52–#57 (input/protocol guards, retained evidence, bundle
+PR #49. Follow-ups #52–#55 and #57 (input/protocol guards, retained evidence, bundle
 publication) were moved to the Phase 2 milestone and remain open; the original #8 stays
 closed. The LR bundle was used unchanged in the locked evaluation. Details:
 [review](docs/archive/lr-baseline-review-2026-10-14.md) (historical).
@@ -364,6 +365,7 @@ Filled in when the release is tagged. Values already established are shown with 
 | 25 October 2026 | Supplementary eval-report analysis (PR #82, `eval-supplement`) dropped from Phase 1 (architect deadline 24 Oct passed without review/authorization) | No evaluation-only duration table or paired differences; the tool stays in the code for Phase 2 | Listed in the deviation register |
 | 26 October 2026 | Feature freeze | No new models, datasets or extensions; analysis text, honest-framing, presentation and bug fixes only | G4 verification and G5 rehearsal (roadmap) |
 | 27 October 2026 | Documentation consolidated: `docs/README.md` index with one authority per topic; stale handoffs, status snapshot, project-management and dev-reservation host runbook removed; three historical records archived; this file kept as the only tracker | Removes contradictions (e.g. the reservation was committed in `81c3cf7`, the host runbook said it was not) | Open items above are unchanged except the status updates noted inline |
+| 27 October 2026 | `reserve-development` no longer rewrites a committed frozen record that matches (#56, #68): a matching re-run keeps it byte-for-byte; a record naming a different manifest is refused unless `--force` | Removes a provenance hazard (a routine re-run changed the authoritative record's freeze time and commit) and the flaky test. A bug fix after the feature freeze; no change to membership, thresholds or any locked result | Owner chose implement then `/code-review`; merge after review |
 
 ## First actions
 

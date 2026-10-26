@@ -194,13 +194,29 @@ empty and has no membership left to disagree with. `reserve-development`
 therefore reconciles against the committed record *first* and only then against
 the manifest: a re-run that derives a different membership — because the
 fraction or seed changed — is refused on the record alone, so a routine rebuild
-can never let a frozen boundary move silently. Both guards are overridable only
-with `--force`, which is recorded in the catalog's metadata. Loading the record
+can never let a frozen boundary move silently. The guards (the committed record's
+membership, its manifest and rule, and the manifest's own role column) are overridable
+only with `--force`. The run's output reports it and the catalog's metadata records it
+(`reservation_forced`), but a later rebuild of the catalog loses that metadata, so the Git
+history of the record is the durable trace until an audit trail inside the record is added
+(issue #118). Loading the record
 re-derives the membership from the seed and fraction the record itself carries
 and checks the roles are disjoint, so a hand-edited record is rejected even
 though its hashes would still agree with the manifest. A role value outside
 `{null, select, threshold}` — `""` from a CSV round-trip, say — is a hard error
 when read back, never silently treated as unassigned.
+
+**A matching re-run restores; it does not re-freeze.** When the committed record
+already freezes exactly this membership against exactly this manifest (same
+`manifest_hash_after`) under exactly this reservation rule (its `spec` equals the
+config's), `reserve-development` keeps the record byte-for-byte, because its freeze time,
+commit and hashes are provenance, and only re-stamps the catalog, whose own reservation
+metadata then cites that record (issue #56). A record that agrees on membership but names
+a different manifest, names a different rule, or lacks the provenance the catalog cites is
+refused (`record_manifest_mismatch`, `record_spec_mismatch`, `record_provenance_incomplete`)
+and the refusal prints the evidence. Only `--force` rewrites a committed record, and the
+output says so (`record_preserved: false`, `forced: true`). A `--note` cannot change a
+preserved record and is reported as ignored.
 
 **The freeze changes the manifest hash by design.** `compute_manifest_hash`
 covers `development_role`, so the role-bearing manifest has a different hash from

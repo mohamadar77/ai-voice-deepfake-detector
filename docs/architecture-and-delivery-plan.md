@@ -324,7 +324,8 @@ The 13 October decision names the DL120 host as the target and demo environment.
 - #14 (sub-1 s gate): the service rejects clips under 1 s with `duration_out_of_range`; closed.
 - #34 (codec, SNR and trim parameters): frozen in `configs/robustness_spec.yaml` before the freeze.
 - The 13 October rule that every run is tracked in JSON plus a SQLite `runs` table is only half implemented: run records are JSON files in each bundle, and no `runs` table exists in `src/` (open as #54).
-- 14 October review follow-ups ([archived review](archive/lr-baseline-review-2026-10-14.md)): the owner decision stands that completed issues stay closed and repairs get new linked issues. Issues #52 to #59 are still open on GitHub and sit in the Phase 2 milestone (demo-first scope cut). The role-free versus role-bearing manifest hash gap (#52/#53) is disclosed in [`evaluation-protocol.md`](evaluation-protocol.md) section 10.
+- #56 and #68 (fixed 27 October 2026): `reserve-development` used to rewrite the committed frozen record on every run, replacing its freeze time and commit (the cause of the flaky test in #68). A matching re-run is now a restore that keeps the record byte-for-byte; a record naming a different manifest is refused without `--force`. See `docs/data.md`, "Development reservation".
+- 14 October review follow-ups ([archived review](archive/lr-baseline-review-2026-10-14.md)): the owner decision stands that completed issues stay closed and repairs get new linked issues. Issues #52 to #55 and #57 to #59 are still open on GitHub and sit in the Phase 2 milestone (demo-first scope cut); #56 was fixed separately (see above). The role-free versus role-bearing manifest hash gap (#52/#53) is disclosed in [`evaluation-protocol.md`](evaluation-protocol.md) section 10.
 
 ## Evidence-assistant stretch (S1)
 

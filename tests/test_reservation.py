@@ -544,6 +544,30 @@ def test_reading_a_committed_record_validates_it(
         r.read_frozen_record(path)
 
 
+def test_parsing_a_record_from_text_validates_it_like_reading_the_file(
+    tmp_path: Path,
+    reservation_spec: r.ReservationSpec,
+    make_rows: Callable[..., list[dict[str, Any]]],
+) -> None:
+    plan = r.plan_reservation(make_rows(), reservation_spec)
+    record = r.build_reservation_record(plan)
+    text = json.dumps(record, indent=2, sort_keys=True)
+    path = tmp_path / "dev_reservation_frozen.json"
+    path.write_text(text, encoding="utf-8")
+
+    assert r.parse_frozen_record(text) == r.read_frozen_record(path)
+
+    with pytest.raises(ValueError, match="JSON object: custom-source"):
+        r.parse_frozen_record("[]", source="custom-source")
+    chosen = record["speakers"]
+    swapped = {
+        r.ROLE_THRESHOLD: [chosen[r.ROLE_SELECT][0], *chosen[r.ROLE_THRESHOLD][1:]],
+        r.ROLE_SELECT: [*chosen[r.ROLE_SELECT][1:], chosen[r.ROLE_THRESHOLD][0]],
+    }
+    with pytest.raises(ValueError, match="edited after it was frozen"):
+        r.parse_frozen_record(json.dumps({**record, "speakers": swapped}))
+
+
 # --- reading a manifest back ------------------------------------------------
 
 
