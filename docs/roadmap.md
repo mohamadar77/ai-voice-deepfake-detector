@@ -61,8 +61,9 @@ Order matters; each step feeds the next.
    minutes; the offline fallback (presentation image, frozen bundle and demo clips
    loaded in Docker on the presenting laptop, verified offline with score parity)
    and a backup recording; final fresh-start demonstration.
-3. **Release (by 4 November).** Tag the release and record its commit, model
-   version and manifest hash.
+3. **Release (by 4 November).** Tag the release and fill in the sign-off record
+   defined at the end of the acceptance checklist in
+   [`../TODO-Plan.md`](../TODO-Plan.md).
 4. **Presentation (5 November, tentative).**
 
 ## Not on the critical path
