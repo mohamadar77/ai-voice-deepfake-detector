@@ -43,6 +43,12 @@ the tie-break criteria and their order, `aggregation.window_to_clip`, and
 `lr_budget.regularization_parameter`. #8 must honour them; nothing enforces them
 until it does.
 
+> **Status note, 2026-10-27 (annotation; the dated declaration above is unchanged).**
+> The LR baseline (`voice-detector train-lr`, PR #49) consumed this record and its
+> development report fed the locked evaluation. Whether the three declaration-only
+> items are now enforced in code was not re-audited; issue #57 (open, Phase 2)
+> tracks refusing declarations the baseline does not implement.
+
 ## The declaration
 
 | Item | Declared value | Implemented by |

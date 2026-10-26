@@ -1,40 +1,68 @@
-# Technical architecture and delivery decisions
+# Architecture and delivery decisions
 
-Owner: Mohamad Abo-Ras. Planning date: 6 October 2026. Tentative presentation: 5 November 2026.
+Owner: Mohamad Abo-Ras. Planned 6 October 2026; restructured 27 October 2026.
+Tentative presentation: 5 November 2026.
 
-This document is the current architecture and scope addendum to the frozen final proposal (`AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx`; see the **Final proposal sign-off** under "Proposal and document precedence" below). It defines the release decisions and acceptance evidence; [TODO-Plan.md](../TODO-Plan.md) tracks implementation completion. [Course coverage](proposal-review-and-course-coverage.md) is an educational appendix, not a menu of promised features. Repository conventions and evaluation safeguards in [AGENTS.md](../AGENTS.md) remain binding.
+This is the architecture and scope addendum to the frozen final proposal
+(`AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx`; see "Proposal and document
+precedence" below). It owns **design contracts, architecture decisions and dated
+deviations**. It does not track task completion ([`../TODO-Plan.md`](../TODO-Plan.md)),
+execution order ([`roadmap.md`](roadmap.md)) or the implemented command inventory
+([`pipeline.md`](pipeline.md)). Repository conventions and evaluation safeguards in
+[`../AGENTS.md`](../AGENTS.md) remain binding. Earlier versions of this file carried
+implementation status, a task list (A0 to A9), the evidence-assistant contract, the
+6 October session handoff and the consultation narrative; those were removed because
+they were stale or duplicated other documents, and remain in Git history.
 
-## Decision and current evidence
+## Decision summary
 
-**AI Voice Deepfake Detection: A Reproducible Study of Reliability.** Deliver two model families, a controlled robustness study and a working local application. Compare complete pipelines; do not claim the MFCC/LR versus log-Mel/CNN comparison isolates architecture from feature representation.
+**AI Voice Deepfake Detection: A Reproducible Study of Reliability.** Two model
+families, a controlled robustness study and a working local application. Complete
+pipelines are compared; the MFCC/LR versus log-Mel/CNN comparison does not isolate
+architecture from feature representation.
 
-Committed experiments: MFCC + Logistic Regression, compact CNN trained clean, and the same CNN trained with one declared augmentation recipe. Report all frozen candidates; select deployment using development only. Add bounded training-fitted PCA/K-means diagnostics. No accuracy improvement is promised.
+Committed experiments: MFCC + Logistic Regression, a compact CNN trained clean, and
+the same CNN trained with one declared augmentation recipe; all frozen candidates are
+reported and deployment is selected from development data. No accuracy improvement is
+promised.
 
-The only selected stretch was an evaluated evidence assistant over approved documents and frozen reports; it is a no-go for this release (owner, 13 October 2026, #37). Extra model families, transformer audio encoders, external datasets, cloud hosting, calibration/abstention, agent orchestration and MCP are deferred beyond this release. A successful core without the assistant is an acceptable final project.
+Out of Phase 1 scope: the evidence assistant (RAG; owner no-go, 13 October 2026, #37),
+MCP, extra model families, transformer audio encoders, external datasets, cloud
+hosting and calibration/abstention. They are in [`research-backlog.md`](research-backlog.md)
+where research-relevant, and in the deviation register below where the proposal named
+them. A successful core without them is an acceptable final project.
 
-Code inspection currently shows a configuration loader and smoke CLI, tests for setup/configuration, dependency/configuration files and CI scaffolding. It does not show a dataset pipeline, detector, prediction API or evaluation results. Historical setup checkboxes are retained as prior records, not re-certified by this architecture review. Environment validation must be repeated at the first gate: a prior command in this session could not locate Python 3.12 through uv.
-
-[Environment notes](environment.md) record an M4 Pro, 48 GB memory and roughly 540 GiB free on 4 October; they also record unavailable MPS in that execution environment. These are historical observations. Recheck storage, Python, CPU/MPS and container CPU compatibility before assigning a compute budget.
+**Implementation state (27 October 2026, verified against `src/voice_detector/` and
+`tests/`).** Implemented and tested: protocol parser and audit, manifest builder,
+speaker-grouped development reservation, MFCC preprocessing and feature cache, clip
+metrics, LR baseline, compact log-Mel CNN training with augmentation, the
+`DRAFT -> FROZEN -> SCORED -> REPORTED` evaluation harness with prediction store and
+speaker-grouped bootstrap, the shared scorer, FastAPI service, Streamlit UI and Docker
+packaging. Not implemented: training-fitted PCA / K-means diagnostics, the
+shortcut-only baseline and EDA report, calibration, and the evidence assistant. The
+completion state of each item is in the TODO plan.
 
 ## Architecture decisions
 
-| Boundary | Planned responsibility and contract | Evidence before acceptance |
-| --- | --- | --- |
-| `data/` package | Parse official protocols; manifest IDs, labels, source/speaker/attack provenance, official split and development role. Local paths remain local. CSV is the canonical export; SQLite is a rebuildable audit catalog. | Tiny fixtures catch duplicate IDs, missing audio, split crossing and unknown labels. Recorded provenance gaps. |
-| `audio/` and `features/` | Validate/decode, mono 16 kHz, four-second windows, deterministic inference, MFCC/log-Mel specification. Training crop/augmentation is an explicit separate mode. | Shapes/finite values, padding/tail handling, repeated-run equality and train-only fitting tests. |
-| `training/` | Fit scaler/statistics/models only on training; select checkpoints on selection development; save immutable run artifacts. | Learning curves, bounded runs, exact configs/seeds, no threshold-reservation access during selection. |
-| `inference/` | Load a trusted versioned bundle; compute window scores and one original-clip score; apply the bundle's threshold. No training imports or fitting during serving. | Offline/API parity on fixtures and permitted development clips, compatible versions/hashes. |
-| `evaluation/` | Verify freeze record; score all declared candidates and conditions; persist predictions before metrics; bootstrap original-source groups. | Freeze/hash mismatch refuses scoring; known-score metric tests; one output per clip/condition/model. |
-| `robustness/` | Deterministic noise/compression construction from a frozen spec, applied equally to both classes. | Same source membership and seeds, bounded clipping, transformation failure accounting. |
-| `api/` | Typed upload/error contract, byte/decode/concurrency bounds, startup bundle load, cleanup, health/readiness and metadata logs. | Valid/corrupt/oversize/silent/unavailable/cancelled request tests and cleanup checks. |
-| `app/` | Thin Streamlit client of the API; spectrogram, score and measured limitations. Never independently load the model. | Actual HTTP upload path and removal of UI-held audio after processing/session cleanup. |
-| Local containers | One image, separate API/UI services; CPU inference, bundle mounted read-only, temporary uploads. | Clean build/start, readiness, inference parity and measured cold/warm latency. |
+The boundaries below were planned on 6 October and are realised as follows. Reusable
+code lives under `src/voice_detector/`; notebooks only import it. Python 3.12 and uv,
+with no second environment or lockfile system.
 
-Names are planned module boundaries, not packages already implemented. Keep reusable implementation under `src/voice_detector/`; notebooks only import it. Use Python 3.12 and uv, with no second environment or lockfile system.
+| Boundary | Contract | Implementation |
+| --- | --- | --- |
+| Data | Parse official protocols; manifest IDs, labels, source/speaker/attack provenance, official split and development role. Local paths remain local. CSV is the canonical export; SQLite is a rebuildable audit catalog. | `protocol.py`, `manifest.py`, `reservation.py`, `hashing.py` |
+| Audio and features | Validate/decode, mono 16 kHz, four-second windows, deterministic inference, MFCC / log-Mel specification. Training crop and augmentation are an explicit separate mode. | `preprocessing.py`, `features.py`, `cnn_dataset.py` |
+| Training | Fit scaler, statistics and models only on training; select checkpoints on selection development; save immutable run artifacts. | `baseline.py`, `cnn_train.py`, `pretuning.py`, `cnn_pilot.py` |
+| Inference | Load a trusted versioned bundle; window scores to one clip score; apply the bundle's threshold. No training imports or fitting while serving. | `scoring.py`, `cnn_scoring.py`, `runtime.py` |
+| Evaluation | Verify the freeze record; score all declared candidates and conditions; persist predictions before metrics; bootstrap by group. | `evaluation.py`, `eval_scoring.py`, `eval_report.py`, `bootstrap.py`, `metrics.py`, `prediction_store.py`, `eval_supplementary.py` |
+| Robustness | Deterministic noise/compression from a frozen spec, applied to both classes. | `augmentation.py`, `configs/robustness_spec.yaml` |
+| API | Typed upload/error contract, byte/decode/concurrency bounds, startup bundle verification, cleanup, health/readiness, metadata-only logs. | `serving/` (`app.py`, `service.py`, `decode.py`, `limits.py`, `loader.py`, `observability.py`, `schema.py`, `settings.py`) |
+| UI | Thin Streamlit client of the API; spectrogram, score, measured limitations. Never loads a model itself. | `ui.py` (calls the API over HTTP) |
+| Containers | One image, separate API/UI services; CPU inference, bundle mounted read-only, temporary uploads. | `Dockerfile`, `compose.yaml` |
 
 ### Data and bundle contracts
 
-Manifest: `clip_id`, `source_id` when available, speaker/attack IDs, official partition, development role, label, duration, sample rate, checksum, provenance and local path resolution. Never silently invent source identity; record unknown provenance and the weaker grouping fallback. Partition assignment precedes every derived window/feature/transformation.
+Manifest: `clip_id`, `source_id` when available, speaker/attack IDs, official partition, development role, label, duration, sample rate, checksum, provenance and local path resolution. Never silently invent source identity; record unknown provenance and the weaker grouping fallback. Partition assignment precedes every derived window/feature/transformation. Schema detail: [`data.md`](data.md).
 
 Versioned model bundle: schema/model/preprocessing versions, model parameters, training-fitted transforms, feature spec, window/aggregation policy, label mapping, score direction, operating threshold, manifest/config/Git identifiers, dependency versions and checksums. Only trusted locally produced bundles are loaded; user uploads cannot supply model artifacts. A checksum detects mismatch but does not make an untrusted serialized object safe.
 
@@ -42,7 +70,7 @@ Cache key: audio checksum, original partition/clip ID, preprocessing hash, fitte
 
 Run record: unique run ID, configuration, seed, dependency versions, Git commit and dirty-state disclosure, manifest hash, preprocessing, model version, runtime, hardware, predictions and metrics. Large artifacts stay ignored; commit small approved summaries and schemas without restricted paths.
 
-API: `POST /predict`, `GET /health`, `GET /ready`. Return score, direction, threshold, label, versions, request ID, decoded duration and processing time. Synthetic is the positive class; larger scores mean more synthetic. Scores from different model families are not numerically comparable probabilities. No unvalidated confidence/probability or inconclusive output. Configure the UI's API URL: localhost for local processes, the API service hostname for separate containers.
+API contract (as implemented; field-level detail in [`pipeline.md`](pipeline.md)): `POST /predict`, `GET /health`, `GET /ready`, `GET /model`. A response returns `score`, `score_direction`, `threshold`, `decision` (`flagged_spoof_like` or `not_flagged`), versions, hashes, `request_id`, decoded duration and processing time. Synthetic is the positive class; larger scores mean more synthetic. There is no `label`, `confidence`, probability or "inconclusive" output (calibration is not implemented). Scores from different model families are not comparable probabilities. The UI's API URL is configurable: localhost for local processes, the service hostname for containers.
 
 ### Evaluation state and leakage controls
 
@@ -58,83 +86,38 @@ Required results: EER, macro F1, balanced accuracy, ROC AUC, class counts, confu
 
 An attack-only slice normally contains synthetic clips: report detection rate and counts. For attack-specific EER/AUC, predeclare a bona fide comparison pool and disclose its reuse across attacks. Such slices are not independent datasets. Three first-seed bundles across four conditions produce 12 model–condition combinations; extra paired seeds expand that matrix. Keep each bundle's threshold unchanged across conditions.
 
-For diagnostics, fit PCA for a two-dimensional visualization and K-means in scaled training MFCC space. A proposed training-only search over K in {3, 5, 8}, with a capped seeded silhouette sample, keeps the task bounded. Final values and sample cap are recorded before fitting; neither cluster IDs nor visual separation establish authenticity.
+Diagnostics contract (**not implemented**; open as #36): fit PCA for a two-dimensional visualization and K-means in scaled training MFCC space. A proposed training-only search over K in {3, 5, 8}, with a capped seeded silhouette sample, keeps the task bounded. Final values and sample cap are recorded before fitting; neither cluster IDs nor visual separation establish authenticity.
 
-### Duration and robustness decisions to freeze
+### Duration and robustness decisions
 
-Mono/16 kHz/four-second windows are existing proposal choices. Window stride, tail inclusion, short-clip padding, training crop sampling and aggregation space (for example mean raw window score) still require a single explicit spec and tests. LR and CNN must use their own frozen score conventions consistently. Decide treatment of long clips so extra windows do not silently change per-original-clip training weights.
+Mono/16 kHz/four-second windows are proposal choices. Window stride, tail handling and short-clip policy were frozen as option D (11 October 2026; pooled MFCC statistics over real samples only, sub-frame tails folded, a clip under four seconds is one window over real audio; `mfcc-v1` became `mfcc-v2`). The CNN uses the log-Mel spec `mel-v1` in `configs/cnn_study.yaml` without unjustified zero-padding. LR and CNN each use their own frozen score convention (mean window decision function / mean window logit).
 
-Accepting 1–30 seconds/20 MB is a target, not evidence of validated performance across that range. Predeclare duration bins and report counts. Narrow the supported scope if data does not support it. API validation and benchmark exclusion rules are distinct: do not silently delete difficult evaluation clips because a demo rejects silence.
+The service accepts WAV/FLAC of 1 to 30 seconds and at most 20 MiB. That range is an input policy, not evidence of validated performance across it; clips under 1 s (1,277 in the LA manifest, per #14) were scored by the benchmark but not validated separately and are rejected by the service (#14, closed). API validation and benchmark exclusion rules are distinct: no difficult evaluation clip was silently removed because the demo rejects it.
 
-Freeze clean + one compression setting + two noise levels, the same source clips for every condition, noise/SNR construction, codec/bitrate, amplitude/clipping policy and seeds. Training augmentation uses training only. Define transformation failure handling before evaluation; report exclusions/failures by condition instead of comparing silently different cohorts.
+Robustness: clean, one compression setting (Opus 24 kbps), two noise levels (20 and 10 dB SNR) on the same source clips for every condition, with parameters and seeds in `configs/robustness_spec.yaml`; training augmentation uses training data only; plus an evaluation-only silence-trim diagnostic that is not a fifth robustness condition and not a candidate.
 
-## Timeline and resource gates
+## Timeline and resource envelope
 
-Dates are planning targets for one owner, not a guarantee or measured runtime. The presentation date is tentative in the syllabus. At the first gate record available focused hours, current storage and measured pilot costs. The agreed planning envelope is **110–150 focused person-hours**, or approximately **140–190 hours including 25% contingency**, excluding unattended compute. This assumes familiarity with Python/ML, established libraries and timely data access, and roughly 32–43 hours/week including contingency over the remaining month. At 15–20 hours/week, the full scope is not a credible commitment without help or a scope/date change. These are estimates, not measured feasibility. Bound data/compute before experiments; renegotiate the schedule if the required core still does not fit.
+Dates are planning targets for one owner, not guarantees; the presentation date is tentative. The agreed planning envelope was **110 to 150 focused person-hours** (about 140 to 190 including 25% contingency), excluding unattended compute. That envelope was an estimate, not measured feasibility, and the owner's actual weekly hours were never recorded (open item in the TODO plan). The 25% contingency was spent by 13 October.
 
-| Target | Gate and deliverable | Stop/go decision |
+| Target | Gate | Deliverable |
 | --- | --- | --- |
-| 6–7 October | G0: revalidate environment, data terms/access, manifest schema, hardware/storage and personal-hour budget | No expensive acquisition/training until access and capacity are recorded. |
-| 8–12 October | G1: audited data, shared preprocessing, reproducible LR development report; thin API/UI path using LR or explicitly labeled test fixtures | Demonstrate parity and cleanup early. CNN timing pilot estimates complete runs and evaluation cost. |
-| 13–18 October | G2: clean/augmented CNN comparison, train-fitted diagnostics, selected deployment, reserved thresholds and freeze record | Declare all candidates and transformation specs before final testing. Missing compute capacity means a predeclared subset, not adaptive test selection. |
-| 19–25 October | G3: locked metrics, paired robustness, failure report, working real-model demo, initial container/cleanup verification | Full core acceptance is needed before a stretch starts. Given the deadline, the assistant may reasonably remain deferred. |
-| 26 October | Feature freeze | No new model families, datasets or extensions; repairs and verification only. |
-| 27 October–1 November | G4: fresh-checkout/container verification, performance results, model card and slides | Repeatability and presentation readiness take priority over polish. |
-| 2–4 November | G5: rehearsed <=12-minute presentation, permitted samples, recorded backup/local fallback | Demonstration works on presentation hardware without network dependence. |
-| 5 November | Tentative presentation | Explain results, failures, limits and lessons learned. |
+| 6-7 October | G0 | Environment, data terms/access, manifest schema, hardware/storage |
+| 8-12 October | G1 | Audited data, shared preprocessing, reproducible LR development report |
+| 13-18 October | G2 | Clean/augmented CNN, development selection, reserved thresholds, all-candidate freeze |
+| 19-25 October | G3 | Locked metrics, paired robustness, failure report, real-model demo |
+| 26 October | Feature freeze | No new model families, datasets or extensions |
+| 27 October-1 November | G4 | Fresh-checkout and container verification, performance results, model card, slides |
+| 2-4 November | G5 | Rehearsed <=12-minute presentation, fallback and backup |
+| 5 November | Presentation | Tentative |
 
-Proposed effort per phase: G0 8–12 hours; G1 24–32; G2 24–32; G3 24–32; G4 20–26; G5 10–14. The total is 110–148 hours, rounded to 110–150 before contingency.
-
-Agreed initial tuning ceiling, to confirm at G0/G1: three LR regularization settings and one fixed imbalance policy; one compact CNN architecture with at most four full runs (clean/augmented × two seeds), proposed maximum 20 epochs and 12 device-hours/run. The second seed pair requires a pilot forecast within 48 device-hours total plus the calendar reserve; decide from capacity, not the first seed's quality. Select checkpoints on development and report all declared seeds. Record unmeasured training variability if using one seed. Set patience and disk caps in YAML. Forecast extraction, validation, compression and final scoring separately, using at least 1.5 times pilot time/storage estimates for planning.
-
-Match clean/augmented architecture, seed and intended training budget. Record actual completed epochs, optimizer steps and clip exposure as well as ceilings and early-stop rules. Equal ceilings alone do not ensure equal exposure. If early stopping or a runtime cap leaves unmatched exposure, report the practical pipeline comparison and limitation; do not claim an isolated augmentation effect or call an unfinished run a completed ablation.
-
-If the full dataset cannot fit, freeze a documented subset rule before looking at model scores; preserve official partition boundaries and disclose the study as a subset. Do not substitute extra external benchmarks or weaker leakage rules for missing capacity.
-
-## Agreed implementation TODOs
-
-All items below remain open; documenting a design is not implementing it. Detailed existing checkboxes remain in the root plan.
-
-- [ ] **A0 — feasibility record (G0):** repeat uv/Python smoke checks; confirm terms/storage/hours; measure hardware and write dataset/run-budget decisions. Owner: Mohamad.
-- [ ] **A1 — data contract (G0/G1):** implement metadata parser and fixtures, canonical manifest, SQL audit, checksums/provenance, official and reserved-development membership. Depends on A0.
-- [ ] **A2 — shared preprocessing (G1):** specify YAML feature/window/padding/aggregation settings, implement decoding/features, train-only transforms, versioned cache and parity tests. Depends on A1.
-- [ ] **A3 — baseline and bundle (G1):** LR tuning within budget, development metrics, trusted bundle loader/scorer, reproduction command and run record. Depends on A2.
-- [ ] **A4 — early application (G1):** thin API/UI, typed errors, bounded decode/concurrency, health/readiness, cleanup and local CPU container smoke. Depends on A3; fixture-only UI work may start earlier and must be labeled.
-- [ ] **A5 — CNN study (G2):** timed pilot, explicit loss/weighting/optimizer, clean and augmented training, learning curves and conditional paired second seeds. Depends on A2/A3 and capacity gate.
-- [ ] **A6 — diagnostic and freeze (G2):** training-fitted PCA/K-means with small training-only K search; development deployment selection, reserved thresholds, full freeze record and refusal tests. Depends on A3/A5.
-- [ ] **A7 — locked evaluation (G3):** predictions for all declared models/conditions, required metrics/slices, source-group uncertainty, paired differences and failure report. Depends on A6.
-- [ ] **A8 — release reliability (G3/G4):** shared scorer/API parity, measured input-range behavior, container CPU parity, invalid/cancelled request cleanup, cold/warm latency/memory and no-audio logs. Depends on A4/A7.
-- [ ] **A9 — reproducibility and presentation (G4/G5):** fresh-checkout reproduction of data preparation, baseline training, CNN training and the report (not baseline only), checksummed bundle instructions, model card, approved summaries, course-evidence appendix, 12-minute slides and backup recording. Depends on A7/A8.
-- [ ] **S1 — stretch go/no-go (before 26 October):** only if A0–A8 and core reproduction/model-card evidence pass with presentation contingency remaining, authorize the bounded evidence-assistant experiment; otherwise record deferred. No automatic extension from being listed here.
-
-Issue mapping (13 October 2026):
-
-| Item | GitHub issues |
-| --- | --- |
-| A1 | #5 (closed), #31 |
-| A2 | #4, #7 |
-| A3 | #32, #8, #9 |
-| A4 | #9, #11 |
-| A5 | #10, #33 |
-| A6 | #34, #35, #36 |
-| A7 | #35, plus G3 issues minted just-in-time |
-| S1 | #37 |
-
-Test plan: fast fixtures for partition/provenance invariants; finite deterministic features and padded-window aggregation; freeze mismatches; known-score/one-class metric cases; paired resampling; API parity and error/cleanup paths. Core CI stays independent of datasets, network, GPUs and trained checkpoints. Implementation changes require `uv run ruff check .` and relevant `uv run pytest`; run the full fast suite when practical.
-
-## Selected stretch contract
-
-> **Superseded for this release (13 October 2026):** the owner decided S1 is a no-go (#37). The contract below is kept as the historical record and as course-coverage context. Phase 2 work is in [research-backlog.md](research-backlog.md).
-
-Allocate **zero committed hours** to this stretch. A 16–24-hour pilot is a provisional estimate only if full core acceptance (including Docker/reliability) finishes early enough to complete it before 26 October with release contingency preserved. The current schedule does not provide that window; likely outcome is deferral. Start with approved documentation and already-frozen results, a versioned corpus, TF-IDF/BM25 retrieval comparison and a source-cited answer interface. Add LLM generation only if its configuration/access/cost and evaluation fit the remaining budget; lexical or templated answers alone do not count as RAG. Semantic retrieval is another optional part of this same bounded experiment, not mandatory infrastructure. No agent orchestration, MCP or persistent recording memory.
-
-Author separate development and held-out questions before tuning (for example 10 + 10). Include numeric, answerable, unanswerable and prompt-injection cases. Freeze corpus/prompt/index versions before final question testing. Report recall@k, citation and numeric correctness, unsupported claims, abstention, latency and usage with counts. This is pilot evidence. The assistant cannot change model thresholds, run training, or substitute its own audio authenticity decision. If the gate fails, retain the course topics as conceptual coverage and future work.
+Re-forecast dates and current priorities are in [`roadmap.md`](roadmap.md). Tuning ceiling that was applied: three LR regularization values with one fixed class-imbalance policy; one compact CNN architecture with four full runs (clean/augmented x two seeds), at most 20 epochs, early stopping on development clip EER. Clean and augmented runs share architecture, seed and intended budget; actual completed epochs are in the run records, and equal ceilings do not guarantee equal exposure, so the comparison is a practical pipeline comparison, not an isolated augmentation effect. If a full-dataset run had not fit, a documented subset rule would have been frozen before looking at scores; that was not needed.
 
 ## Proposal and document precedence
 
 The final project proposal — `AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx` (the original) — is the authoritative, immutable source for project scope, commitments and acceptance criteria. It is frozen and signed off (see the sign-off below) and must not be edited, regenerated or replaced. `AI_Voice_Deepfake_Detector_Final_Project_Proposal_Revised.docx` is a non-selected historical candidate with no governing authority. This dated Markdown addendum is subordinate: it records dated implementation decisions, module contracts, schedule and explicit deviations. Where any statement in this addendum — or in any other planning document — conflicts with the final proposal, the proposal governs unless an explicit, dated deviation recorded here changes it (naming the affected commitment, reason, owner decision, date and acceptance impact). Neither `.docx` is ever edited.
 
-Canonical authority for scope, commitments and acceptance: the final proposal (the original `...Proposal.docx`). Dated implementation decisions, deviations and deadlines: this file. Completion status: root TODO. Concise execution order: roadmap. Data flow: pipeline. Educational mapping: course-coverage review, with optional examples treated as deferred unless explicitly selected here.
+Canonical authority for scope, commitments and acceptance: the final proposal (the original `...Proposal.docx`). Dated implementation decisions, deviations and deadlines: this file. Completion status: root TODO. Execution order: roadmap. Implemented flow: pipeline. Ownership of every document: [`README.md`](README.md). Syllabus mapping: [`course-coverage.md`](course-coverage.md), where optional examples are not commitments.
 
 **Correction — 2026-10-11.** An earlier edit this day wrongly named `_Revised.docx` as the authoritative proposal and attributed a "Phase 1–5" execution sequence to it (that structure belongs to the Revised candidate, not the frozen original). That designation is withdrawn. Per the owner decision and a second architecture/tech-lead consultation (Codex `gpt-6-astra`, read-only), the original `...Proposal.docx` is the sole frozen proposal; see the sign-off below. This also supersedes the prior "the original Word proposal remains historical scientific background / superseded by this addendum" language.
 
@@ -168,7 +151,7 @@ The frozen proposal (the original) remains the authoritative baseline; these are
 
 ## Dated decisions — 13 October 2026 (architecture review)
 
-Full rationale: [architecture-review-2026-10-13.md](architecture-review-2026-10-13.md). The proposal `.docx` was re-verified unchanged (SHA-256 `b16f5124…a09aec`).
+Full rationale: [archive/architecture-review-2026-10-13.md](archive/architecture-review-2026-10-13.md) (historical). The proposal `.docx` was re-verified unchanged (SHA-256 `b16f5124…a09aec`).
 
 ### Deviation register (proposal commitments not delivered in this release)
 
@@ -188,7 +171,7 @@ The 11 October sign-off deferred these items "with rationale" but did not record
 ### Plan amendments adopted (owner-requested review)
 
 - **G1 narrowed to its critical path:** option D (#4) → features (#7) → development reservation + pre-tuning record ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)) and metrics ([#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32)) → LR dev report (#8) → CNN pilot (#10). EDA (#6), scorer parity (#9) and container smoke (#11) move to a **G2 parallel lane**, done while CNN training runs unattended. #31 and #32 **block** #8, because LR tuning and threshold selection must not touch development data before the reservation is frozen.
-- **Forecast:** G1 16 Oct, G2 freeze 22 Oct, G3 27 Oct. Feature freeze (26 Oct), G4 (1 Nov), G5 (4 Nov) and the presentation (5 Nov) are held. The 25% contingency is spent. The cut list is in the review and the roadmap.
+- **Forecast:** G1 16 Oct, G2 freeze 22 Oct, G3 27 Oct. Feature freeze (26 Oct), G4 (1 Nov), G5 (4 Nov) and the presentation (5 Nov) are held. The 25% contingency is spent. The cut list is in the archived review.
 - **New G2 work items:**
   - CNN study, including the input/padding policy, decided before training ([#33](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/33));
   - robustness + silence-shortcut transformation spec ([#34](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/34));
@@ -255,7 +238,9 @@ delivery.
   See `docs/environment.md`, "Access".
 - **Working mode.** Issue by issue, with tested code and verifiable outputs; no further broad architecture reviews in Phase 1. The owner picks the review gate (`/consult`, implement then `/code-review`, or none) for each slice.
 
-### External GPU compute protocol (owner-run Kaggle / Colab)
+### External GPU compute protocol (owner-run Kaggle / Colab) — not used
+
+The CPU host was sufficient for all four CNN runs, so this protocol was never invoked; it is kept as the rule for any future external run.
 
 The DL120 CPU host stays the default. The #10 pilot decides whether a GPU is needed. Use the GPU route if a forecast CNN run exceeds the 12 device-hour cap, or if the run matrix exceeds 48 device-hours. The owner runs the notebooks by hand. Any external run must:
 
@@ -330,73 +315,17 @@ The DL120 CPU host stays the default. The #10 pilot decides whether a GPU is nee
   slice range so the merged core is still reviewed. One PR per issue remains the
   standard; this is the recorded exception.
 
-### Still pending owner decision
+### Hosts used (added 27 October 2026)
 
-- [#14](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/14): sub-1 s duration gate, before the G2 freeze.
-- [#34](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/34): concrete codec, SNR and trim parameters, before the G2 freeze.
+The 13 October decision names the DL120 host as the target and demo environment. The record shows two Linux x86_64 CPU hosts were used: `hpe-dl120gen10-01` (G0 environment gate, data acquisition and checksums) and `hp-xl420gen9-01` (locked scoring R6 and report R7, serving verification, the latency benchmark, container build and parity; per TODO-Plan the four CNN runs). Which machine presents on 5 November is not recorded consistently; see [`environment.md`](environment.md).
 
-## Architecture consultation
+### Resolved since the 14 October decisions
 
-A new technical-architecture reviewer, Meitner (`01a11256-2313-7ae3-9800-bcebeb0f1e1e`), used `gpt-6-astra` with `xhigh` reasoning. The lead agent independently audited code/status/documentation and sent a counterproposal covering module contracts, freeze discipline, timeline, early API integration and the late stretch gate.
+- #14 (sub-1 s gate): the service rejects clips under 1 s with `duration_out_of_range`; closed.
+- #34 (codec, SNR and trim parameters): frozen in `configs/robustness_spec.yaml` before the freeze.
+- The 13 October rule that every run is tracked in JSON plus a SQLite `runs` table is only half implemented: run records are JSON files in each bundle, and no `runs` table exists in `src/` (open as #54).
+- 14 October review follow-ups ([archived review](archive/lr-baseline-review-2026-10-14.md)): the owner decision stands that completed issues stay closed and repairs get new linked issues. Issues #52 to #59 are still open on GitHub and sit in the Phase 2 milestone (demo-first scope cut). The role-free versus role-bearing manifest hash gap (#52/#53) is disclosed in [`evaluation-protocol.md`](evaluation-protocol.md) section 10.
 
-Discussion and resolution:
+## Evidence-assistant stretch (S1)
 
-- Lead proposed one canonical plan, early baseline API integration, versioned shared inference, all-candidate freeze and a likely-deferred stretch; the architect agreed and added an early Linux/Docker smoke test.
-- Architect challenged the initial 80–120-hour estimate. Lead accepted 110–150 focused hours plus 25% contingency and the need to record actual owner availability at G0.
-- Architect proposed a bounded CNN run matrix, explicit freeze states, fitted-statistics cache hashes and source-group uncertainty. Lead accepted them and added attack-only slice handling and actual training-exposure accounting.
-- Lead asked for final objections after these changes. Architect answered that there were no remaining material objections, clarifying that equal epoch ceilings/patience alone do not guarantee equal completed exposure. That clarification is included above.
-
-The user additionally requested existing session `01a11238-7c72-72c2-96f2-ee77ba12524e`. Direct agent messaging returned “agent not found”; the CLI queue returned “no rollout found.” No additional session was spawned in its place. Its review is **pending/unavailable**, and no three-way agreement is claimed. The plan is ready to start at G0 on the agreement of the lead and Meitner; compute/time feasibility and the unavailable participant's feedback are not represented as confirmed.
-
-## Immediate work order
-
-1. Revalidate the existing Python 3.12/uv setup, smoke command and current machine capacity; record focused hours/week. No detector results are needed for this step.
-2. Write `docs/data.md` and a versioned manifest schema plus tiny protocol fixtures; define development speaker roles and nullable provenance.
-3. Implement/test the metadata audit and partition checks before full feature extraction. Record access/storage permission and pilot budget.
-4. Implement one shared deterministic decoding/window/feature path and its parity tests, then the LR bundle and thin API/UI/container path.
-
-Implementation, data acquisition, training and external changes are separate future work; this consultation updated planning documents only.
-
-## Session handoff — 6 October 2026
-
-Resume from this state in the next Codex session:
-
-- Project: `ai-voice-deepfake-detector`.
-- Current conversation: project proposal, technical architecture and G0 feasibility preparation.
-- Current core decision: ASVspoof 2019 LA; MFCC + Logistic Regression; clean and augmented compact CNN; locked evaluation; paired noise/compression robustness; PCA/K-means diagnostics; FastAPI/Streamlit; local Docker; reproducibility and observability.
-- Current stretch: evidence assistant only if the complete core passes early; zero committed hours and likely deferred.
-- Completed today: architecture plan, data contract, manifest validator, fixture tests, aligned TODO/roadmap/pipeline/README/project-management documents.
-- No dataset audio, trained model, checkpoint, final prediction or accuracy result exists.
-- Open blocker 1: current environment is macOS `x86_64` with Python 3.14; project requires Python 3.12 and the locked PyTorch resolution has no compatible x86_64 macOS wheel. Python 3.12.13 was installed in `/tmp/voice-detector-python`, but locked sync stopped at the PyTorch platform mismatch.
-- Open blocker 2: ASVspoof 2019 LA audio and official protocol files are not present. Do not download or train until access, terms, storage and provenance are recorded.
-- Next first action: revalidate the intended Apple Silicon/ARM64 machine or choose a compatible documented environment, then run the locked setup checks.
-- Next data action: obtain/provide ASVspoof 2019 LA audio and train/development/evaluation protocols; preserve official partitions.
-- Next coding action after the environment gate: implement protocol fixtures and the manifest audit, then shared deterministic preprocessing and the Logistic Regression bundle.
-- Existing requested architecture session `01a11265-c108-7150-930c-ea044f6bbbbf` was unavailable through the agent interface; do not claim its review was received.
-
-Continue by reading this handoff, `docs/data.md`, `TODO-Plan.md` and `AGENTS.md` before taking actions. Treat this section as a checkpoint, not as evidence that the listed future work is complete.
-
-## Dated review follow-up — 14 October 2026
-
-The [LR baseline review](lr-baseline-review-2026-10-14.md) examined `6b02432`,
-including merged LR PR #49 and CNN pilot PR #51. PR #49 reports successful host
-execution; this review did not inspect the host artifacts or final predictions.
-The default label direction, aggregation, fixed class weighting and EER-zero fix
-are correct. G1 output acceptance needs the new review follow-ups #52–#59.
-
-- **Owner tracking decision:** keep completed issues closed. Create new related
-  repair issues under the matching milestone; #8, #10 and #31 stay closed.
-- **Acceptance impact:** #52/#53 guard feature provenance and frozen membership
-  before LR fitting. #54–#57 complete retained run evidence, coherent bundle
-  publication, reservation provenance and supported protocol enforcement. These
-  gate accepting the LR bundle for #9 parity and the #35 development rehearsal.
-- **Capacity impact:** #58 completes the configured forecast with the planning
-  margin before accepting #33's compute route; #59 fixes laptop test collection.
-  Fixture-based development can continue while the follow-ups are resolved.
-- **Schedule:** retain the existing 16/22/27 October forecasts, with G1 conditional
-  on the follow-up repairs and host verification. No date extension or scope cut
-  is inferred from the review. Owner focused-hour capacity remains unrecorded.
-- **Proposal commitment:** this enforces the existing partition, reproducibility,
-  coherent-inference and resource-gate requirements. No proposal deviation is
-  introduced and the frozen proposal bytes remain unchanged. Audit and preserve
-  prior evidence; document any necessary reconstruction or invalidation.
+No-go for this release (owner, 13 October 2026, #37). The earlier bounded contract (TF-IDF/BM25 retrieval over approved documents, cited generation only if evaluable, 10 + 10 development and held-out questions, no agents, MCP or recording memory, and an assistant that can never change thresholds or classify audio) is preserved in Git history. RAG and MCP are not on the research track either ([`research-backlog.md`](research-backlog.md)). [`course-coverage.md`](course-coverage.md) treats them as conceptual coverage only.

@@ -65,8 +65,8 @@ Its frozen threshold is -1.2519543 (candidate bundle `cnn_augmented_seed1`).
   (11.77% [10.28, 13.04], against 6.68-8.30% for the clean seeds and 7.35% for
   augmented seed 2), and a pooled clean human false-positive rate of 7.21% at its
   frozen threshold (development 4.91%). It is the most stable CNN under noise in
-  ranking (EER 20.6% at noise_10db). The choice stands because the rule was fixed in
-  advance; the owner may still decide the model is not fit for the demo, in which case
+  ranking (EER 20.6% at noise_10db). The choice stands because the rule was fixed before
+  it was applied to the development numbers (not before the locked report was read); the owner may still decide the model is not fit for the demo, in which case
   that is a recorded deviation, not a silent swap.
 - **Thresholds do not transfer.** The deployed threshold was fixed on clean
   development audio. Under codec or noise the chosen model flags about 21-27% of
@@ -82,3 +82,8 @@ Its frozen threshold is -1.2519543 (candidate bundle `cnn_augmented_seed1`).
 - Whether to run the pre-declared supplementary analyses on the evaluation store
   (PR #82) needs a separate explicit authorization.
 - Calibration is not performed; outputs remain scores.
+
+*Update, 2026-10-27:* the supplementary analyses were not run; the supplementary tool
+was dropped from Phase 1 (deviation register in
+[`architecture-and-delivery-plan.md`](architecture-and-delivery-plan.md)). The owner
+kept `cnn_augmented_seed1` (2026-10-20).

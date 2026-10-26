@@ -2,9 +2,34 @@
 
 Originally recorded 4 October 2026 (planning machine). **Reconciled 11 October
 2026** when the reserved Linux training host was stood up and the G0 environment
-gate passed on it. The earlier macOS/M4 record is preserved below as history, not
-silently overwritten: the M4 Pro was the planning reference, not the machine the
-environment was ever installed on.
+gate passed on it; **extended 27 October 2026** with the second host and a table
+of which host produced which measurement. The earlier macOS/M4 record is preserved
+below as history, not silently overwritten: the M4 Pro was the planning reference,
+not the machine the environment was ever installed on.
+
+## Which host produced which measurement (27 October 2026)
+
+Two Linux x86_64 CPU hosts were used. Hardware is recorded under "Verified
+training/evaluation host" (DL120) and "Second host" below.
+
+| Measurement or job | Host | Source |
+| --- | --- | --- |
+| G0 gate (`uv sync`, smoke, ruff, pytest), LA acquisition, archive checksums | DL120 (`hpe-dl120gen10-01`) | this file, [`data.md`](data.md) |
+| Manifest build matching the published counts (13 October) | not recorded in the repository | TODO-Plan §3 |
+| Four CNN training runs | `hp-xl420gen9-01` | TODO-Plan §6 (run records are not committed) |
+| Locked scoring (R6) and locked report (R7) | `hp-xl420gen9-01` | [`evaluation-results-g2.md`](evaluation-results-g2.md) |
+| Serving verification, latency benchmark, container build/smoke, container parity | `hp-xl420gen9-01` | [`model-card.md`](model-card.md) section 6, TODO-Plan §9-10 |
+| Cross-host dev rehearsal of the freeze and scoring | both | [`archive/dl120-verification-tracker.md`](archive/dl120-verification-tracker.md) |
+| LR training, CNN timing pilot | not recorded in the repository | |
+
+**Presentation machine: unresolved.** The 13 October owner decision names the DL120
+as the target and demo host and expects the laptop to run the offline fallback as
+an Intel Mac. Later artifacts disagree: the container configuration was verified on
+`hp-xl420gen9-01` and not on the DL120 ("not yet the DL120 presentation
+configuration", TODO-Plan §10), and `scripts/demo_setup.sh` describes the
+presentation Mac as an M4 Pro (ARM64) reaching `hp-xl420gen9-01`. An ARM64 Mac runs
+the `linux/amd64` image under emulation, unlike the Intel assumption in the offline
+fallback bullet below. Record the real choice before the G4 container check.
 
 ## Verified training/evaluation host (reconciled 11 October 2026)
 
@@ -28,9 +53,11 @@ laptop. It is tested and executed on **this host, the target and demo environmen
 Git is the only path between the two:
 
 1. **Local (laptop).** Branch, edit, `uvx ruff@0.16.10 check .`, and run dataset-free
-   tests in the isolated env (command in the resume brief). Tests that need `torch`
-   use `pytest.importorskip("torch")`, so they skip cleanly on the laptop, which
-   cannot install the locked `torch`. Commit and push.
+   tests in an isolated env (the full locked env cannot install on an Intel Mac). Tests that need `torch`
+   use `pytest.importorskip("torch")`, so they skip cleanly where `torch` is not
+   installed. On an Intel Mac `uv sync --frozen --all-groups` fails (the locked
+   `torch` has no macOS x86_64 wheel; re-observed 27 October 2026, the resolver
+   reports wheels for macOS arm64 only). Commit and push.
 2. **CI (GitHub Actions).** Every push runs `uv sync --frozen --all-groups`, ruff and
    the full pytest suite on Linux x86_64, the same platform as the host, without data.
 3. **Target (this host, over SSH).** On the pushed commit:
@@ -76,8 +103,10 @@ moved. Consequences:
 - Local storage: ~209 GB free at setup
 - Python: 3.12 (provided via `uv python install 3.12`)
 - Environment/dependency manager: uv 0.13.0
-- Dependency source of truth: `pyproject.toml` and `uv.lock` (unchanged — the
-  locked Linux `x86_64` wheels, including CPU-capable CUDA `torch`, install here)
+- Dependency source of truth: `pyproject.toml` and `uv.lock`. At the 11 October gate
+  the lock held the CUDA `torch` wheels; on 20 October it was regenerated with
+  CPU-only wheels (`torch==2.14.1+cpu` via `[tool.uv.sources]`) to shrink the Docker
+  image. `uv sync --frozen --all-groups` is the install command in both cases.
 
 **G0 environment gate — PASSED (11 October 2026):** `uv sync --frozen --all-groups`
 completed, `uv run voice-detector smoke` reported runtime/dependency versions, and
@@ -103,7 +132,7 @@ targets but sufficient for the **ASVspoof 2019 LA-only, CPU** scope:
   | --- | --- |
   | LA data | ~20 GB |
   | venv | ~15 GB |
-  | Docker image with the CUDA `torch` build, plus build cache | ~10–15 GB |
+  | Docker image with the CUDA `torch` build, plus build cache (superseded: CPU-only wheels gave a measured 4.82 GB image on 20 October) | ~10–15 GB |
   | MFCC features | <1 GB |
   | log-Mel train/dev cache | ~4–8 GB (float32) |
   | Checkpoints and predictions | <1 GB |
@@ -119,6 +148,14 @@ targets but sufficient for the **ASVspoof 2019 LA-only, CPU** scope:
   train clips) is estimated at a few hours on 44 threads; the clean + augmented ×
   2-seed matrix is an overnight unattended job. The first real training pilot must
   record actual runtime, peak memory, batch size and completed epochs/steps.
+
+## Second host: `hp-xl420gen9-01`
+
+Recorded 18 October 2026 (archived tracker, step N0): 48 logical cores (Intel Xeon
+E5-2650L v3 @ 1.80 GHz), 31 GB RAM, no GPU, 541 GB free; "similar class to host 1,
+not much faster". ffmpeg 8.1.3 with libopus was present for the codec condition.
+The latency and container figures in the model card are from this host
+(CPU-only, torch 2.14.1+cpu, one thread).
 
 ## History — planning machine (recorded 4 October 2026, superseded)
 

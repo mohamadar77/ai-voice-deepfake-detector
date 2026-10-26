@@ -1,8 +1,11 @@
 # Data contract and dataset provenance
 
-Status: the ASVspoof 2019 LA benchmark is acquired and integrity-verified on the
-training host (11 October 2026); the G0 environment and data gates have passed.
-Audio processing (manifest build, feature extraction) begins in G1.
+Status (27 October 2026): the ASVspoof 2019 LA benchmark was acquired and
+integrity-verified on the training host (11 October 2026) and the G0 environment and
+data gates passed. The manifest was built from it (121,461 clips, matching the
+published counts), and every later stage in [`pipeline.md`](pipeline.md) ran on it.
+Two items remain open: the exact download URL (below) and the EDA / exclusion
+report (#6).
 
 > The 6 October 2026 entries in this file recorded the G0 feasibility *attempt* on
 > the macOS planning machine, where the locked environment was not installable.
@@ -31,7 +34,11 @@ Audio processing (manifest build, feature extraction) begins in G1.
   `dataset.zip` containing `LA.zip`, `PA.zip`, the challenge PDFs, and
   `LICENSE_text.txt`. This is a redistributed bundle/mirror — the official DataShare
   release ships LA and PA as separate archives.
-  - Download URL: _owner to record the exact mirror URL here._
+  - Download URL: **not recorded.** Checked on 27 October 2026: no file, issue or
+    log in the repository contains the mirror URL that served `dataset.zip`, so it
+    remains an open owner item. The official source is the DataShare handle above;
+    the SHA-256 values below, not a URL, identify the exact bytes used. Do not infer
+    a mirror from this file.
 - Authoritative fingerprints of the exact bytes acquired (SHA-256):
   - `dataset.zip`: `397f5dc2fdd261ecd6555975843a8b393b4f4c7278449c380d42519bb9ccca7b`
   - `LA.zip`: `208a7e4e3913f8c75ae1afd19bf32a5b29ae68435e9e30e23e5e98b6a155e4ec`
@@ -101,6 +108,20 @@ Contents: `ASVspoof2019_LA_train`, `ASVspoof2019_LA_dev`, `ASVspoof2019_LA_eval`
   `ASVspoof2019_LA_asv_scores` are for the speaker-verification (ASV) task, not the
   countermeasure (spoof-detection) task. The CM pipeline uses only
   `ASVspoof2019_LA_cm_protocols`. Do not wire ASV scores into CM evaluation.
+- **Files in the LA directory but not in the manifest**: the directory holds 122,299
+  FLAC files; the manifest lists exactly the 121,461 protocol rows. The 838 extra files
+  (696 in `ASVspoof2019_LA_eval/flac`, 142 in `ASVspoof2019_LA_dev/flac`, names like
+  `LA_D_A5452066` with an `A` before the digits) also exist in the source copy. Their
+  origin, and whether any protocol file mentions them, is unresolved (issue #77, open).
+  They are excluded because training, scoring and the manifest read protocol rows only;
+  a full SHA-256 pass on 18 October confirmed all 121,461 manifest files exist and
+  match.
+- **Very short clips**: 1,277 manifest clips are shorter than 1.0 s (issue #14). They
+  are scored in the benchmark but rejected by the serving API (minimum 1 s); the
+  locked report pools them into the `lt_1s` duration bin without separate validation.
+- **No source-recording grouping**: ASVspoof 2019 LA publishes no mapping to original
+  source recordings, so `source_id` is null and the bootstrap resamples by
+  `speaker_id` (67 evaluation speakers). Cross-collection overlap work is Phase 2.
 - **No audio transformation at acquisition**: files are the original 16 kHz / 16-bit
   FLAC as distributed. Any windowing, augmentation, or feature extraction is applied
   downstream, after split assignment, and recorded per experiment.

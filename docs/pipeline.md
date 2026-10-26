@@ -1,6 +1,6 @@
 # Project workflow and pipeline
 
-The offline experiment path and the serving path are both implemented. Five candidate models (LR baseline, 4 CNN runs) were trained and evaluated under the locked protocol (REPORTED). The deployed model (`cnn_augmented_seed1`) is served through FastAPI and Streamlit, packaged in Docker. See the [reproduction guide](reproduction.md) for step-by-step commands and the [model card](model-card.md) for measured results.
+This document describes what is implemented. The offline experiment path and the serving path both exist: five candidate models (LR baseline and four CNN runs) were trained and evaluated under the locked protocol (REPORTED), and the deployed model (`cnn_augmented_seed1`) is served through FastAPI and Streamlit and packaged in Docker. The training-fitted PCA/K-means diagnostics and the shortcut-only baseline are **not implemented** (open in [`../TODO-Plan.md`](../TODO-Plan.md)). See the [reproduction guide](reproduction.md) for commands, the [model card](model-card.md) for measured results and the [architecture plan](architecture-and-delivery-plan.md) for design contracts.
 
 ## Offline experiment path
 
@@ -12,7 +12,6 @@ flowchart TD
     B --> E[Locked evaluation membership]
     T --> P[Shared decoder, windows and features]
     P --> M[LR baseline, clean CNN, augmented CNN]
-    P --> U[Train-fitted scaler, PCA and K-means]
     D --> S[Selection development: checkpoints and deployment choice]
     M --> S
     S --> H[Reserved development: operating thresholds]
@@ -20,16 +19,15 @@ flowchart TD
     E --> F
     F --> I[Shared scorer: one score per original clip]
     I --> R[Predictions, metrics, paired robustness and failure report]
-    U --> R
 ```
 
-Dataset sizes come from audited protocol counts, not estimates in this diagram. Dataset format comes from release documentation and verified decoding; the initial upload interface supports WAV/FLAC. Acquisition remains subject to published terms and a storage gate. No cloud storage is required.
+Dataset sizes come from the audited protocol counts in [`data.md`](data.md). The upload interface supports WAV/FLAC. No cloud storage is used.
 
 Train/development feature exploration cannot use final-test outcomes. Split original clips before windows and augmentation. Fit statistical transforms on training only. Use the same deterministic clip scorer for development, locked evaluation and serving. Training augmentation and random cropping are separate, explicitly seeded training operations.
 
-The locked comparison includes the baseline and both CNN training conditions, not just the deployed winner. Select the deployed bundle on selection development before evaluation. Set each reported model's threshold on reserved development speakers after model selection. Record the development false-alarm target of at most 5%; do not imply a final-test guarantee.
+The locked comparison includes the baseline and both CNN training conditions, not just the deployed winner. The deployed bundle is selected from development results only. In this project that rule was written down after the locked report had been read, so the choice is not a blind selection ([`deployed-model-decision.md`](deployed-model-decision.md)). Set each reported model's threshold on reserved development speakers after model selection. Record the development false-alarm target of at most 5%; do not imply a final-test guarantee.
 
-Robustness is clean audio, one declared compression setting and two declared noise levels, applied to both classes on the same source clips. Freeze codec/bitrate, noise construction, seeds, amplitude handling, membership and metric rules before final predictions. Speed and pitch changes are deferred. Report EER, macro F1, balanced accuracy, ROC AUC, class counts, confusion matrices, human false positives, synthetic detection, slice counts and grouped uncertainty.
+Robustness is clean audio, one compression setting (Opus 24 kbps) and two noise levels (20 dB and 10 dB SNR), applied to both classes on the same source clips from `configs/robustness_spec.yaml`, plus an evaluation-only silence-trim shortcut diagnostic. Parameters, seeds, membership and metric rules were frozen before final predictions. Speed and pitch changes are deferred. Reports carry EER, macro F1, balanced accuracy, ROC AUC, class counts, confusion matrices, human false positives, synthetic detection and slice counts; the bootstrap interval is emitted for slice EER only ([`evaluation-protocol.md`](evaluation-protocol.md) section 6).
 
 ## Serving path
 
@@ -51,19 +49,26 @@ Endpoints: `POST /predict` (one multipart `file` part), `GET /health` (process a
 
 ## Local packaging
 
-Use one application image with two services/processes, API and Streamlit, orchestrated locally. Mount a trusted bundle read-only into the API; do not bake restricted audio or large checkpoints into Git or the image. Use temporary storage for uploads. Verify CPU container inference against the evaluated bundle within a declared numeric tolerance. Docker on the development machine is not an assumption of MPS access inside the container.
+One application image (`Dockerfile`, linux/amd64, CPU-only torch wheels) runs two services, `api` and `ui`, orchestrated by `compose.yaml`: read-only root filesystem, tmpfs `/tmp`, all capabilities dropped, ports bound to `127.0.0.1`. The trusted bundle is mounted read-only; audio, artifacts and checkpoints are never baked into Git or the image. Container-versus-library score parity was checked on 198 development clips (maximum absolute difference 0.0, 0 decision flips; [`model-card.md`](model-card.md) section 6).
 
-## Commands that exist today
+## Command inventory
 
-These require a working Python 3.12/uv installation:
+Entry point: `uv run voice-detector <command>` (`src/voice_detector/cli.py`). Arguments and defaults for each command are in [`reproduction.md`](reproduction.md); `--help` is authoritative.
 
-```bash
-uv sync --frozen --all-groups
-uv run voice-detector smoke --config configs/default.yaml
-uv run ruff check .
-uv run pytest
-uv run voice-detector protocol-audit --protocol <cm-protocol-file> --split <train|development|evaluation>
-uv run voice-detector build-manifest --la-root data/raw/LA
-```
+| Command | Stage | Reads audio | Needs dataset |
+| --- | --- | --- | --- |
+| `smoke` | Validate imports and runtime | no | no |
+| `protocol-audit` | Count labels, attacks and speakers in an official CM protocol | no | protocol file only |
+| `build-manifest` | Per-clip manifest (CSV and SQLite) with checksums | headers + hashing | yes |
+| `reserve-development` | Freeze the speaker-grouped `select` / `threshold` split | no | manifest |
+| `extract-features` | Pooled MFCC feature cache for train and development | yes | yes |
+| `train-lr` | MFCC + Logistic Regression bundle and development report | no | feature cache |
+| `cnn-pilot` | Synthetic-data CPU timing pilot | no | no |
+| `train-cnn` | Log-Mel CNN bundle (`--augmented` for the augmented family) | yes | yes |
+| `eval-freeze` | DRAFT to FROZEN evaluation record over declared bundles | no | manifest + bundles |
+| `eval-score` | Score every frozen candidate and condition into a prediction store | yes | yes |
+| `eval-report` | Metrics, slices and bootstrap intervals from a scored store | no | store |
+| `eval-supplement` | Post-report supplementary analysis (outside Phase 1; needs explicit authorization on an evaluation store) | no | store |
+| `serve` | FastAPI scorer; `--check` verifies the pinned bundle and exits | uploads only | bundle |
 
-`build-manifest` reads audio headers and must run where the dataset lives (the training host). Data, training, freeze/evaluation, API, Streamlit and Docker commands must be implemented and tested before being documented as runnable. Their intended boundaries are in the architecture plan; the earlier speculative commands have been removed.
+Streamlit: `uv run streamlit run src/voice_detector/ui.py`. Helper scripts in `scripts/`: `docker_smoke.sh`, `latency_benchmark.py`, `container_parity.py`, `archive_artifacts.sh`, `preflight.sh`, `setup_dl120.sh`, and the presentation helpers `generate_demo_clips.py`, `demo_backup.py`, `demo_setup.sh`.

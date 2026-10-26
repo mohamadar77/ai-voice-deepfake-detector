@@ -1,10 +1,24 @@
 # Model card: `cnn_augmented_seed1` (deployed demo model)
 
-Status: draft of 2026-10-20 for the Phase 1 release. Every number below is copied from
-a committed source (`docs/evaluation-results-g2.md`, `docs/deployed-model-decision.md`,
-`configs/*.yaml`) or from the host verification logs named in the text. Nothing here is
-a new measurement. This is a project evaluation, **not an official ASVspoof leaderboard
-result**.
+**Status: DRAFT** (written 2026-10-20, re-checked against the repository 2026-10-27).
+Every number below is copied from a committed source (`docs/evaluation-results-g2.md`,
+`docs/deployed-model-decision.md`, `configs/*.yaml`) or from the host verification logs
+named in the text. Nothing here is a new measurement. This is a project evaluation,
+**not an official ASVspoof leaderboard result**.
+
+The card stays a draft until these are resolved (none is hidden elsewhere):
+
+1. The serving code (PR #88) has not had its `/code-review` (#89), so section 6 describes
+   host-verified behavior, not reviewed behavior.
+2. A fresh-checkout reproduction of data preparation, training and the report has not been
+   run ([`reproduction.md`](reproduction.md); open in the TODO plan).
+3. The demo recordings (consented own voice, owner-generated synthetic clips) and their
+   generator tool, version and terms are not recorded; nothing here characterizes modern
+   voice-cloning systems.
+4. Real-device audio (phone and laptop microphones) was never evaluated; the only
+   observation is the anecdote in section 5 (#103).
+5. Evaluation-only duration results do not exist (#85), and redistribution of the model
+   bundle is undecided.
 
 ## 1. What it is
 
@@ -78,11 +92,11 @@ Primary endpoint, clean EER on unseen attacks (A07-A15, A17, A18; 7,355 bona fid
 | lr_baseline (MFCC + logistic regression) | 19.93 [17.18, 22.80] |
 
 The deployed model has the highest clean EER of the four CNNs on this endpoint. It was
-chosen by a rule fixed in advance from **development** results only (lowest mean
+chosen by a rule applied to **development** results only (lowest mean
 development EER over clean, codec, noise 20 dB and noise 10 dB: 13.44 against 15.25 for
 the runner-up). The locked report had already been read when that rule was written down,
-so the choice should be read as made with knowledge of the evaluation (disclosed in
-`docs/deployed-model-decision.md`).
+so the selection was not blind and the rule was not pre-registered: read the choice as
+made with knowledge of the evaluation (disclosed in `docs/deployed-model-decision.md`).
 
 Known-algorithm group (A16, A19; 7,355 bona fide, 9,828 spoof): EER 3.70 [2.76, 4.82].
 
@@ -127,6 +141,14 @@ matched-condition numbers, not evidence of general robustness.
 model's EER from 11.77% to 23.29% (all CNNs: from 6.7-11.8% to 20.1-23.3%). This is
 consistent with partial reliance on silence cues. It is a diagnostic, not proof, and not
 a robustness claim.
+
+**Own-voice recordings (issue #103, anecdotal).** Two phone recordings of the owner's own
+voice (one speaker, one device, 8.43 s and 7.87 s, converted to 16 kHz mono WAV) were both
+flagged `flagged_spoof_like` by the deployed service (scores +2.65 and -0.52 against the
+threshold -1.2520), while five development bona fide clips scored -4.42 to -2.75 and were
+not flagged. n = 2 is not a measured rate and real-device audio was not evaluated; it is
+consistent with the threshold non-transfer above. The model must not be used to judge a
+person's own recording.
 
 **Other limits.**
 - Only ASVspoof 2019 LA was evaluated; no other domain, dataset or recent cloning system.

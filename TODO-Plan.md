@@ -2,7 +2,8 @@
 
 Owner: Mohamad Abo-Ras  
 Created: 4 October 2026  
-Target presentation: 5 November 2026, subject to the course schedule
+Target presentation: 5 November 2026, subject to the course schedule  
+Last reconciled with the repository: 27 October 2026 (documentation cleanup; see [docs/README.md](docs/README.md))
 
 Build and evaluate a reproducible detector for human versus synthesized or voice converted speech. Compare an MFCC feature baseline with a Convolutional Neural Network (CNN), study unfamiliar attacks and audio distortions, and demonstrate a working application.
 
@@ -12,11 +13,11 @@ This checklist follows the original proposal and the [6 October architecture add
 
 - **Proposal:** `docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx` is the final, frozen, immutable proposal and source of truth for scope/commitments/acceptance (SHA-256 `b16f5124…`; signed off 2026-10-11 — see the sign-off in `docs/architecture-and-delivery-plan.md`). `_Revised.docx` is a non-selected historical candidate. `docs/architecture-and-delivery-plan.md` is the current scope, contracts, budget and schedule addendum, subordinate to the frozen proposal.
 - **Execution:** this file is the source of truth for implementation status. Check an item only when its output exists and its completion criteria are met.
-- **Resuming implementation:** start from the [Phase 1 resume brief](docs/claude-session-handoff-2026-10-13.md). It gives the reading order, standing rules, environment, open-PR merge order and the work order.
-- **Roadmap:** `docs/roadmap.md` contains the prioritized Phase 1 critical path, safely deferrable work and stop/go rules.
+- **Documentation:** [docs/README.md](docs/README.md) is the index and says which document is authoritative for what. This file is the only task tracker.
+- **Roadmap:** `docs/roadmap.md` holds the milestone sequence, the remaining execution order and the stop/go rules.
 - **Two phases (owner, 13 October 2026):** Phase 1 = this graduation release (5 November). Phase 2 = post-graduation research, kept in the separate [research backlog](docs/research-backlog.md). Phase 1 builds no research-only extensions, but keeps datasets (canonical-schema manifests), model interfaces, preprocessing versions and experiment tracking modular so Phase 2 can plug in. With good progress, the owner may pull backlog items through the [pull gate](docs/research-backlog.md#pulling-backlog-items-into-phase-1-progress-gate). Extensive hyperparameter optimization is deferred.
 - **Core first:** data audit, MFCC baseline, CNN, locked evaluation, robustness, failure analysis, API, demo, container, reproducibility and presentation.
-- **Stretch:** the evaluated evidence assistant was the only selected stretch. It is a **no-go for this release** (owner, 13 October 2026; [#37](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/37)).
+- **Stretch:** the evaluated evidence assistant was the only selected stretch. It is a **no-go for this release** (owner, 13 October 2026; [#37](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/37)). The shortcut-only baseline and EDA report (#6) and the PCA / K-means diagnostics (#36) are open, off the critical path, and tracked below.
 - **Deferred beyond release (Phase 2):** ASVspoof 2021 DF, WaveFake/In-the-Wild, transformer/SSL/LSTM/extra model families, matched-input controls, min t-DCF, cloud, calibration/abstention, agents and MCP. The deviation register is in the architecture plan. These are not release TODOs.
 
 Use GitHub Issues for individual tasks and a board with Backlog, Ready, In progress and Done. Keep one main implementation task in progress at a time. Each issue should include its expected output, dependencies and definition of done. Keep short decision notes when scope changes.
@@ -28,69 +29,62 @@ work in flight. **Gate milestones:** G0 (closed) … G5 exist as GitHub mileston
 *Phase 2: post-graduation research (backlog)*. Issues are minted just-in-time and link
 back to the sections here; sections are not mirrored issue-for-issue. Priorities and
 rationale: [roadmap](docs/roadmap.md) and the
-[13 October architecture review](docs/architecture-review-2026-10-13.md).
+[13 October architecture review](docs/archive/architecture-review-2026-10-13.md) (historical).
 
 **Board:** GitHub Projects board [*AI Voice Deepfake Detector — Delivery*](https://github.com/users/mohamadar77/projects/3)
 (columns Todo · In Progress · Done) tracks these issues; one item is In Progress at a time.
 The owner picks the review gate for each slice before implementation starts.
 
-| Pri | Issue | Slice | Milestone | TODO § |
+Status of the issues behind this plan, as of 27 October 2026 (checked against
+`gh issue list`). Priorities from 14 October are no longer shown; the critical path is in
+the [roadmap](docs/roadmap.md).
+
+| Status | Issue | Slice | Milestone | TODO § |
 | --- | --- | --- | --- | --- |
-| ✅ | [#4](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/4) / PR #30 | Option D windowing (`mfcc-v2`): **done**, merged 14 Oct; host 73 tests green on `a987ec9` | G1 | §4 |
-| ✅ | [#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31) | **Speaker-grouped development reservation + pre-tuning record:** merged; host frozen record committed (`81c3cf7`). New integration/provenance repairs tracked in #53/#56; original stays closed. | G1 | §2/§5 |
-| ✅ | [#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32) | **Clip-level metrics module**: **done**, merged via PR #41 on 14 Oct (`/code-review` fixes applied; CI and the host's 111-test suite green on `8f1f6c8`) | G1 | §5/§7 |
-| ✅ | [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7) | MFCC feature extraction + role-independent cache merged (PR #48); consumer validation repair in #52. | G1 | §4 |
-| ✅ | [#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8) | LR implementation merged (PR #49); host execution reported there. Original stays closed; G1 output acceptance depends on new #52–#57. | G1 | §5 |
-| ✅ | [#10](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/10) | Synthetic CNN timing pilot merged (PR #51). Original stays closed; complete capacity forecast/test follow-ups in #58/#59. | G1 | §4/§6 |
-| P1 | [#52](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/52), [#53](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/53), [#54](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/54), [#55](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/55) | LR follow-ups: validate cache/split and frozen membership before fitting; persist predictions/SQLite/provenance; publish coherent bundles. | G1 | §5 |
-| P1 | [#56](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/56), [#57](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/57), [#58](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/58), [#59](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/59) | Preserve freeze record on restore; reject unsupported protocol declarations; complete capacity forecast; fix conditional test collection. | G1 | §2/§5/§6 |
-| P2 | [#35](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/35) | Evaluation protocol + freeze record; **rehearse end-to-end on `dev_select`** | G2 | §7 |
-| P2 | [#34](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/34) | Robustness + **silence-shortcut** transformation spec | G2 | §8 |
-| P2 | [#6](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/6) | EDA, exclusions, **shortcut-only baseline** | G2 | §3 |
-| P3 | [#33](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/33) | Compact log-Mel CNN: input policy, clean + augmented | G2 | §6 |
-| P3 | [#36](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/36) | Training-fitted PCA / K-means diagnostics | G2 | §8 |
-| P3 | [#14](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/14) | **Decision:** sub-1 s duration gate (before freeze) | G2 | §7/§9 |
-| P3‖ | [#9](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/9) | Concrete scorer + offline/API parity | G2 lane | §9 |
-| P3‖ | [#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11) | CPU container smoke, incl. presentation machine | G2 lane | §10 |
-| — | [#5](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/5) | Manifest builder (closed) | G1 | §3 |
+| Done | [#4](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/4) / PR #30 | Option D windowing (`mfcc-v2`) | G1 | §4 |
+| Done | [#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31) | Speaker-grouped development reservation + pre-tuning record; frozen record committed (`81c3cf7`) | G1 | §2/§5 |
+| Done | [#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32) | Clip-level metrics module (PR #41) | G1 | §5/§7 |
+| Done | [#5](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/5), [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7), [#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8), [#10](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/10) | Manifest builder, MFCC cache, LR baseline, CNN timing pilot | G1 | §3-§6 |
+| Done | [#33](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/33), [#34](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/34), [#35](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/35), [#14](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/14) | CNN study, robustness + silence-trim spec, evaluation protocol and freeze lifecycle, sub-1 s gate | G2 | §6-§9 |
+| Done | [#9](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/9), [#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11) | Concrete scorer + offline/API parity; CPU container smoke (on `hp-xl420gen9-01`, not yet the presentation configuration) | G2 lane | §9/§10 |
+| Open | [#6](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/6) | EDA, exclusions, shortcut-only baseline | G2 | §3 |
+| Open | [#36](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/36) | Training-fitted PCA / K-means diagnostics | G2 | §8 |
+| Open (findings) | [#83](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/83), [#84](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/84), [#103](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/103) | Threshold non-transfer, silence-cue reliance, own-voice false alarm (anecdotal) | n/a | §8/§13 |
+| Open (review) | [#89](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/89) | `/code-review` of the merged serving slice | n/a | §9 |
+| Phase 2 | [#52](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/52)-[#59](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/59) | LR review follow-ups (input/protocol guards, SQLite run entry, bundle publication, capacity forecast, test collection) | Phase 2 | §5 |
+| Phase 2 | [#38](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/38), [#39](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/39) | min t-DCF, matched-input control | Phase 2 | n/a |
+| Parked | [#15](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/15)-[#29](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/29) | CI / DevEx hardening until core ML is done | n/a | §10 |
 
-**Dependency order:** PR #30 (#4) → #7; #31 membership is now frozen. #7's implemented cache key is role-independent, so reservation roles alone do not invalidate features. Validate current feature/config provenance (#52) and frozen catalog membership (#53) before LR fitting; #54–#57 complete the evidence/publication/protocol repairs before #9 acceptance and the #35 LR rehearsal;
-#10 → #33; #34 + #36 + #33 + thresholds → #35 `FROZEN` → G3 locked scoring. #6, #9 and
-#11 run in the G2 parallel lane while the CNN trains unattended.
-
-**Review update — 14 October:** original completed issues remain closed; all repairs
-are tracked by new linked issues (owner instruction). See the
-[LR review and validation limits](docs/lr-baseline-review-2026-10-14.md). #58 gates
-acceptance of #33's compute route. The 16 October G1 forecast is conditional on
-these repairs and host evidence; no milestone date or frozen proposal was changed.
-
-**Moved to Phase 2:** [#38](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/38) (min t-DCF), [#39](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/39) (matched-input control). **Parked:**
-CI/DevEx hardening #15–#29 until core ML is done.
+The 14 October LR review ([archived](docs/archive/lr-baseline-review-2026-10-14.md))
+decided that completed issues stay closed and repairs get new linked issues. The
+G1 repair issues #52-#59 were moved to the Phase 2 milestone and are still open; none
+changes a locked result.
 
 ## Milestones
 
-| Target dates (baseline) | Forecast (13 Oct) | Milestone | Completion evidence |
+| Target dates (baseline) | Status (27 Oct) | Milestone | Completion evidence |
 | --- | --- | --- | --- |
-| 6–7 October | Closed 11 Oct | G0: feasibility and data contract | Revalidated environment, terms/access, capacity/hours and manifest/split contracts |
-| 8–12 October | **16 October** | G1: data and baseline (critical path) | Features, development reservation, metrics, LR development report and bundle, CNN timing pilot. Early-app items moved to the G2 lane. |
-| 13–18 October | **22 October** | G2: CNN and protocol freeze | Clean/augmented CNN, train-fit diagnostics, development selection, reserved thresholds and all-candidate freeze |
-| 19–25 October | **27 October** | G3: evaluation and complete demo | Locked paired results, uncertainty/failures, model card draft and real-model UI |
-| 26 October | 26 October (held) | Feature freeze | No new models, datasets or extensions |
-| 27 October–1 November | 1 November (held) | G4: release and slides | Full container/reproduction/performance checks and presentation draft |
-| 2–4 November | 4 November (held) | G5: rehearsal and backup | Fresh-start demonstration, backup recording and <=12-minute rehearsal |
-| 5 November | 5 November | Tentative presentation | Findings, working demonstration and limitations |
+| 6-7 October | Closed 11 Oct | G0: feasibility and data contract | Revalidated environment, terms/access, capacity/hours and manifest/split contracts |
+| 8-12 October | Done (G1 repairs #52-#59 moved to Phase 2) | G1: data and baseline | Features, development reservation, metrics, LR development report and bundle, CNN timing pilot |
+| 13-18 October | Done 18 Oct, except #6 and #36 | G2: CNN and protocol freeze | Clean/augmented CNN, development selection, reserved thresholds and all-candidate freeze |
+| 19-25 October | Locked report REPORTED 18 Oct; serving, UI, Docker, benchmark and parity merged; model card still draft | G3: evaluation and complete demo | Locked paired results, uncertainty/failures, model card draft and real-model UI |
+| 26 October | Passed | Feature freeze | No new models, datasets or extensions |
+| 27 October-1 November | In progress | G4: release and slides | Full container/reproduction/performance checks and presentation draft (slides v0 exist) |
+| 2-4 November | Pending | G5: rehearsal and backup | Fresh-start demonstration, backup recording and <=12-minute rehearsal |
+| 5 November | Pending | Tentative presentation | Findings, working demonstration and limitations |
 
 Budget: estimated 110–150 focused hours, approximately 140–190 with 25% contingency, plus unattended compute. Record actual owner availability at G0; the date is not a feasibility guarantee. **13 October:** G1 slipped about 4 days and the 25% contingency is spent. Owner focused hours per week are still unrecorded and must be recorded now. The cut list is in the roadmap/review.
 
-## Start now
+## Next actions (27 October 2026)
 
-The G0 checklist that used to live here is complete (see §1–§2 and `docs/data.md`). Current next actions, in order:
+Order and rationale are in the [roadmap](docs/roadmap.md); each action maps to the open
+items in the sections below.
 
-1. ~~Merge PR #30 (option D)~~ (done 14 Oct). Record the owner's focused hours per week.
-2. ~~[#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32) metrics module~~ (done 14 Oct, PR #41). [#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31) development reservation: code, config, CLI, pre-tuning record and tests done 14 Oct; **run `voice-detector reserve-development` on the host and commit the frozen record**, before any tuning and before the #7 extraction.
-3. [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7) features → [#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8) LR development report: the first real evidence.
-4. [#10](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/10) CNN pilot: decide between the CPU host and Kaggle/Colab under the external-compute protocol.
-5. Start [#35](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/35) early and rehearse the full freeze → score → report pipeline on `dev_select` with the LR bundle.
+1. Fresh-checkout reproduction following [`docs/reproduction.md`](docs/reproduction.md) (§10).
+2. Decide which machine presents, then the clean container startup and venue access path there (§10).
+3. Record the demo set with tool, version and terms; prepare the invalid-input cases (§9, §13).
+4. Resolve the model card's open items or keep it a draft (§10).
+5. Backup recording, offline fallback, rehearsal, release tag (§13).
 
 ## 1. Repository and environment
 
@@ -115,13 +109,14 @@ Depends on: repository and environment.
 - [x] Obtain ASVspoof 2019 logical access (LA) data and its official countermeasure protocols. **Acquired 2026-10-11** on the DL120 host: LA extracted to `data/raw/LA`; ODC-By 1.0 terms recorded; the three CM protocols audit to the published counts. See [`docs/data.md`](docs/data.md).
 - [x] Record the initial G0 environment/storage check in `docs/data.md`: no local audio, about 520 GiB available, shell Python 3.14.6, uv cache rerouted successfully.
 - [x] Resolve the G0 runtime blocker: intended Python 3.12/ARM64 environment versus current x86_64 PyTorch wheel resolution. Do not change the lockfile without a recorded platform decision. **Resolved 2026-10-11:** reserved a Linux `x86_64` host (HPE DL120 Gen10, Fedora 44, glibc 2.43, Xeon Gold 6152/44 cores, 30 GB RAM, CPU-only); `uv sync --frozen --all-groups`, smoke, ruff and pytest all pass there. No lockfile change. See [`docs/environment.md`](docs/environment.md).
-- [x] Record source URLs, release identifiers, terms, archive checksums and download instructions in `docs/data.md`. **Done 2026-10-11:** Edinburgh DataShare handle, ODC-By 1.0 license, the Todisco et al. 2019 citation, and SHA-256 of `dataset.zip`/`LA.zip` recorded. The exact mirror download URL is pending owner confirmation; the checksums are the authoritative anchor.
+- [x] Record source URLs, release identifiers, terms, archive checksums and download instructions in `docs/data.md`. **Done 2026-10-11:** Edinburgh DataShare handle, ODC-By 1.0 license, the Todisco et al. 2019 citation, and SHA-256 of `dataset.zip`/`LA.zip` recorded. The checksums are the authoritative anchor. The exact mirror download URL is tracked as a separate open item below.
 - [x] Verify storage requirements, extraction success and missing files. **Done 2026-10-11:** host capacity verified (preflight / [`docs/environment.md`](docs/environment.md)); the LA archive extracted cleanly with the full documented directory structure. Per-clip file existence against the manifest is checked by the manifest builder (§3).
 - [x] Preserve official training, development and evaluation boundaries. Enforced by the evaluation protocol, partition-aware preprocessing, reservation system, and the locked freeze/score pipeline.
 - [x] Define the label mapping explicitly: bona fide human speech versus spoofed/synthetic speech. **Done:** `label` ∈ {`bonafide`, `spoof`} is mapped directly from the protocol KEY column and enforced by `src/voice_detector/protocol.py`; documented in [`docs/data.md`](docs/data.md).
-- [x] Reserve a speaker grouped part of development data for thresholds and optional calibration before tuning starts ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)). **Rule, tooling and tests done 2026-10-14** (`configs/dev_reservation.yaml`, `src/voice_detector/reservation.py`, `voice-detector reserve-development`); the membership freeze runs on the host and commits `reports/dev_reservation_frozen.json`. Calibration is deferred (deviation register).
+- [x] Reserve a speaker grouped part of development data for thresholds and optional calibration before tuning starts ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)). **Rule, tooling and tests done 2026-10-14** (`configs/dev_reservation.yaml`, `src/voice_detector/reservation.py`, `voice-detector reserve-development`); the membership freeze was run on the host and `reports/dev_reservation_frozen.json` is committed (`81c3cf7`). Calibration is deferred (deviation register).
 - [x] Document which development portion supports model selection and which supports operating thresholds ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)). **Done 2026-10-14:** `docs/data.md`, "Development reservation" (`select` for model choices, `threshold` for the operating point only) and [`docs/pre-tuning-protocol.md`](docs/pre-tuning-protocol.md).
-- [ ] Record primary-dataset source-group provenance where available and disclose missing mappings. The manifest builder records no 2019 LA source grouping, so the bootstrap falls back to `speaker_id` (#35). Cross-collection work is in Phase 2.
+- [ ] Record the exact download URL of the `dataset.zip` mirror in `docs/data.md` (owner). Checked 2026-10-27: it is not recorded anywhere in the repository, so it stays open.
+- [x] Record primary-dataset source-group provenance where available and disclose missing mappings. **Done:** the LA release has no source-recording mapping, so `source_id` is null and the bootstrap falls back to `speaker_id` (67 evaluation speakers); disclosed in `docs/data.md`, `docs/evaluation-protocol.md` section 6 and `docs/evaluation-results-g2.md`. Cross-collection work is in Phase 2.
 
 **Done when:** data sources and permitted uses are documented; partitions and label meanings are unambiguous; the primary dataset can be read locally.
 
@@ -134,8 +129,8 @@ Depends on: data access.
 - [x] Parse the official CM protocol into structured entries (speaker, clip, attack, label, split) with a metadata-only audit and fixtures in `src/voice_detector/protocol.py`, exposed as `voice-detector protocol-audit`. Reads no audio; runs before the dataset is present.
 - [x] Implement a manifest builder with clip ID, path, source ID, speaker ID, attack ID, label, split, duration, sample rate, checksum and provenance where available (decodes audio; extends the protocol entries above). **Done:** #5 / PR #13; host run 2026-10-13 matched the published counts (121,461 clips; manifest hash `b172e50c…`).
 - [x] Export a versioned CSV manifest and SQLite catalog with a documented schema. **Done:** #5 (CSV + SQLite + `catalog_meta`).
-- [ ] Verify that manifest IDs and paths are unique and referenced files exist.
-- [ ] Audit exact duplicates, speaker overlap across official partitions and mapped original source overlap.
+- [x] Verify that manifest IDs and paths are unique and referenced files exist. (`manifest.py` rejects duplicate `clip_id`; `build-manifest` refuses missing audio without `--allow-missing` and matches the published 121,461 clips; a full SHA-256 pass on 2026-10-18 confirmed all manifest files exist, #77.)
+- [ ] Audit exact duplicates, speaker overlap across official partitions and mapped original source overlap. Partly covered: speaker disjointness across splits is asserted at manifest build (`assert_speakers_disjoint_across_splits`) and no source mapping exists (`docs/data.md`). An exact-duplicate-audio (checksum) audit has not been done.
 - [ ] Define the response to each overlap: preserve official protocol reporting, add a clearly labeled clean subset where appropriate, and disclose unresolved limitations.
 - [x] Keep all windows, transformed copies and derived features assigned to their original recording and partition. Enforced by preprocessing (`window_spans`, `clip_id` tracking) and the evaluation pipeline (split-before-transform, per-clip aggregation).
 - [ ] Inspect class counts, attack counts, duration distributions, sample rates, channels, silence and clipping ([#6](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/6)).
@@ -143,7 +138,7 @@ Depends on: data access.
 - [ ] Shortcut-only baseline: LR on duration + leading/trailing silence only, fit on train and reported as an EER on `dev_select` ([#6](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/6)). Report it next to the real models.
 - [ ] Create SQL queries for partition counts, label balance and experiment metadata.
 - [ ] Save EDA figures and an exclusion report with reasons.
-- [ ] Freeze a documented stratified subset before inspecting model scores if full processing is infeasible.
+- [x] Freeze a documented stratified subset before inspecting model scores if full processing is infeasible. **N/A:** the full 121,461-clip dataset was processed, so no subset was needed.
 
 **Done when:** manifest checks pass, exclusions are traceable and EDA identifies the main data limitations. Record the manifest hash used for experiments.
 
@@ -168,17 +163,19 @@ Depends on: audited manifest.
 Depends on: preprocessing.
 
 **14 October review:** implementation is merged and host execution is reported in
-PR #49. Follow-ups #52–#57 own input/protocol guards and complete retained evidence;
-the original #8 remains closed. Leave acceptance checkboxes open until the required
-artifacts and validations exist. Details: [review](docs/lr-baseline-review-2026-10-14.md).
+PR #49. Follow-ups #52–#57 (input/protocol guards, retained evidence, bundle
+publication) were moved to the Phase 2 milestone and remain open; the original #8 stays
+closed. The LR bundle was used unchanged in the locked evaluation. Details:
+[review](docs/archive/lr-baseline-review-2026-10-14.md) (historical).
 
 - [x] Train Logistic Regression using training features only. (PR #49; host execution reported.)
 - [x] Use a small declared development tuning budget and document class imbalance handling. Selection metric, tie-break, LR grid, aggregation and threshold rule are frozen in the pre-tuning record ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)). Tune on `dev_select` only. **The record exists and is enforced** (`configs/pre_tuning_protocol.yaml`, loaded and validated by `src/voice_detector/pretuning.py`; dated note in [`docs/pre-tuning-protocol.md`](docs/pre-tuning-protocol.md)): three `C` values `[0.01, 1.0, 100.0]` under a declared `max_candidates: 3` ceiling, `class_weight=balanced`, clip EER selection, mean window decision function, threshold at 5% bona fide FPR. The loader checks each declared convention against the constant in the module that implements it, and derives the tie rule by asking `scoring.decide_spoof` what it does at the threshold; the merged LR code now implements the committed mean/C/simplicity path. Alternative aggregation/parameter/latency declarations still need refusal checks (#57); see the 14 October review. The current YAML defaults execute correctly.
 - [x] Save the fitted scaler, classifier, configuration and development predictions. (Bundle in `artifacts/lr_baseline/`; run record + predictions.)
 - [x] Compute development macro F1, balanced accuracy, ROC AUC, EER, per-class precision/recall and a confusion matrix with the shared metrics module ([#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32)). Report precision with the prevalence it was measured at. (In `docs/evaluation-results-g2.md`.)
 - [x] Select the operating threshold on `dev_threshold` only, after the configuration is fixed. Report both human false alarms and synthetic speech detection. (Threshold at 5% bona fide FPR on reserved speakers; eval-results-g2.)
-- [x] Record seed, dependency versions, Git commit, manifest hash and runtime as a JSON run record, and insert it into a SQLite `runs` table. (LR run record; SQLite via `runs` table.)
-- [x] Add a command that reproduces baseline training and development evaluation. (`voice-detector lr-train`, `voice-detector lr-dev-report`.)
+- [x] Record seed, dependency versions, Git commit, manifest hash and runtime as a JSON run record. (LR run record in the bundle.)
+- [ ] Insert each run record into a SQLite `runs` table. Not implemented: no `runs` table exists in `src/` (checked 2026-10-27); tracked as #54 (Phase 2). The earlier version of this item was ticked in error.
+- [x] Add a command that reproduces baseline training and development evaluation. (`voice-detector train-lr` trains, selects, sets the threshold and writes the development report; `lr-train` and `lr-dev-report` never existed.)
 
 **Done when:** a reproducible reference model and development report exist. Final evaluation remains unused for tuning.
 
@@ -194,7 +191,7 @@ Depends on: working baseline and compute pilot.
 - [x] Compare baseline and CNN on the same development protocol. (Eval-results-g2: LR vs 4 CNN variants on identical dev and eval protocol.)
 - [x] Run a second seed if the compute budget permits; otherwise document the unmeasured training variability. (Both seeds run and reported.)
 - [x] If the #10 pilot exceeds the CPU caps, train on owner-run Kaggle/Colab under the external-compute protocol (architecture plan). Training/development data only; development predictions recomputed on the host for parity before freezing. **N/A:** CPU host was sufficient; all four runs completed on hp-xl420gen9-01.
-- [x] Select the deployed model using development results and practical resource requirements. (`docs/deployed-model-decision.md`, 2026-10-20: cnn_augmented_seed1 by the pre-declared dev-only rule; issue #86)
+- [x] Select the deployed model using development results and practical resource requirements. (`docs/deployed-model-decision.md`, 2026-10-20: `cnn_augmented_seed1` by a development-only rule that was written down after the locked report had been read, so the selection is not blind; issue #86)
 
 **Done when:** the CNN is reproducible and its development performance and inference cost are compared with the baseline. A stronger baseline is a valid outcome.
 
@@ -216,7 +213,7 @@ Depends on: model development complete.
   - evaluation A16/A19: these reuse the A04/A06 algorithms;
   - evaluation A07–A15, A17, A18: unseen algorithms; this is the headline unseen result, never pooled with A16/A19.
 - [x] Predeclare duration bins <1, 1–<2, 2–<4, 4–10 and >10 s with per-class counts. Handle sub-1 s clips per #14.
-- [ ] Compute 95% bootstrap intervals grouped by original source recording. Where no source mapping exists, group by `speaker_id` (67 evaluation speakers). Paired differences use the same resamples. Disclose the speaker dependence and the small `dev_threshold` speaker count. Partly done: R7 gives slice-EER intervals; other metrics and paired differences are in PR #82 (development rehearsal passed, not yet run on evaluation data).
+- [ ] Compute 95% bootstrap intervals grouped by original source recording. Where no source mapping exists, group by `speaker_id` (67 evaluation speakers). Paired differences use the same resamples. Disclose the speaker dependence and the small `dev_threshold` speaker count. Partly done: R7 gives slice-EER intervals only. The other metrics' intervals and paired differences were in the PR #82 supplementary tool, which was dropped from Phase 1 (deviation register), so this item stays open unless the owner authorizes `eval-supplement` on the evaluation store with a declared spec.
 - [x] Save prediction files and structured metrics; document any deviations from the original protocol.
 - [x] Label evaluation on a subset and externally pretrained models accurately; do not claim an official leaderboard result.
 - [x] Map each proposal research question to its evidence, or to an explicit "not run": RQ2's second domain and RQ3 are deferred (deviation register). **2026-10-20:** "Research-question mapping" section added to `docs/evaluation-results-g2.md` (PR #94).
@@ -234,7 +231,7 @@ Depends on: an evaluation pipeline; specify experiments before final scores.
 - [x] Keep transformation parameters and random seeds in configuration. (`robustness_spec.yaml` with per-condition seeds.)
 - [x] Report paired changes in detection errors and false alarms under each condition. (Eval-results-g2: per-condition EER, FPR, detection rates with CIs.)
 - [x] Review false positives and false negatives by attack (known/unseen), codec, duration, silence and source. (Per-attack EER tables in eval-results-g2; A09 nearly solved, A17 hardest.)
-- [ ] Fit PCA and K-means on training features; cap the training-only K search and silhouette sample; project/assign evaluation examples without refitting ([#36](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/36)).
+- [ ] Fit PCA and K-means on training features; cap the training-only K search and silhouette sample; project/assign evaluation examples without refitting ([#36](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/36)). No PCA or K-means code exists (checked 2026-10-27). The frozen proposal commits to these views; if they are not run, record the deviation (owner) and say so in the final materials.
 - [ ] Save diagnostic plots and a small set of licensed or consented failure examples.
 - [x] Describe dataset shortcuts, failure patterns, what improved and what remained unresolved. (Eval-results-g2: silence shortcut finding, augmentation benefit, seed variance, threshold non-transfer, per-attack difficulty spread.)
 - [x] The proposal's "failure-analysis dashboard" is satisfied by this failure report plus the Streamlit evaluation-summary/evidence view (§9); no separate dashboard application is required. (Streamlit UI shows model info, limitations; eval-results-g2 is the failure report.)
@@ -254,7 +251,7 @@ Start a thin vertical slice after the baseline; finish after model selection.
 - [x] Show the chosen model's measured evaluation summary and limitations. (GET /model endpoint: model info with limitations.)
 - [x] Label uncalibrated outputs as scores; add probability or inconclusive behavior only after the corresponding optional evaluation is complete. (Response field is `score`; limitations notice states uncalibrated; calibration deferred.)
 - [x] Delete temporary audio after success, errors and cancellation; clear UI-held buffers and verify cleanup. (Temporary audio not retained; no logging of raw audio.)
-- [ ] Choose a small reproducible set of permitted demo recordings: the owner's consented own-voice clips, plus synthetic clips the owner generates with a modern TTS/voice-clone tool whose terms allow it. Record the tool, version and terms. Label the set illustrative with n reported; a miss is shown as a measured limitation.
+- [ ] Choose a small reproducible set of permitted demo recordings: the owner's consented own-voice clips, plus synthetic clips the owner generates with a modern TTS/voice-clone tool whose terms allow it. Record the tool, version and terms. Label the set illustrative with n reported; a miss is shown as a measured limitation. **Status 2026-10-27:** `scripts/generate_demo_clips.py` creates the synthetic, too-short, MP3 and digital-silence inputs, and `scripts/demo_backup.py` pre-scores generated tones; the human recordings, the TTS / voice-clone tool, its version and terms are not recorded. Two own-voice phone recordings were both flagged spoof-like (#103, anecdotal).
 - [x] Test the full upload → preprocessing → inference → display flow. (docker_smoke.sh + container parity on hp-xl420gen9-01; demo_backup.py synthetic clips scored end-to-end.)
 
 **Done when:** valid inputs produce an assessment and informative errors handle invalid inputs. The demonstrated model matches the evaluated version.
@@ -267,14 +264,14 @@ Depends on: a working application.
 - [x] Long host jobs (extraction, CNN training, locked scoring) run detached (`tmux`/`systemd-run --user`) with file logs and are resumable (per-epoch checkpoints with optimizer/RNG state; atomic cache writes). API/UI bind to localhost and are reached via an SSH tunnel. (All host jobs ran in tmux; CNN checkpoints per epoch; localhost binding in compose.yaml.)
 - [x] Measure p50/p95 latency, failure rate and memory on named hardware using a declared input mix and request count. **2026-10-20:** benchmark on hp-xl420gen9-01 (Xeon E5-2650L v3 @ 1.80 GHz), 250 rounds × 5 clip types, 0 failures, p50 19.4 ms, p95 107.8 ms overall, peak RSS 1016 MiB. Config: `configs/latency_benchmark.yaml`; script: `scripts/latency_benchmark.py`.
 - [x] Add focused tests for feature shapes, split leakage, inference preprocessing and API error handling. (Test suite: preprocessing tests, serving parity, API error cases in docker_smoke; 111+ tests on host.)
-- [ ] Configure lightweight GitHub Actions checks that do not require downloading the full dataset or training models.
+- [x] Configure lightweight GitHub Actions checks that do not require downloading the full dataset or training models. (`.github/workflows/ci.yml`: on push and pull request it runs `uv sync --frozen --all-groups`, `ruff check` and `pytest`, all dataset-free. Hardening #15–#29 stays parked.)
 - [x] Package API and UI in containers and document one startup command. One image, two services: `VOICE_DETECTOR_BUNDLE_DIR=<bundle> docker compose up --wait` (see `compose.yaml`; smoke: `scripts/docker_smoke.sh`).
-- [ ] Verify a clean local container startup and health check, in the presentation configuration on the DL120 host, which is the presentation machine (owner, 13 Oct), with image size and cold start recorded. Rehearse the venue access path (on-site, or an SSH tunnel to localhost-bound services) ([#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11)). **Partial, 2026-10-20 (hp-xl420gen9-01, not yet the DL120 presentation configuration):** build ~25 min, image 4.82 GB (CPU-only torch wheels via `[tool.uv.sources]`; was 19.97 GB with CUDA wheels), cold start 39 s, warmup 28.6 s + 71.8 ms, API 612 MiB / UI 49 MiB, `/ready` healthy, read-only root, `serve --check` bundle hash verified. Venue access path not yet rehearsed.
-- [x] Write the model card: intended use, data, language scope, metrics, known failures and limitations. See `docs/model-card.md`.
-- [x] Document training, evaluation, artifacts, result reproduction and temporary audio handling. See `docs/reproduction.md`.
+- [ ] Verify a clean local container startup and health check, in the presentation configuration on the DL120 host, which is the presentation machine (owner, 13 Oct), with image size and cold start recorded. Rehearse the venue access path (on-site, or an SSH tunnel to localhost-bound services) ([#11](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/11)). **Partial, 2026-10-20 (hp-xl420gen9-01, not yet the DL120 presentation configuration):** build ~25 min, image 4.82 GB (CPU-only torch wheels via `[tool.uv.sources]`; was 19.97 GB with CUDA wheels), cold start 39 s, warmup 28.6 s + 71.8 ms, API 612 MiB / UI 49 MiB, `/ready` healthy, read-only root, `serve --check` bundle hash verified. Venue access path not yet rehearsed. Which machine presents is unresolved (see `docs/environment.md`).
+- [x] Write the model card: intended use, data, language scope, metrics, known failures and limitations. See `docs/model-card.md`, which is **still marked draft**; its status line lists the five open items (serving code review #89, fresh-checkout reproduction, demo provenance, real-device audio, bundle redistribution and eval-only durations).
+- [x] Document training, evaluation, artifacts, result reproduction and temporary audio handling. See `docs/reproduction.md` (commands verified against the CLI help on 2026-10-27; the procedure itself has not been re-run).
 - [ ] Provide artifact retrieval instructions and checksums where redistribution is permitted.
 - [x] Archive frozen bundles, freeze records, per-clip predictions, run records and the manifest, with SHA-256 checksums, in a retained location outside Git. Phase 2 comparisons depend on them. **2026-10-20:** `scripts/archive_artifacts.sh` wrote `/root/archive_g2_20261020` on hp-xl420gen9-01 (80 files, 572 MB, `SHA256SUMS`, copy verified against source, FROZEN/REPORTED/report hashes equal the published values). Off-host copy verified on Mac (`/Users/mohamadabo-ras/tmp/archive_g2_20261020`); external device backup confirmed by owner 2026-10-20.
-- [ ] Verify fresh-checkout reproduction of data preparation, baseline training, CNN training and the report (not baseline only).
+- [ ] Verify fresh-checkout reproduction of data preparation, baseline training, CNN training and the report (not baseline only), following `docs/reproduction.md`, and correct that guide where it diverges. Not done; no record of any such run exists.
 
 **Done when:** another developer can follow the setup and reproduction instructions, and the application has measured reliability and a model card.
 
@@ -282,12 +279,12 @@ Depends on: a working application.
 
 **Decided 13 October 2026: no-go for this release** (owner; [#37](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/37) closed). The items below are kept as the historical contract and course-coverage context; they are not release TODOs. RAG/MCP are off the Phase 2 research track (see the [research backlog](docs/research-backlog.md)).
 
-- [ ] Record the explicit go/no-go decision and remaining time.
-- [ ] Curate approved documentation/model card/frozen results; version document IDs, chunks, enriched metadata and index.
-- [ ] Compare TF-IDF/BM25 with separate development and held-out questions; semantic retrieval is optional.
-- [ ] Implement cited, structured and schema-validated generated answers only if model access, cost and evaluation fit; templated search alone is not RAG.
-- [ ] Evaluate retrieval recall, citation/numeric correctness, unsupported claims, abstention, latency and usage, including unanswerable/injection cases.
-- [ ] Keep audio decisions and frozen thresholds in the detector. Never pass raw uploads into the evidence workflow.
+- Record the explicit go/no-go decision and remaining time.
+- Curate approved documentation/model card/frozen results; version document IDs, chunks, enriched metadata and index.
+- Compare TF-IDF/BM25 with separate development and held-out questions; semantic retrieval is optional.
+- Implement cited, structured and schema-validated generated answers only if model access, cost and evaluation fit; templated search alone is not RAG.
+- Evaluate retrieval recall, citation/numeric correctness, unsupported claims, abstention, latency and usage, including unanswerable/injection cases.
+- Keep audio decisions and frozen thresholds in the detector. Never pass raw uploads into the evidence workflow.
 
 ## 12. Deferred work
 
@@ -301,7 +298,7 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 - [x] Show model comparisons, known-versus-unseen attack results, the silence/duration shortcut finding, robustness findings, failure examples and limitations. (Slides 7-9 in outline.)
 - [ ] Demonstrate a valid recording and an invalid input; include an inconclusive example only if that feature was evaluated.
 - [x] Describe lessons learned and future work based on measured results. (Slide 12 in outline: 6 findings + Phase 2 list.)
-- [x] Prepare a presentation of at most 12 minutes; show ideas, plots and behavior rather than code. **2026-10-20:** 12-slide outline in `docs/presentation-outline.md` with speaker notes, visual suggestions and time allocations. Slides themselves still to be created.
+- [x] Prepare a presentation of at most 12 minutes; show ideas, plots and behavior rather than code. **2026-10-20:** 12-slide outline in `docs/presentation-outline.md` with speaker notes and time allocations; the 12-slide HTML deck `docs/presentation.html` exists (slides v0, PR #105) and was synchronized with the outline on 2026-10-27. Timing has not been rehearsed.
 - [x] Allocate approximately 1 minute motivation, 2 data, 2 methods, 3 results, 2 demo, 1 conclusions and 1 buffer. See outline.
 - [ ] Freeze features and organize release artifacts.
 - [ ] Test demonstration startup and prepared samples on the presentation machine.
@@ -318,7 +315,7 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 - [x] Failure analysis supports the conclusions; measured results replace assumptions. (Silence shortcut, seed variance, threshold non-transfer, per-attack difficulty.)
 - [ ] The application runs and handles valid and invalid inputs.
 - [x] Reliability and latency measurements identify hardware and test conditions. (Benchmark: hp-xl420gen9-01, 250 rounds, named hardware/config; model card §6.)
-- [x] Model card, setup guide, configs and result reports are available. (`docs/model-card.md`, `docs/reproduction.md`, `configs/`, `docs/evaluation-results-g2.md`.)
+- [x] Model card, setup guide, configs and result reports are available. (`docs/model-card.md` is still a draft with listed open items; `docs/reproduction.md`, `configs/`, `docs/evaluation-results-g2.md`.)
 - [x] Only completed and evaluated features are described as implemented. (Deviations disclosed; no claim of calibration, cloud, or 2021 DF.)
 - [ ] The presentation and backup demonstration are ready.
 
@@ -328,17 +325,22 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 | --- | --- | --- | --- |
 | 6 October 2026 | Lead/Meitner architecture agreement | One core, early API/container path, all-candidate freeze, zero-hour stretch | Execute G0; see architecture addendum |
 | 6 October 2026 | Requested existing reviewer unavailable through agent and CLI APIs | No three-way approval claimed | Incorporate feedback if the session becomes reachable |
-| 6 October 2026 | Session handoff recorded | Resume from G0 environment/data blockers and the architecture addendum | Read `docs/architecture-and-delivery-plan.md` handoff before continuing |
+| 6 October 2026 | Session handoff recorded | Resume from G0 environment/data blockers and the architecture addendum | Superseded: the handoff section was removed from the architecture plan on 27 October 2026; use `docs/README.md` and `docs/roadmap.md` |
 | 11 October 2026 | Final proposal selected and signed off | Original `...Proposal.docx` frozen as sole source of truth (SHA-256 `b16f5124…`); `_Revised.docx` non-authoritative | All future changes recorded in Markdown only; see architecture-plan sign-off |
 | 11 October 2026 | Windowing tail/padding policy frozen — **option D**: pool MFCCs over real (non-padded) samples only; fold sub-frame tails; `<4 s` clip = one window over real audio | Removes zero-pad contamination of pooled MFCC stats (a potential class shortcut); unblocks [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7)/[#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8); bumps `mfcc-v1`→`mfcc-v2` | Implement in #7 with tests (see [#4](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/4)); CNN padding decided separately at G2 |
 | 13 October 2026 | Option D **implemented** ahead of #7 in its own PR (closes [#4](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/4)): pure `window_spans` policy in `preprocessing.py`, `clip_feature_matrix` pools real samples only, `window_waveform` retired, `mfcc-v1`→`mfcc-v2` (code constant `PREPROCESSING_VERSION`, config asserted to match) | Keeps the value-changing policy on a small, pure, exhaustively-tested surface and off the feature-cache I/O review; feature values change under v2 | Feature cache ([#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7)) builds on the frozen v2 next |
-| 13 October 2026 | Architecture review ([review](docs/architecture-review-2026-10-13.md)): the development reservation was unscheduled before LR tuning; the evaluation harness had no slot; G1 slipped about 4 days with contingency spent; owner hours unrecorded | G1 narrowed to its critical path; new [#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)–[#36](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/36); #6/#9/#11 moved to the G2 parallel lane; milestones re-dated (G1 16 Oct, G2 22 Oct, G3 27 Oct); deviation register added to the architecture plan | Execute the Phase 1 critical path ([roadmap](docs/roadmap.md)) |
+| 13 October 2026 | Architecture review ([review](docs/archive/architecture-review-2026-10-13.md)): the development reservation was unscheduled before LR tuning; the evaluation harness had no slot; G1 slipped about 4 days with contingency spent; owner hours unrecorded | G1 narrowed to its critical path; new [#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)–[#36](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/36); #6/#9/#11 moved to the G2 parallel lane; milestones re-dated (G1 16 Oct, G2 22 Oct, G3 27 Oct); deviation register added to the architecture plan | Execute the Phase 1 critical path ([roadmap](docs/roadmap.md)) |
 | 13 October 2026 | Owner direction: **two-phase strategy**. Phase 1 = graduation; Phase 2 = separate research backlog. S1 RAG **no-go**; #38/#39 → Phase 2; UI polish cut; no advanced/pretrained models in Phase 1; methodology claims only with artifacts; work issue by issue | Scope reduced to the core plus the silence/duration shortcut and known/unseen attack analysis; owner-run Kaggle/Colab GPU is available under the external-compute protocol | Owner picks the review gate per slice; start P0 ([#32](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/32), [#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)) |
 | 13 October 2026 | Correction: evaluation attacks A16/A19 reuse the A04/A06 algorithms; they are not unseen | The headline "unseen" result excludes them; they become a known-algorithm control on unseen speakers | Encode the three slices in [#35](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/35); `docs/data.md` corrected |
 | 14 October 2026 | **Development reservation rule frozen** ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)): speaker-grouped `select`/`threshold` split, ~25% of the 20 development speakers reserved, ranked by `sha256("<seed>\|<speaker_id>")` under a dedicated reservation seed (`dev-reservation-v1` / `sha256-rank-v1`); coverage (both classes, A01-A06, bona fide per reserved speaker) must hold or the freeze is refused | Membership reproduces independently of PRNG/library drift; the role-bearing manifest gets a new hash by design, so a cache or run record cannot cite a moved reservation. Freeze runs on the host **before** the [#7](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/7) extraction | Owner runs `voice-detector reserve-development` on the host and commits `reports/dev_reservation_frozen.json` |
 | 14 October 2026 | **Pre-tuning protocol record declared** before any development score existed ([#31](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/31)): clip EER on `dev_select`, 0.005 tie-break tolerance then simpler system then latency, three LR `C` values with one fixed class-imbalance policy, mean window decision function aggregated per `clip_id`, threshold at 5% bona fide FPR on `dev_threshold` | `pretuning.py` rejects a record that disagrees with `metrics-v1`, the selection metric, the threshold rule, the score direction or the decision rule, so the declaration cannot drift from the code; [#8](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/8) is unblocked on the protocol side | Later changes are protocol deviations with dated rows, not config edits |
 | 14 October 2026 | Review of the whole #31 slice (`/code-review`, Opus 5 reviewer) returned **request-changes**: the re-freeze guard read only the git-ignored manifest, so a rebuild plus an edited fraction moved membership silently at `rc=0`; `verify_frozen_reservation` accepted a speaker under both roles, order-dependently; `apply_development_roles` returned `[]` for a one-pass iterable; the catalog drift check was skippable and the freeze then stamped provenance it could not vouch for | All 14 confirmed findings fixed on owner approval: the committed record is now reconciled before the manifest, roles must be disjoint, a record is re-derived from its own seed and fraction, a clamped fraction fails coverage, a half-written column refuses cleanly instead of raising, the self-check runs before the first `os.replace`, and the pre-tuning loader's conventions were bound to the modules that implement them | Guards are in place before the host freeze writes the authoritative record, which is the only window in which they are free to add |
 | 14 October 2026 | Process deviation: the #31 core (`reservation.py`, `manifest.py`) reached `main` as a WIP commit via PR #42, without tests, config or CLI | Owner decision (14 Oct): leave it and finish forward rather than revert; the completing PR is reviewed over the whole slice range, not only its own delta, so the merged core is still reviewed | One PR per issue remains the standard; this is recorded as the exception |
+| 18 October 2026 | Locked evaluation scored and reported (R6/R7): FROZEN record committed as `reports/evaluation_freeze_g2.json`; record REPORTED on the host | Locked results are final; no retuning, threshold change, checkpoint swap or extra look at evaluation predictions without explicit owner authorization and a declared spec | None; report in `docs/evaluation-results-g2.md` |
+| 20 October 2026 | Deployed model recorded: `cnn_augmented_seed1` by a development-only rule accepted 2026-10-19, **after the locked report had been read** (#86). Owner kept it despite the highest clean unseen-attack EER of the four CNNs | The selection is disclosed as non-blind everywhere it is discussed; the demo must present a score, not a verdict | `docs/deployed-model-decision.md` |
+| 25 October 2026 | Supplementary eval-report analysis (PR #82, `eval-supplement`) dropped from Phase 1 (architect deadline 24 Oct passed without review/authorization) | No evaluation-only duration table or paired differences; the tool stays in the code for Phase 2 | Listed in the deviation register |
+| 26 October 2026 | Feature freeze | No new models, datasets or extensions; analysis text, honest-framing, presentation and bug fixes only | G4 verification and G5 rehearsal (roadmap) |
+| 27 October 2026 | Documentation consolidated: `docs/README.md` index with one authority per topic; stale handoffs, status snapshot, project-management and dev-reservation host runbook removed; three historical records archived; this file kept as the only tracker | Removes contradictions (e.g. the reservation was committed in `81c3cf7`, the host runbook said it was not) | Open items above are unchanged except the status updates noted inline |
 
 ## First actions
 
@@ -351,10 +353,10 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 
 ## Project references
 
+- [Documentation index](docs/README.md)
 - [Final frozen project proposal (source of truth)](docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx)
-- [Current architecture, discussion and delivery decisions](docs/architecture-and-delivery-plan.md)
-- [Implementation roadmap and Phase 1 critical path](docs/roadmap.md)
-- [Architecture review, 13 October 2026](docs/architecture-review-2026-10-13.md)
+- [Architecture, design contracts and deviation register](docs/architecture-and-delivery-plan.md)
+- [Roadmap](docs/roadmap.md)
 - [Post-graduation research backlog (Phase 2)](docs/research-backlog.md)
-- [Project management](docs/project-management.md)
-- [Course coverage appendix](docs/proposal-review-and-course-coverage.md)
+- [Course coverage](docs/course-coverage.md)
+- [Archived historical records](docs/archive/)
