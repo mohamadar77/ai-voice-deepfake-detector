@@ -65,6 +65,10 @@ Git is the only path between the two:
    `uv sync --frozen --all-groups && uv run ruff check . && uv run pytest`.
    Then run the slice's real job, detached, and bring the run record and summary
    back to the PR.
+   **Exception — `hp-xl420gen9-01` main checkout:** see the warning under
+   "Second host" below. That checkout holds a live REPORTED evaluation record
+   and must not be pulled, checked-out, stashed or reset. Use a detached
+   worktree there instead.
 4. **Done** means: local checks green, CI green, the host's full suite green **on the
    same commit**, and real-data outputs (if any) with a run record citing that commit.
 
@@ -156,6 +160,33 @@ E5-2650L v3 @ 1.80 GHz), 31 GB RAM, no GPU, 541 GB free; "similar class to host 
 not much faster". ffmpeg 8.1.3 with libopus was present for the codec condition.
 The latency and container figures in the model card are from this host
 (CPU-only, torch 2.14.1+cpu, one thread).
+
+> **⚠ Do not `git pull`, `checkout`, `stash` or `reset` in
+> `/root/ai-voice-deepfake-detector` on this host.**
+>
+> That checkout holds the live **REPORTED** copy of
+> `reports/evaluation_freeze_g2.json` (sha256 `88f27bda…`), which differs from
+> the **FROZEN** copy committed at 55503c4 (#80). A `pull`, `checkout`, `stash`
+> or `reset --hard` can overwrite or discard the only REPORTED copy. AGENTS.md
+> locks the evaluation lifecycle (FROZEN → SCORED → REPORTED); nothing may
+> disturb a REPORTED record.
+>
+> **Safe pattern** — to check a branch or run tests against new code on this
+> host, use a detached worktree that shares the repo's object store but never
+> touches the working tree:
+>
+> ```bash
+> git -C /root/ai-voice-deepfake-detector fetch origin main
+> git -C /root/ai-voice-deepfake-detector worktree add --detach /root/check-main origin/main
+> cd /root/check-main
+> # Point at the main checkout's data and artifacts:
+> export VOICE_DETECTOR_DATA_DIR=/root/ai-voice-deepfake-detector/data
+> export VOICE_DETECTOR_ARTIFACTS_DIR=/root/ai-voice-deepfake-detector/artifacts
+> # Run tests, scripts, etc. here — the main checkout stays untouched.
+> ```
+>
+> When finished: `git -C /root/ai-voice-deepfake-detector worktree remove /root/check-main`.
+> Backups from the locked-report run are in `/root/backup_post_r7`.
 
 ## History — planning machine (recorded 4 October 2026, superseded)
 
