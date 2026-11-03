@@ -192,7 +192,11 @@ shortcut.
 3. Upload a synthetic clip → show the score. Clips come from the predeclared demo
    set (N, sentences, tool, version and terms to be recorded; still open in the TODO plan); each is scored once and all
    results are shown, including misses. Report as "n=..., illustrative".
-4. Upload an invalid input (for example an MP3 or a 0.5 s clip) → show the clear error.
+4. Upload an invalid input via the UI — `too_short.wav` (under 1 s) and
+   `digital_silence.wav` (silence) — to show the structured rejection errors.
+   MP3 cannot be uploaded (the UI only accepts WAV/FLAC); to show the format
+   rejection, use `curl -s -F file=@demo_clips/real.mp3 localhost:8000/predict`
+   in a terminal.
 5. Discuss what the output means: "flagged_spoof_like" is not "fake",
    "not_flagged" is not "real".
 6. Show the model info endpoint — bundle hash, threshold, limitations notice.

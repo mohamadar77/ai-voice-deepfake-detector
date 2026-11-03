@@ -101,14 +101,21 @@ ls -lh demo_clips/
 echo
 
 # ─────────────────────────────────────────────────────────────
-# STEP 4: Build the Docker image (native to this engine's architecture)
+# STEP 4: Build or reuse the Docker image
 # ─────────────────────────────────────────────────────────────
-echo "=== Step 4: Building Docker image ==="
-echo "The first build downloads the CPU torch wheel for this architecture and is slow"
-echo "(about 25 minutes was measured on hp-xl420gen9-01)."
-VOICE_DETECTOR_BUNDLE_DIR="artifacts/$BUNDLE_NAME" docker compose build
-echo "Build complete."
-docker images --format '{{.Repository}}:{{.Tag}}  {{.Size}}' | grep voice || true
+echo "=== Step 4: Docker image ==="
+if docker image inspect voice-detector:local >/dev/null 2>&1; then
+  echo "Image voice-detector:local already exists — skipping build."
+  echo "  To force a rebuild: docker rmi voice-detector:local && re-run this script."
+  docker images --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  ({{.ID}})' voice-detector:local
+else
+  echo "Image voice-detector:local not found — building."
+  echo "The first build downloads the CPU torch wheel for this architecture and is slow"
+  echo "(about 25 minutes was measured on hp-xl420gen9-01)."
+  VOICE_DETECTOR_BUNDLE_DIR="artifacts/$BUNDLE_NAME" docker compose build
+  echo "Build complete."
+  docker images --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  ({{.ID}})' voice-detector:local
+fi
 echo
 
 # ─────────────────────────────────────────────────────────────
@@ -202,9 +209,11 @@ returns, exactly as shown. Do not promise an outcome in advance:
     owner's two phone recordings were). Report n, show misses, and say the demo
     set is illustrative.
 Inputs that must be rejected (tested behaviour of the service):
+  Via the Streamlit UI (WAV/FLAC only):
   - too_short.wav (under 1 s)        → rejected, duration
-  - invalid.mp3                      → rejected, format
   - digital_silence.wav              → rejected, silence
+  Via curl only (the UI does not accept MP3):
+  - invalid.mp3 / real.mp3           → rejected, format
 Then show /model: bundle hash, threshold, limitations.
 
 To stop:  docker compose down
