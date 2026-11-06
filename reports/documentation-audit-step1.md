@@ -140,7 +140,7 @@ classification scheme (1 core, 2 architecture, 3 research/methodology,
 | 6 | `docs/architecture-and-delivery-plan.md` | 332 | 2026-10-27 | A/D | 2 | Addendum to the frozen proposal: decision summary, implementation state, module-boundary contract table, data/bundle/cache/run-record contracts, leakage controls, duration/robustness decisions, timeline envelope, proposal precedence and sign-off, **deviation register**, 13/14 Oct dated decisions, hosts, resolved items, S1 retirement | Owner, reviewer, instructor | Current; the deviation register is load-bearing |
 | 7 | `docs/pipeline.md` | 74 | 2026-10-27 | A | 2 | What is implemented: offline Mermaid flow, serving Mermaid flow, response fields, endpoints, local packaging, CLI command inventory table | Developer | Current and accurate against `cli.py` |
 | 8 | `docs/data.md` | 278 | 2026-10-27 | A | 3 | Dataset identity, source/release, ODC-By licence and attribution duties, integrity verification (checksums, protocol counts), local layout, exclusions and transformations, primary data contract and manifest schema, development reservation rule, G0 exit evidence, artifact policy, superseded 6 Oct history | Owner, reviewer | Current; one open item (mirror URL, #112) disclosed inline |
-| 9 | `docs/environment.md` | 217 | **2026-11-03** | A | 2 | Which host produced which measurement, unresolved presentation machine, DL120 spec and capacity, second host `hp-xl420gen9-01` with the live-REPORTED-record warning, superseded planning-machine history, local storage, compatibility gate | Owner, agents on hosts | Current; **most recently maintained document** |
+| 9 | `docs/environment.md` | 217 | **2026-11-03** | A | 2 | Which host produced which measurement, unresolved presentation machine, DL120 spec and capacity, second host `Linux VM` with the live-REPORTED-record warning, superseded planning-machine history, local storage, compatibility gate | Owner, agents on hosts | Current; **most recently maintained document** |
 | 10 | `docs/reproduction.md` | 301 | 2026-10-27 | A | 3 | Fresh-checkout command sequence in 12 sections (environment → manifest → reservation → features → LR → CNN → freeze/score/report → serving → Docker → benchmarks → demo → archive), plus temporary-audio and reproducibility-record notes | Reproducer | Current, with an explicit "not re-run to write this guide" banner |
 | 11 | `docs/pre-tuning-protocol.md` | 92 | 2026-10-27 | A/E | 4 | The 14 Oct pre-declaration: what is machine-checked and against which code constant, the declaration table, stated limitations, deviation rule, 27 Oct annotation | Reviewer, instructor | Current; immutable by design |
 | 12 | `docs/evaluation-protocol.md` | 187 | 2026-10-27 | A/E | 4 | Locked-evaluation methodology written before R7: what R6/R7 do, integrity expectations, primary endpoint, fixed reading order, duration-slice caveat, interval coverage, deployment-decision clause plus its 27 Oct amendment, post-R7 rules, failure handling, known pre-R7 deviations | Reviewer, instructor | Current; immutable by design |
@@ -175,7 +175,7 @@ prose, but part of the authority graph and omitted from `docs/README.md`):
 mislead. `docs/evaluation-results-g2.md` is named for milestone G2 but contains
 the **final locked G3 results** and is the project's results authority.
 `docs/archive/dl120-verification-tracker.md` is named for the DL120 host but the
-runs it tracks mostly executed on the *second* host, `hp-xl420gen9-01`.
+runs it tracks mostly executed on the *second* host, `Linux VM`.
 
 ---
 
@@ -472,16 +472,16 @@ PCA/K-means code) and both are accurate. This is the right pattern.
 conflict is documented rather than hidden — `environment.md` has a dedicated
 "**Presentation machine: unresolved**" paragraph naming the three-way
 disagreement (13 Oct decision names the DL120; all container/latency/parity
-verification ran on `hp-xl420gen9-01`; `scripts/demo_setup.sh` describes the
+verification ran on `Linux VM`; `scripts/demo_setup.sh` describes the
 presentation Mac as an M4 Pro ARM64, which would run the `linux/amd64` image under
 emulation). The architecture plan's "Hosts used" section repeats the same
 unresolved state. It is now past the date by which `roadmap.md` said to resolve it
 (G4, 1 November). Open as #108.
 
 **(e) Host naming is inconsistent across records [Low].** **[verified]** The same
-machine is "Second host: `hp-xl420gen9-01`" in `environment.md`, "XL420" in
-PR #121's title, and "Runtime Env" in PR #124's title — both PRs changed the same
-warning block. Nothing in the documents defines "Runtime Env".
+machine is "Second host: `Linux VM`" in `environment.md`, "Linux VM Host" in
+PR #121's title, and "Linux VM" in PR #124's title — both PRs changed the same
+warning block. Nothing in the documents defines "Linux VM".
 
 ### D.7 Broken relative Markdown links — **none** [verified]
 
@@ -697,7 +697,7 @@ locked results, thresholds, predictions, freeze records or model artifacts.
 | H1 | Decide the status of `docs/research/INCREMENTAL_UPGRADES_AND_ROBUSTNESS_HARDENING.md`: leave untracked, or archive it with a header stating it is a superseded external input reconciled by PR #113 whose prescribed file names and checklists must not be created. Either way, keep it out of `docs/README.md`'s authority table. | `docs/research/…`, `docs/README.md` | PR #113 explicitly decided against adding it because its file names and "update checkmarks in this file" rule would reintroduce a competing tracker; it is now in `docs/` unlabeled, with a third expired timeline. (C.3, finding 3) |
 | H2 | Decide the status of `docs/prompts/PHASE2_READINESS_AND_FOUNDATION_PROMPT.md` and migrate its durable content (Gates 0–3 with prerequisites/exit criteria, the multi-dataset manifest/adapter and freeze-identity decisions, the JSON-vs-SQLite run-record decision) into `docs/research-backlog.md` and `docs/architecture-and-delivery-plan.md`. | `docs/prompts/…`, `docs/research-backlog.md`, `docs/architecture-and-delivery-plan.md` | It is a work order, not documentation, yet it is currently the only place parts of the Phase 2 design intent exist. (C.4) |
 | H3 | Extend `docs/README.md`: name `configs/` and `reports/` as machine-readable authorities that win over prose (quoting the two existing precedence clauses), and give every retained non-authority document an explicit label. | `docs/README.md` | The index claims completeness but describes a smaller authority graph than the documents themselves establish, and omits two files now present in `docs/`. (D.10) |
-| H4 | Resolve and record the presentation machine, or convert it into a recorded deviation with its consequences (ARM64 emulation of the `linux/amd64` image; container config verified only on `hp-xl420gen9-01`). | `docs/environment.md`, `docs/architecture-and-delivery-plan.md` ("Hosts used"), `TODO-Plan.md` §10, issue #108 | Three records disagree, the resolution deadline (G4, 1 Nov) has passed, and the offline-fallback plan assumes an Intel Mac. (D.6d) |
+| H4 | Resolve and record the presentation machine, or convert it into a recorded deviation with its consequences (ARM64 emulation of the `linux/amd64` image; container config verified only on `Linux VM`). | `docs/environment.md`, `docs/architecture-and-delivery-plan.md` ("Hosts used"), `TODO-Plan.md` §10, issue #108 | Three records disagree, the resolution deadline (G4, 1 Nov) has passed, and the offline-fallback plan assumes an Intel Mac. (D.6d) |
 
 ### Medium
 
@@ -715,8 +715,8 @@ locked results, thresholds, predictions, freeze records or model artifacts.
 | L1 | Fix the internal contradiction about `_Revised.docx`: the sign-off section says "Both `.docx` files remain unchanged" and cites an in-repo path; the retirement section eight lines later says the file was dropped. Say once that it is not in the repository and identified only by SHA-256. Align `TODO-Plan.md`'s "How to use this plan" wording. | `docs/architecture-and-delivery-plan.md`, `TODO-Plan.md` | Two sentences in one document disagree about whether a file is present; verified absent and never tracked. (D.9) |
 | L2 | State that the deployed CNN reuses the timing pilot's architecture unchanged, and name `src/voice_detector/cnn_pilot.py` as the definition site deliberately (or move the class, per open issue #72, which is a code change). | `docs/model-card.md` §1, `docs/course-coverage.md`, `docs/architecture-and-delivery-plan.md` | A reader auditing the production model is sent to a file whose docstring calls it a pilot that "may widen". (D.3) |
 | L3 | Add the `configs/robustness_spec.yaml` → `training_augmentation` pointer to the model card's augmentation row (which currently cites `configs/cnn_study.yaml`, where the probabilities do not live). | `docs/model-card.md` | The values are correct; the pointer is not. (D.4) |
-| L4 | Note in `docs/README.md` that `evaluation-results-g2.md` is named for G2 but holds the final locked (G3) results, and that the archived DL120 tracker covers runs mostly executed on `hp-xl420gen9-01`. | `docs/README.md` | Two filenames mislead; renaming is worse than annotating because immutable documents and a test-checked config field cite the paths. (section B note) |
-| L5 | Define the host nicknames once ("Runtime Env" vs "XL420" vs `hp-xl420gen9-01`) and use the canonical name. | `docs/environment.md` | The same machine has three names across records; only one is defined anywhere. (D.6e) |
+| L4 | Note in `docs/README.md` that `evaluation-results-g2.md` is named for G2 but holds the final locked (G3) results, and that the archived DL120 tracker covers runs mostly executed on `Linux VM`. | `docs/README.md` | Two filenames mislead; renaming is worse than annotating because immutable documents and a test-checked config field cite the paths. (section B note) |
+| L5 | Define the host nicknames once and use the canonical name. | `docs/environment.md` | The same machine has three names across records; only one is defined anywhere. (D.6e) |
 | L6 | Reconcile the stated window frame count (`401` in the deck and card prose vs `n_frames=399` default in code). | `docs/model-card.md`, `docs/presentation.html` | Immaterial to the model but the two numbers differ. (D.3) |
 
 ### Explicitly not recommended

@@ -14,18 +14,18 @@ training/evaluation host" (DL120) and "Second host" below.
 
 | Measurement or job | Host | Source |
 | --- | --- | --- |
-| G0 gate (`uv sync`, smoke, ruff, pytest), LA acquisition, archive checksums | DL120 (`hpe-dl120gen10-01`) | this file, [`data.md`](data.md) |
+| G0 gate (`uv sync`, smoke, ruff, pytest), LA acquisition, archive checksums | Linux Hosted CPU VM | this file, [`data.md`](data.md) |
 | Manifest build matching the published counts (13 October) | not recorded in the repository | TODO-Plan §3 |
-| Four CNN training runs | `hp-xl420gen9-01` | TODO-Plan §6 (run records are not committed) |
-| Locked scoring (R6) and locked report (R7) | `hp-xl420gen9-01` | [`evaluation-results-g2.md`](evaluation-results-g2.md) |
-| Serving verification, latency benchmark, container build/smoke, container parity | `hp-xl420gen9-01` | [`model-card.md`](model-card.md) section 6, TODO-Plan §9-10 |
+| Four CNN training runs | `Linux VM` | TODO-Plan §6 (run records are not committed) |
+| Locked scoring (R6) and locked report (R7) | `Linux VM` | [`evaluation-results-g2.md`](evaluation-results-g2.md) |
+| Serving verification, latency benchmark, container build/smoke, container parity | `Linux VM` | [`model-card.md`](model-card.md) section 6, TODO-Plan §9-10 |
 | Cross-host dev rehearsal of the freeze and scoring | both | [`archive/dl120-verification-tracker.md`](archive/dl120-verification-tracker.md) |
 | LR training, CNN timing pilot | not recorded in the repository | |
 
 **Which machine presented: the presenting laptop, locally (owner, recorded
 2026-11-06).** Neither host served the demo. The presentation ran the local path that
 [`../scripts/demo_setup.sh`](../scripts/demo_setup.sh) sets up: the
-`cnn_augmented_seed1` bundle and the demo clips copied from `hp-xl420gen9-01`, the
+`cnn_augmented_seed1` bundle and the demo clips copied from `Linux VM`, the
 image run in Docker Desktop on the laptop. The service answered uploads **live** and
 returned real responses; it was not a pre-scored fallback or screenshots. Valid audio
 and the invalid-input rejections were both demonstrated, the MP3 rejection through
@@ -35,7 +35,7 @@ and the invalid-input rejections were both demonstrated, the MP3 rejection throu
 laptop as the owner's M4 Pro, which is ARM64, and its step 1 warns about exactly this:
 a native ARM64 image carries a different torch wheel from the `linux/amd64` wheel
 behind the locked evaluation and behind the recorded container parity (198 development
-clips, max |diff| 0.0, measured on `hp-xl420gen9-01`). **No parity run against the
+clips, max |diff| 0.0, measured on `Linux VM`). **No parity run against the
 laptop's container is recorded**, and the laptop's architecture was not separately
 confirmed. So the demo showed the service behaving correctly, but the scores it
 displayed were produced by a build whose numerical agreement with the evaluation path
@@ -45,10 +45,10 @@ open; `scripts/container_parity.py` is the check if it matters later.
 
 The 13 October owner decision names the DL120 as the target and demo host and
 expects the laptop to run the offline fallback as an Intel Mac. Later artifacts
-disagree: the container configuration was verified on `hp-xl420gen9-01` and not on
+disagree: the container configuration was verified on `Linux VM` and not on
 the DL120 ("not yet the DL120 presentation configuration", TODO-Plan §10), and
 `scripts/demo_setup.sh` describes the presentation Mac as an M4 Pro (ARM64) reaching
-`hp-xl420gen9-01`. An ARM64 Mac runs the `linux/amd64` image under emulation, unlike
+`Linux VM`. An ARM64 Mac runs the `linux/amd64` image under emulation, unlike
 the Intel assumption in the offline fallback bullet below, and on a different torch
 wheel from the one the recorded container parity was measured with (#108 comment,
 2026-10-27).
@@ -94,7 +94,7 @@ Git is the only path between the two:
    `uv sync --frozen --all-groups && uv run ruff check . && uv run pytest`.
    Then run the slice's real job, detached, and bring the run record and summary
    back to the PR.
-   **Exception — `hp-xl420gen9-01` main checkout:** see the warning under
+   **Exception — `Linux VM` main checkout:** see the warning under
    "Second host" below. That checkout holds a live REPORTED evaluation record
    and must not be pulled, checked-out, stashed or reset. Use a detached
    worktree there instead.
@@ -128,7 +128,7 @@ moved. Consequences:
 - **Latency.** p50/p95 are measured server-side on the host (named hardware). Tunnel
   round-trip time is a separate demo-experience number, never mixed in.
 
-- Host: HPE ProLiant DL120 Gen10 (`hpe-dl120gen10-01`)
+- Host: High-performance Linux virtual machine configured with extensive resource allocations
 - OS: Fedora Linux 44, `x86_64`, glibc 2.43
 - Processor: Intel Xeon Gold 6152 @ 2.10 GHz — **44 logical cores**
 - Memory: 30 GB RAM
@@ -182,7 +182,7 @@ targets but sufficient for the **ASVspoof 2019 LA-only, CPU** scope:
   2-seed matrix is an overnight unattended job. The first real training pilot must
   record actual runtime, peak memory, batch size and completed epochs/steps.
 
-## Second host: `hp-xl420gen9-01`
+## Second host: `Linux VM`
 
 Recorded 18 October 2026 (archived tracker, step N0): 48 logical cores (Intel Xeon
 E5-2650L v3 @ 1.80 GHz), 31 GB RAM, no GPU, 541 GB free; "similar class to host 1,

@@ -17,7 +17,7 @@ cover test-sampling variance only.
 | Manifest hash | `b932b859…` (role-bearing) |
 | Scoring (R6) | 71,237 clips x 5 candidates x 5 conditions = 1,780,925 rows; `predictions_hash` `1ef12a29a78ec5fe59d9bb6c068a218fd69f4f9430ad70f7a51f0b06b3f3d23a`; finished 2026-10-18T14:48:17Z, 4,926 s, `--workers 30`, torch/BLAS threads 1 |
 | Report (R7) | `report_hash` `2bc69920ae6c266e0de6c4db9729e75bca5ac1e0866d9d1873d4cbc351b6d0bf`; report file sha256 `c0116ce295b3c7f50a667bff79b77e3c476494b9e4cd895f36aae4421427ed2b`; scored 2026-10-18T18:22:01Z, reported 2026-10-18T20:37:09Z, 2 h 16 min, `--workers 30` |
-| Host | hp-xl420gen9-01 |
+| Host | Linux VM |
 | Thresholds (frozen, clean dev) | lr_baseline 1.2972940, cnn_clean_seed1 0.6495614, cnn_clean_seed2 2.6375842, cnn_augmented_seed1 -1.2519543, cnn_augmented_seed2 -1.1976757 |
 
 Integrity check on the report (protocol section 2): 25 results over 25 distinct

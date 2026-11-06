@@ -71,4 +71,4 @@ Entry point: `uv run voice-detector <command>` (`src/voice_detector/cli.py`). Ar
 | `eval-supplement` | Post-report supplementary analysis (outside Phase 1; needs explicit authorization on an evaluation store) | no | store |
 | `serve` | FastAPI scorer; `--check` verifies the pinned bundle and exits | uploads only | bundle |
 
-Streamlit: `uv run streamlit run src/voice_detector/ui.py`. Helper scripts in `scripts/`: `docker_smoke.sh`, `latency_benchmark.py`, `container_parity.py`, `archive_artifacts.sh`, `preflight.sh`, `setup_dl120.sh`, and the presentation helpers `generate_demo_clips.py`, `demo_backup.py`, `demo_setup.sh`.
+Streamlit: `uv run streamlit run src/voice_detector/ui.py`. Helper scripts in `scripts/`: `docker_smoke.sh`, `latency_benchmark.py`, `container_parity.py`, `archive_artifacts.sh`, `preflight.sh`, `setup_linux-vm.sh`, and the presentation helpers `generate_demo_clips.py`, `demo_backup.py`, `demo_setup.sh`.

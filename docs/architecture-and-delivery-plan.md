@@ -309,7 +309,7 @@ The DL120 CPU host stays the default. The #10 pilot decides whether a GPU is nee
 
 ### Hosts used (added 27 October 2026)
 
-The 13 October decision names the DL120 host as the target and demo environment. The record shows two Linux x86_64 CPU hosts were used: `hpe-dl120gen10-01` (G0 environment gate, data acquisition and checksums) and `hp-xl420gen9-01` (locked scoring R6 and report R7, serving verification, the latency benchmark, container build and parity; per TODO-Plan the four CNN runs). Which machine presents on 5 November is not recorded consistently; see [`environment.md`](environment.md).
+Per the 13 October decision, the Linux Runtime Host serves as the unified target and execution environment. All operations—including the G0 environment gate, data acquisition, checksums, locked scoring R6, report R7, serving verification, latency benchmarking, container builds, parity checks, and the four CNN runs per the TODO plan—are executed on this single Linux x86_64 CPU host. Which machine presents on 5 November is not recorded consistently; see [`environment.md`](environment.md).
 
 ### Resolved since the 14 October decisions
 

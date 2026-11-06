@@ -2,7 +2,7 @@
 # DL120 host setup — run once after cloning or pulling a new branch.
 # Installs system dependencies and creates data symlinks.
 #
-# Usage:  bash scripts/setup_dl120.sh
+# Usage:  bash scripts/setup_linux-vm.sh
 # Requires: root (for dnf install)
 
 set -euo pipefail
