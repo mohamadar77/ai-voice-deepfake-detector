@@ -28,7 +28,7 @@ path, and expect to correct small details when it is first executed end to end.
 - Disk: the Phase 1 budget in [`environment.md`](environment.md) is about 50-60 GB.
 - CPU only, no GPU. The long steps are multi-hour. Recorded durations: locked
   scoring 4,926 s and the locked report 2 h 16 min, both with 30 workers on
-  hp-xl420gen9-01 ([`evaluation-results-g2.md`](evaluation-results-g2.md)). Run
+  Linux VM ([`evaluation-results-g2.md`](evaluation-results-g2.md)). Run
   long steps detached (`tmux`).
 
 What is **not** in Git and so cannot come from a fresh checkout: audio, the manifest,

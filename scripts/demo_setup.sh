@@ -6,7 +6,7 @@
 #
 # Prerequisites:
 #   - Docker Desktop running
-#   - SSH access to the dev host (hp-xl420gen9-01)
+#   - SSH access to the dev host (Linux VM)
 #   - This repo checked out and up to date (git pull origin main)
 #
 # The script is meant to be run step-by-step, not all at once.
@@ -14,7 +14,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DEV_HOST="root@hp-xl420gen9-01"
+DEV_HOST="root@Linux VM"
 DEV_REPO="/root/ai-voice-deepfake-detector"
 BUNDLE_NAME="cnn_augmented_seed1"
 # Files that make up a CNN bundle (src/voice_detector/cnn_scoring.py). The service
@@ -111,7 +111,7 @@ if docker image inspect voice-detector:local >/dev/null 2>&1; then
 else
   echo "Image voice-detector:local not found — building."
   echo "The first build downloads the CPU torch wheel for this architecture and is slow"
-  echo "(about 25 minutes was measured on hp-xl420gen9-01)."
+  echo "(about 25 minutes was measured on Linux VM)."
   VOICE_DETECTOR_BUNDLE_DIR="artifacts/$BUNDLE_NAME" docker compose build
   echo "Build complete."
   docker images --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  ({{.ID}})' voice-detector:local
