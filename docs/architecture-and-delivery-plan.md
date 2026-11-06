@@ -1,7 +1,8 @@
 # Architecture and delivery decisions
 
-Owner: Mohamad Abo-Ras. Planned 6 October 2026; restructured 27 October 2026.
-Tentative presentation: 5 November 2026.
+Owner: Mohamad Abo-Ras. Planned 6 October 2026; restructured 27 October 2026;
+reconciled 6 November 2026. Presented 5 November 2026; the release is not closed
+(see [`roadmap.md`](roadmap.md)).
 
 This is the architecture and scope addendum to the frozen final proposal
 (`AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx`; see "Proposal and document
@@ -98,24 +99,15 @@ Robustness: clean, one compression setting (Opus 24 kbps), two noise levels (20 
 
 ## Timeline and resource envelope
 
-Dates are planning targets for one owner, not guarantees; the presentation date is tentative. The agreed planning envelope was **110 to 150 focused person-hours** (about 140 to 190 including 25% contingency), excluding unattended compute. That envelope was an estimate, not measured feasibility, and the owner's actual weekly hours were never recorded (open item in the TODO plan). The 25% contingency was spent by 13 October.
+**Gate dates and milestone status are not kept here.** [`roadmap.md`](roadmap.md) owns the gate sequence (G0 to G5, the feature freeze and the presentation) and the current standing; [`../TODO-Plan.md`](../TODO-Plan.md) owns per-item completion. The dated table that used to sit here duplicated both and is removed as of 2026-11-06; the schedule it described is spent (the presentation was delivered on 5 November 2026, with G4 and G5 undelivered) and the 13 October re-baseline that superseded it is recorded under "Plan amendments adopted" below.
 
-| Target | Gate | Deliverable |
-| --- | --- | --- |
-| 6-7 October | G0 | Environment, data terms/access, manifest schema, hardware/storage |
-| 8-12 October | G1 | Audited data, shared preprocessing, reproducible LR development report |
-| 13-18 October | G2 | Clean/augmented CNN, development selection, reserved thresholds, all-candidate freeze |
-| 19-25 October | G3 | Locked metrics, paired robustness, failure report, real-model demo |
-| 26 October | Feature freeze | No new model families, datasets or extensions |
-| 27 October-1 November | G4 | Fresh-checkout and container verification, performance results, model card, slides |
-| 2-4 November | G5 | Rehearsed <=12-minute presentation, fallback and backup |
-| 5 November | Presentation | Tentative |
+What this document still owns here is the **resource envelope**: an agreed **110 to 150 focused person-hours** (about 140 to 190 including 25% contingency), excluding unattended compute. That envelope was an estimate, not measured feasibility, and the owner's actual weekly hours were never recorded (open item in the TODO plan). The 25% contingency was spent by 13 October.
 
-Re-forecast dates and current priorities are in [`roadmap.md`](roadmap.md). Tuning ceiling that was applied: three LR regularization values with one fixed class-imbalance policy; one compact CNN architecture with four full runs (clean/augmented x two seeds), at most 20 epochs, early stopping on development clip EER. Clean and augmented runs share architecture, seed and intended budget; actual completed epochs are in the run records, and equal ceilings do not guarantee equal exposure, so the comparison is a practical pipeline comparison, not an isolated augmentation effect. If a full-dataset run had not fit, a documented subset rule would have been frozen before looking at scores; that was not needed.
+Tuning ceiling that was applied: three LR regularization values with one fixed class-imbalance policy; one compact CNN architecture with four full runs (clean/augmented x two seeds), at most 20 epochs, early stopping on development clip EER. Clean and augmented runs share architecture, seed and intended budget; actual completed epochs are in the run records, and equal ceilings do not guarantee equal exposure, so the comparison is a practical pipeline comparison, not an isolated augmentation effect. If a full-dataset run had not fit, a documented subset rule would have been frozen before looking at scores; that was not needed.
 
 ## Proposal and document precedence
 
-The final project proposal — `AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx` (the original) — is the authoritative, immutable source for project scope, commitments and acceptance criteria. It is frozen and signed off (see the sign-off below) and must not be edited, regenerated or replaced. `AI_Voice_Deepfake_Detector_Final_Project_Proposal_Revised.docx` is a non-selected historical candidate with no governing authority. This dated Markdown addendum is subordinate: it records dated implementation decisions, module contracts, schedule and explicit deviations. Where any statement in this addendum — or in any other planning document — conflicts with the final proposal, the proposal governs unless an explicit, dated deviation recorded here changes it (naming the affected commitment, reason, owner decision, date and acceptance impact). Neither `.docx` is ever edited.
+The final project proposal — `AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx` (the original) — is the authoritative, immutable source for project scope, commitments and acceptance criteria. It is frozen and signed off (see the sign-off below) and must not be edited, regenerated or replaced. The Revised candidate, `AI_Voice_Deepfake_Detector_Final_Project_Proposal_Revised.docx`, was a non-selected historical candidate with no governing authority and is not in the repository (see the sign-off and retirement records below). This dated Markdown addendum is subordinate: it records dated implementation decisions, module contracts, schedule and explicit deviations. Where any statement in this addendum — or in any other planning document — conflicts with the final proposal, the proposal governs unless an explicit, dated deviation recorded here changes it (naming the affected commitment, reason, owner decision, date and acceptance impact). The frozen proposal is never edited, and the retired candidate is gone - so no `.docx` in this repository is ever edited.
 
 Canonical authority for scope, commitments and acceptance: the final proposal (the original `...Proposal.docx`). Dated implementation decisions, deviations and deadlines: this file. Completion status: root TODO. Execution order: roadmap. Implemented flow: pipeline. Ownership of every document: [`README.md`](README.md). Syllabus mapping: [`course-coverage.md`](course-coverage.md), where optional examples are not commitments.
 
@@ -130,7 +122,7 @@ Canonical authority for scope, commitments and acceptance: the final proposal (t
 **Final proposal (frozen, immutable):** `docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx`
 **SHA-256 (immutability pin):** `b16f512499efc2f0e328a7be7d6b36cf1f103a5fdfb77c2d8e7e2367f1a09aec`
 
-This exact file is the sole FINAL, FROZEN, IMMUTABLE proposal and the source of truth for the approved proposal baseline. Its bytes must never be edited, regenerated or replaced; verify the SHA-256 at submission/release. `docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal_Revised.docx` (SHA-256 `128c132debafa395650cc7b89cb28c8a75cd6e02d5434fa371d5a5c3528d0a94`) is a non-selected historical candidate with no governing authority. Both `.docx` files remain unchanged.
+This exact file is the sole FINAL, FROZEN, IMMUTABLE proposal and the source of truth for the approved proposal baseline. Its bytes must never be edited, regenerated or replaced; verify the SHA-256 at submission/release. The Revised candidate (SHA-256 `128c132debafa395650cc7b89cb28c8a75cd6e02d5434fa371d5a5c3528d0a94`) was a non-selected historical candidate with no governing authority; **it is not in this repository** and never was tracked in Git (verified 2026-11-06 with `git log --all`). It was dropped on 2026-10-11 after its unique details were folded into the planning documents, as recorded under "Revised-candidate retirement" below, and is identified only by the SHA-256 above. The frozen proposal remains unchanged.
 
 All future corrections, clarifications, schedule revisions, scope decisions and acceptance changes belong exclusively in Markdown (`docs/architecture-and-delivery-plan.md`, `docs/roadmap.md`, `TODO-Plan.md`), never in either `.docx`. This architecture plan holds the canonical dated decision record; each substantive departure names the affected proposal commitment, reason, owner decision, date and acceptance impact. Absent a recorded change, the proposal baseline governs. `AGENTS.md` safeguards remain binding.
 
@@ -140,7 +132,7 @@ This sign-off freezes the proposal only. It does not certify environment readine
 
 ### Revised-candidate retirement — 2026-10-11
 
-`AI_Voice_Deepfake_Detector_Final_Project_Proposal_Revised.docx` (SHA-256 `128c132debafa395650cc7b89cb28c8a75cd6e02d5434fa371d5a5c3528d0a94`) was safely dropped from the repository on 2026-10-11 after its unique details were synced into the planning docs, so no information is lost. Per the Codex architecture/tech-lead consultation (consult #2, "content to preserve from the non-chosen file"), the following were folded in before removal:
+`AI_Voice_Deepfake_Detector_Final_Project_Proposal_Revised.docx` (SHA-256 `128c132debafa395650cc7b89cb28c8a75cd6e02d5434fa371d5a5c3528d0a94`) was removed from the working tree on 2026-10-11 after its unique details were synced into the planning docs, so no information is lost. It was never committed to Git, so it is absent from history as well as from the tree (verified 2026-11-06); the SHA-256 above is the only handle on its bytes. Per the Codex architecture/tech-lead consultation (consult #2, "content to preserve from the non-chosen file"), the following were folded in before removal:
 
 - **Report-template freeze** added to the pre-inspection freeze inventory (TODO §7).
 - **Fresh-checkout reproduction** expanded from baseline-only to data preparation + baseline + **CNN** + report (TODO §10, A9 above), consistent with the final-acceptance checklist.
@@ -326,6 +318,62 @@ The 13 October decision names the DL120 host as the target and demo environment.
 - The 13 October rule that every run is tracked in JSON plus a SQLite `runs` table is only half implemented: run records are JSON files in each bundle, and no `runs` table exists in `src/` (open as #54).
 - #56 and #68 (fixed 27 October 2026): `reserve-development` used to rewrite the committed frozen record on every run, replacing its freeze time and commit (the cause of the flaky test in #68). A matching re-run is now a restore that keeps the record byte-for-byte; a record naming a different manifest is refused without `--force`. See `docs/data.md`, "Development reservation".
 - 14 October review follow-ups ([archived review](archive/lr-baseline-review-2026-10-14.md)): the owner decision stands that completed issues stay closed and repairs get new linked issues. Issues #52 to #55 and #57 to #59 are still open on GitHub and sit in the Phase 2 milestone (demo-first scope cut); #56 was fixed separately (see above). The role-free versus role-bearing manifest hash gap (#52/#53) is disclosed in [`evaluation-protocol.md`](evaluation-protocol.md) section 10.
+
+## Proposed Phase 2 foundation contracts (proposed 6 November 2026 — not adopted)
+
+**Status: proposals, not contracts.** Everything in this section needs the owner's
+approval before it governs any code, and none of it is implemented. It is recorded
+here because the alternative is leaving design intent only in a work order, which
+is not a source of truth. The research scope these serve is in
+[`research-backlog.md`](research-backlog.md) (Gate 0); the contracts above, which
+*are* adopted, describe Phase 1 as built and are unaffected.
+
+None of these may touch Phase 1 evidence. The locked 2019 LA evaluation is REPORTED
+and immutable; a Phase 2 dataset or protocol is always a **new** freeze record, never
+a widening of the existing one.
+
+**1. Canonical multi-dataset identity and ingestion adapters.** `manifest.py` today
+carries ASVspoof 2019 LA protocol paths, dataset identity, split assumptions and
+audio resolution inline. The proposal is to separate the canonical clip schema from
+per-dataset acquisition: one adapter per dataset producing the same manifest rows,
+with dataset identity and release version as first-class columns, so that no two
+datasets can silently share a clip identity and no dataset's split convention leaks
+into another's. The LA adapter must reproduce the existing manifest hash
+(`b932b859…`, role-bearing) or the change is wrong. Open question for the owner: how
+far to generalize before the second dataset exists — the readiness work order's own
+rule is not to build a generic abstraction beyond the first planned dataset's needs.
+
+**2. Dataset-aware freeze and prediction identity.** The freeze record and prediction
+store are shaped around the Phase 1 LA dimensions (candidate x condition x clip).
+The proposal is that dataset, protocol version and source-map provenance become part
+of the frozen identity and of every prediction row, so that predictions from two
+datasets cannot be pooled or compared by accident, and so that a bootstrap can tell
+which grouping unit it actually has. This matters most where `source_id` is null and
+`speaker_id` is the fallback, as it is for LA: a second dataset with real source maps
+must not be silently grouped the same way.
+
+**3. Run records: JSON authoritative, SQLite as an index.** The 13 October rule that
+every run is tracked in JSON **and** a SQLite `runs` table is half implemented — run
+records are JSON files in each bundle and no `runs` table exists (#54, re-verified
+2026-11-06). The proposal resolves the ambiguity rather than finishing both halves
+blindly: the per-run JSON stays the **authoritative, immutable** record written beside
+the artifact it describes, and any SQLite `runs` table is a **rebuildable index over
+those JSON files** — queryable, never a second source of truth, and safe to delete and
+regenerate. This mirrors how the manifest already treats CSV as canonical and SQLite
+as a rebuildable audit catalog.
+
+**4. Artifact integrity and publication.** Phase 2 comparisons need the exact Phase 1
+numbers rather than re-runs, so the archived evidence needs an integrity story
+stronger than "it is on a host": checksummed, immutable, with a recorded retrieval
+path. This is also the unresolved half of the Phase 1 item on release-artifact
+retrieval instructions, which waits on a redistribution decision for the model
+bundle.
+
+**5. Regression tests before any of it is trusted.** Each contract above is only real
+if a test can fail: that two dataset versions cannot be mixed in one manifest, that a
+freeze record missing dataset identity is refused, that a prediction row cannot be
+written without its provenance, and that an LA rebuild still reproduces the recorded
+manifest hash. No Phase 2 foundation claim should be accepted without one.
 
 ## Evidence-assistant stretch (S1)
 

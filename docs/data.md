@@ -252,6 +252,95 @@ As of 11 October 2026 all four hold:
 The earlier x86_64 macOS wheel mismatch is resolved by using the reserved Linux
 x86_64 host; it required no lockfile or dataset change.
 
+## Demonstration clips (not dataset material; recorded 2026-11-06)
+
+The clips used in the 5 November 2026 presentation are a small illustrative set, not
+an evaluation set. **No number in this project is measured on them**, nothing here is
+a performance claim, and they were never used for fitting, selection or thresholds.
+Recorded for provenance per `AGENTS.md`, and to close the demo-set half of
+[#109](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/109).
+
+| Input | Origin | Terms | Role in the demo |
+| --- | --- | --- | --- |
+| Own-voice recording (`human_speech.wav`) | The owner's own consented recording of himself, converted to 16 kHz mono WAV | The owner's own voice; no third-party terms apply | The bona fide side |
+| Text-to-speech clips | **Ondoku3** (<https://ondoku3.com>), an online text-to-speech service operated by Mr. Co., Ltd. Web service with no version identifier; used on or before 2026-11-05. Prompt text not recorded | Checked 2026-11-06; see "Ondoku3 terms" below. Use in a research presentation is expressly permitted. Produced on a **free** account, so a visible credit notice is required wherever the audio plays; `Voice by Ondoku3.com` was added to the deck on 2026-11-06, after the delivery | The spoof side |
+| `synthetic_tts.wav`, `too_short.wav`, `digital_silence.wav`, `invalid.mp3` | Generated locally by `scripts/generate_demo_clips.py` from code in this repository (no external service): a synthesized speech-like clip, a 0.5 s clip, 3 s of digital zeros, and a minimal MP3 header | Repository code; none required | Invalid-input rejections (duration, silence, format) |
+
+Observed behaviour on 5 November, **anecdotal and uncounted**: the Ondoku3 clips were
+flagged spoof-like, which is the correct direction for synthetic speech. The number of
+clips, the exact scores and the outcome for the own-voice clip were not recorded. This
+is an impression from a live demonstration, not a measured detection rate on
+contemporary text-to-speech, and it does not alter any locked result or the model
+card's statement that no modern voice-cloning system was evaluated. The contrary
+observation in [#103](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/103)
+(two own-voice phone recordings flagged spoof-like) stands unchanged.
+
+The clips themselves are not committed: `demo_clips/` is git-ignored, and the own-voice
+recording is personal audio that the privacy rules in `AGENTS.md` keep out of Git.
+
+### Ondoku3 terms, as they apply to this use
+
+Read from the service's own pages on **2026-11-06**: the usage/licence article
+(<https://ondoku3.com/en/post/terms-licence/>, page dated 22 July 2026) and the Terms
+of Use (<https://ondoku3.com/en/terms/>). Summarised, not reproduced; the operator
+reserves the right to change the terms without notice, so the access date above is part
+of the record. This is a factual summary for provenance, **not legal advice**, and the
+owner is the party who accepted these terms.
+
+**The use is expressly permitted.** The licence article lists, among permitted uses,
+use of Ondoku audio in lectures and research presentations, and using Ondoku audio in a
+presentation one gives oneself. A graduation-project demonstration is that. None of the
+Business-Plan-only purposes in Terms of Use Article 12 is engaged: no audio was produced
+on commission, nothing was embedded in a product, no content whose main component is the
+audio was distributed, and there was no broadcast use.
+
+**One condition attaches, and it is the open point.** For free-account use, Ondoku
+requires a credit notice visible to the audience wherever the audio is played. Terms of
+Use Article 13 paragraph 1 triggers that duty on disclosing the audio to a third party,
+expressly including playing it in a facility that third parties enter - which is what a
+presentation room is. The duty falls away only if the clips were generated on a paid
+account (Article 13 paragraph 1 item 1). The licence article gives accepted wordings such
+as `Audio: Ondoku` or `Voice by Ondoku3.com`.
+
+**Account and credit, resolved 2026-11-06.** The clips were generated on a **free**
+Ondoku3 account (owner), so the credit condition applied.
+
+- **The delivered deck carried no credit notice.** Verified by searching
+  [`presentation.html`](presentation.html) and
+  [`presentation-outline.md`](presentation-outline.md) at the delivered revision: the
+  only attribution either file contained was the ASVspoof ODC-By notice. So the
+  condition was **not met on the slide** at the 5 November delivery. Whether the owner
+  credited Ondoku aloud, or on screen outside the deck, is not recorded and is not
+  claimed here either way.
+- **Fixed for reuse on 2026-11-06:** `Voice by Ondoku3.com` now appears as visible text
+  on slide 10, the slide on which the clips play, and the outline records that it must
+  stay while these clips are used. The line was added after the delivery, not before -
+  the deck file therefore differs from what the audience saw, in this one respect.
+- The obligation is continuing, not one-off: it attaches wherever and whenever the audio
+  plays. Any recording of the talk, any re-showing of the deck and any reuse of the clips
+  needs the notice. If the clips are replaced, update or drop the line to match.
+
+> **Still open, owner only** ([#109](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/109)): the clip count and what the own-voice
+> clip scored, and who authored the prompt text entered into Ondoku3 (copyright in the
+> generated audio follows the input text, Terms of Use Article 14 paragraph 1).
+
+**Copyright in the generated audio follows the input text** (Terms of Use Article 14
+paragraph 1): it belongs to the copyright holder of the text that was entered, and
+Article 14 paragraph 4 requires prior permission where that text is someone else's. The
+prompt text was not recorded, so this is a second small provenance gap - immaterial if
+the owner typed his own sentences, which is the likely case, and worth one line to
+confirm.
+
+**Why nothing further is engaged.** The clips were never redistributed: `demo_clips/` is
+git-ignored, no clip is committed, and none was published, so the third-party
+distribution duties in Article 13 paragraph 2 do not arise. The project also makes no
+claim that the synthetic audio is anyone's own recording - it is labelled synthetic
+throughout - which is the relevant prohibited act in the licence article. The terms say
+nothing about using generated audio as machine-learning input; in this project the clips
+were demonstration inputs only and were never training, development or evaluation data,
+so the question does not arise here. It would need checking before any future use of
+such audio as data.
+
 ## Artifact policy
 
 Audio, extracted features, checkpoints, prediction files, SQLite catalogs and

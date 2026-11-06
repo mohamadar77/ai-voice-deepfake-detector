@@ -2,8 +2,8 @@
 
 Owner: Mohamad Abo-Ras  
 Created: 4 October 2026  
-Target presentation: 5 November 2026, subject to the course schedule  
-Last reconciled with the repository: 27 October 2026 (documentation cleanup; see [docs/README.md](docs/README.md))
+Presented: 5 November 2026 (owner, recorded 2026-11-06). Release not tagged  
+Last reconciled with the repository: 6 November 2026 (post-presentation status reconciliation; see `reports/documentation-reconciliation-step2a.md`). Previous reconciliation: 27 October 2026 (documentation cleanup; see [docs/README.md](docs/README.md))
 
 Build and evaluate a reproducible detector for human versus synthesized or voice converted speech. Compare an MFCC feature baseline with a Convolutional Neural Network (CNN), study unfamiliar attacks and audio distortions, and demonstrate a working application.
 
@@ -11,11 +11,11 @@ This checklist follows the original proposal and the [6 October architecture add
 
 ## How to use this plan
 
-- **Proposal:** `docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx` is the final, frozen, immutable proposal and source of truth for scope/commitments/acceptance (SHA-256 `b16f5124…`; signed off 2026-10-11 — see the sign-off in `docs/architecture-and-delivery-plan.md`). `_Revised.docx` is a non-selected historical candidate. `docs/architecture-and-delivery-plan.md` is the current scope, contracts, budget and schedule addendum, subordinate to the frozen proposal.
+- **Proposal:** `docs/AI_Voice_Deepfake_Detector_Final_Project_Proposal.docx` is the final, frozen, immutable proposal and source of truth for scope/commitments/acceptance (SHA-256 `b16f5124…`; signed off 2026-10-11 — see the sign-off in `docs/architecture-and-delivery-plan.md`). The `_Revised.docx` candidate was non-selected, is not in the repository and was never committed; it is identified only by its SHA-256 in the architecture plan. `docs/architecture-and-delivery-plan.md` is the current scope, contracts, budget and schedule addendum, subordinate to the frozen proposal.
 - **Execution:** this file is the source of truth for implementation status. Check an item only when its output exists and its completion criteria are met.
 - **Documentation:** [docs/README.md](docs/README.md) is the index and says which document is authoritative for what. This file is the only task tracker.
 - **Roadmap:** `docs/roadmap.md` holds the milestone sequence, the remaining execution order and the stop/go rules.
-- **Two phases (owner, 13 October 2026):** Phase 1 = this graduation release (5 November). Phase 2 = post-graduation research, kept in the separate [research backlog](docs/research-backlog.md). Phase 1 builds no research-only extensions, but keeps datasets (canonical-schema manifests), model interfaces, preprocessing versions and experiment tracking modular so Phase 2 can plug in. With good progress, the owner may pull backlog items through the [pull gate](docs/research-backlog.md#pulling-backlog-items-into-phase-1-progress-gate). Extensive hyperparameter optimization is deferred.
+- **Two phases (owner, 13 October 2026):** Phase 1 = this graduation release (5 November). Phase 2 = post-graduation research, kept in the separate [research backlog](docs/research-backlog.md). Phase 1 builds no research-only extensions, but keeps datasets (canonical-schema manifests), model interfaces, preprocessing versions and experiment tracking modular so Phase 2 can plug in. The [pull gate](docs/research-backlog.md#pulling-backlog-items-into-phase-1-progress-gate-closed) that allowed backlog items to be pulled into Phase 1 is **closed** (2026-11-06): both of its deadlines are spent and the presentation has been delivered, so nothing more can be pulled in. Extensive hyperparameter optimization is deferred.
 - **Core first:** data audit, MFCC baseline, CNN, locked evaluation, robustness, failure analysis, API, demo, container, reproducibility and presentation.
 - **Stretch:** the evaluated evidence assistant was the only selected stretch. It is a **no-go for this release** (owner, 13 October 2026; [#37](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/37)). The shortcut-only baseline and EDA report (#6) and the PCA / K-means diagnostics (#36) are open, off the critical path, and tracked below.
 - **Deferred beyond release (Phase 2):** ASVspoof 2021 DF, WaveFake/In-the-Wild, transformer/SSL/LSTM/extra model families, matched-input controls, min t-DCF, cloud, calibration/abstention, agents and MCP. The deviation register is in the architecture plan. These are not release TODOs.
@@ -35,9 +35,11 @@ rationale: [roadmap](docs/roadmap.md) and the
 (columns Todo · In Progress · Done) tracks these issues; one item is In Progress at a time.
 The owner picks the review gate for each slice before implementation starts.
 
-Status of the issues behind this plan, as of 27 October 2026 (checked against
-`gh issue list`). Priorities from 14 October are no longer shown; the critical path is in
-the [roadmap](docs/roadmap.md).
+Status of the issues behind this plan, as of **6 November 2026** (checked against
+`gh issue list` and the GitHub milestones). Priorities from 14 October are no longer
+shown; what is still owed is in the [roadmap](docs/roadmap.md). The G4/G5 issues
+(#107-#112) were minted on 26 October and were missing from this table until the
+6 November reconciliation.
 
 | Status | Issue | Slice | Milestone | TODO § |
 | --- | --- | --- | --- | --- |
@@ -50,10 +52,17 @@ the [roadmap](docs/roadmap.md).
 | Done | [#56](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/56), [#68](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/68) | `reserve-development` keeps a matching committed frozen record byte-for-byte; fixes the flaky reservation test (bug fix after the freeze; PR #119) | G1 / test | §2 |
 | Open | [#6](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/6) | EDA, exclusions, shortcut-only baseline | G2 | §3 |
 | Open | [#36](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/36) | Training-fitted PCA / K-means diagnostics | G2 | §8 |
+| Open | [#107](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/107) | Fresh-checkout reproduction of data prep, baseline, CNN and report | G4 | §10 |
+| Open | [#108](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/108) | Decide and record the presentation machine; verify container + venue path there | G4 | §10 |
+| Open | [#109](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/109) | Record the demo set (consented own voice + synthetic clips) with tool, version and terms | G4 | §9/§13 |
+| Open | [#110](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/110) | Finalize the model card or keep it DRAFT | G4 | §10 |
+| Open | [#111](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/111) | Rehearsal, offline fallback, backup recording and release tag | G5 | §13 |
+| Open | [#112](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/112) | Record the exact `dataset.zip` mirror download URL in `docs/data.md` | G4 | §2 |
 | Open (findings) | [#83](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/83), [#84](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/84), [#103](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/103) | Threshold non-transfer, silence-cue reliance, own-voice false alarm (anecdotal) | n/a | §8/§13 |
 | Open (review) | [#89](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/89) | `/code-review` of the merged serving slice | n/a | §9 |
 | Phase 2 | [#52](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/52)-[#55](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/55), [#57](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/57)-[#59](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/59) | LR review follow-ups (input/protocol guards, SQLite run entry, bundle publication, capacity forecast, test collection) | Phase 2 | §5 |
 | Phase 2 | [#38](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/38), [#39](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/39) | min t-DCF, matched-input control | Phase 2 | n/a |
+| Phase 2 | [#118](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/118) | `reserve-development`: audit trail for `--force` overrides, and what `reservation_forced` means | Phase 2 | §2 |
 | Parked | [#15](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/15)-[#29](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/29) | CI / DevEx hardening until core ML is done | n/a | §10 |
 
 The 14 October LR review ([archived](docs/archive/lr-baseline-review-2026-10-14.md))
@@ -63,29 +72,37 @@ changes a locked result.
 
 ## Milestones
 
-| Target dates (baseline) | Status (27 Oct) | Milestone | Completion evidence |
+| Target dates (baseline) | Status (6 Nov) | Milestone | Completion evidence |
 | --- | --- | --- | --- |
 | 6-7 October | Closed 11 Oct | G0: feasibility and data contract | Revalidated environment, terms/access, capacity/hours and manifest/split contracts |
 | 8-12 October | Done (G1 repairs #52-#55, #57-#59 moved to Phase 2; #56 fixed separately) | G1: data and baseline | Features, development reservation, metrics, LR development report and bundle, CNN timing pilot |
 | 13-18 October | Done 18 Oct, except #6 and #36 | G2: CNN and protocol freeze | Clean/augmented CNN, development selection, reserved thresholds and all-candidate freeze |
 | 19-25 October | Locked report REPORTED 18 Oct; serving, UI, Docker, benchmark and parity merged; model card still draft | G3: evaluation and complete demo | Locked paired results, uncertainty/failures, model card draft and real-model UI |
 | 26 October | Passed | Feature freeze | No new models, datasets or extensions |
-| 27 October-1 November | In progress | G4: release and slides | Full container/reproduction/performance checks and presentation draft (slides v0 exist) |
-| 2-4 November | Pending | G5: rehearsal and backup | Fresh-start demonstration, backup recording and <=12-minute rehearsal |
-| 5 November | Pending | Tentative presentation | Findings, working demonstration and limitations |
+| 27 October-1 November | **Not delivered.** All five issues (#107-#110, #112) open and untouched since 26 Oct; GitHub milestone *G4* shows 5 open / 0 closed | G4: release and slides | Deck and speaker notes exist and were corrected on 27 Oct and 3 Nov. Container/reproduction/performance checks not run |
+| 2-4 November | **Not recorded.** #111 open; GitHub milestone *G5* shows 1 open / 0 closed | G5: rehearsal and backup | No rehearsal, backup recording or offline-fallback verification is recorded anywhere in the repository |
+| 5 November | **Delivered** (owner, recorded 2026-11-06) | Presentation | Owner statement only; no repository artifact records the event (no tag, no commit after 3 Nov). Delivered with G4/G5 open |
+| after 5 November | **Release undecided** | Release and sign-off | No tag (`git tag -l` empty); the sign-off record below is unfilled and three acceptance lines are unmet without a waiver (#111). Was four until the 5 November demo closed the valid/invalid-input line |
 
 Budget: estimated 110–150 focused hours, approximately 140–190 with 25% contingency, plus unattended compute. Record actual owner availability at G0; the date is not a feasibility guarantee. **13 October:** G1 slipped about 4 days and the 25% contingency is spent. Owner focused hours per week are still unrecorded and must be recorded now. The cut list is in the roadmap/review.
 
-## Next actions (27 October 2026)
+## Next actions (6 November 2026)
 
-Order and rationale are in the [roadmap](docs/roadmap.md); each action maps to the open
-items in the sections below.
+The presentation has been delivered, so these are no longer schedule items; they are
+what is still owed to close Phase 1. Order and rationale are in the
+[roadmap](docs/roadmap.md); each action maps to the open items in the sections below.
 
-1. Fresh-checkout reproduction following [`docs/reproduction.md`](docs/reproduction.md) (§10).
-2. Decide which machine presents, then the clean container startup and venue access path there (§10).
-3. Record the demo set with tool, version and terms; prepare the invalid-input cases (§9, §13).
-4. Resolve the model card's open items or keep it a draft (§10).
-5. Backup recording, offline fallback, rehearsal, release tag (§13).
+1. **Owner decision: the release.** Tag it and fill in the sign-off record at the end
+   of this file, or record a dated waiver per unmet acceptance line. Nothing else
+   closes the project while this is undecided (#111, §13).
+2. Record what the presentation actually used - which machine presented, whether the
+   container or the offline fallback ran, and the demo set with tool, version and
+   terms. This is now a record of a past event, and the easiest thing to lose by
+   waiting (#108, #109; §9, §10, §13).
+3. Fresh-checkout reproduction following [`docs/reproduction.md`](docs/reproduction.md)
+   (#107, §10). Still the largest unmet acceptance claim.
+4. Resolve the model card's open items or keep it a draft (#110, §10).
+5. Record the `dataset.zip` mirror URL (#112, §2).
 
 ## 1. Repository and environment
 
@@ -252,7 +269,7 @@ Start a thin vertical slice after the baseline; finish after model selection.
 - [x] Show the chosen model's measured evaluation summary and limitations. (GET /model endpoint: model info with limitations.)
 - [x] Label uncalibrated outputs as scores; add probability or inconclusive behavior only after the corresponding optional evaluation is complete. (Response field is `score`; limitations notice states uncalibrated; calibration deferred.)
 - [x] Delete temporary audio after success, errors and cancellation; clear UI-held buffers and verify cleanup. (Temporary audio not retained; no logging of raw audio.)
-- [ ] Choose a small reproducible set of permitted demo recordings: the owner's consented own-voice clips, plus synthetic clips the owner generates with a modern TTS/voice-clone tool whose terms allow it. Record the tool, version and terms. Label the set illustrative with n reported; a miss is shown as a measured limitation. **Status 2026-10-27:** `scripts/generate_demo_clips.py` creates the synthetic, too-short, MP3 and digital-silence inputs, and `scripts/demo_backup.py` pre-scores generated tones; the human recordings, the TTS / voice-clone tool, its version and terms are not recorded. Two own-voice phone recordings were both flagged spoof-like (#103, anecdotal).
+- [ ] Choose a small reproducible set of permitted demo recordings: the owner's consented own-voice clips, plus synthetic clips the owner generates with a modern TTS/voice-clone tool whose terms allow it. Record the tool, version and terms. Label the set illustrative with n reported; a miss is shown as a measured limitation. **Status 2026-11-06 (owner record of the 5 November demo):** the set is now recorded in [`docs/data.md`](docs/data.md), "Demonstration clips" - the owner's own consented recording as the bona fide side, text-to-speech clips from **Ondoku3** (<https://ondoku3.com>, a web service with no version identifier) as the spoof side, and the `scripts/generate_demo_clips.py` inputs for the duration, silence and format rejections. Anecdotally the Ondoku3 clips were flagged spoof-like, the correct direction; the clip count, the scores and the own-voice clip's outcome were not recorded, so "n reported" is still unmet. Ondoku3's terms were checked and cited on 2026-11-06 ([`docs/data.md`](docs/data.md), "Ondoku3 terms"): a research presentation is an expressly permitted use, and no Business-Plan purpose is engaged. The clips came from a **free** Ondoku3 account (owner, 2026-11-06), so the credit condition applied, and the delivered deck carried no credit notice (verified by search). `Voice by Ondoku3.com` was added to slide 10 on 2026-11-06 for any reuse; it was not shown on 5 November. **The item stays open on two points, both owner-only:** the clip count and the own-voice clip's score, and who authored the prompt text entered into Ondoku3 ([#109](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/109)). Two earlier own-voice phone recordings were both flagged spoof-like (#103, anecdotal).
 - [x] Test the full upload → preprocessing → inference → display flow. (docker_smoke.sh + container parity on hp-xl420gen9-01; demo_backup.py synthetic clips scored end-to-end.)
 
 **Done when:** valid inputs produce an assessment and informative errors handle invalid inputs. The demonstrated model matches the evaluated version.
@@ -299,16 +316,16 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 - [x] Present actual data sizes, properties, cleaning and leakage controls. (Slides 3-4 in outline: 121,461 clips, partition walls, speaker reservation.)
 - [x] Explain baseline and CNN design choices and experiment controls. (Slides 5-6 in outline.)
 - [x] Show model comparisons, known-versus-unseen attack results, the silence/duration shortcut finding, robustness findings, failure examples and limitations. (Slides 7-9 in outline.)
-- [ ] Demonstrate a valid recording and an invalid input; include an inconclusive example only if that feature was evaluated.
+- [x] Demonstrate a valid recording and an invalid input; include an inconclusive example only if that feature was evaluated. **Done 2026-11-05** (owner record, 2026-11-06): the service ran in Docker on the presenting laptop and answered uploads live. Valid audio (own voice, and Ondoku3 text-to-speech) and the invalid inputs were both demonstrated - the too-short and digital-silence WAVs through the Streamlit uploader, the MP3 rejection through `curl`, as the 3 November correction intended. No inconclusive example was shown, correctly: no calibration or abstention exists. Provenance in [`docs/data.md`](docs/data.md); the laptop's container was never parity-checked against the evaluation build ([#108](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/108)).
 - [x] Describe lessons learned and future work based on measured results. (Slide 12 in outline: 6 findings + Phase 2 list.)
-- [x] Prepare a presentation of at most 12 minutes; show ideas, plots and behavior rather than code. **2026-10-20:** 12-slide outline in `docs/presentation-outline.md` with speaker notes and time allocations; the 12-slide HTML deck `docs/presentation.html` exists (slides v0, PR #105) and was synchronized with the outline on 2026-10-27. Timing has not been rehearsed.
+- [x] Prepare a presentation of at most 12 minutes; show ideas, plots and behavior rather than code. **2026-10-20:** 12-slide outline in `docs/presentation-outline.md` with speaker notes and time allocations; the 12-slide HTML deck `docs/presentation.html` exists (slides v0, PR #105) and was synchronized with the outline on 2026-10-27, then corrected again on 2026-11-03 (PR #122/#123: slide 10's invalid-input beat called for an MP3 upload the Streamlit uploader cannot accept; the beat now uses `too_short.wav` and `digital_silence.wav` through the UI with MP3 rejection shown via `curl`). The deck was delivered on 2026-11-05. **Changed after delivery, 2026-11-06:** slide 10 gained the `Voice by Ondoku3.com` credit that Ondoku3's free tier requires and that the delivered deck did not carry, so the file now differs from what the audience saw in that one respect ([`docs/data.md`](docs/data.md), "Ondoku3 terms"). Timing was never rehearsed on the record (#111).
 - [x] Allocate approximately 1 minute motivation, 2 data, 2 methods, 3 results, 2 demo, 1 conclusions and 1 buffer. See outline.
-- [ ] Freeze features and organize release artifacts.
-- [ ] Test demonstration startup and prepared samples on the presentation machine.
+- [ ] Freeze features and organize release artifacts. Features were frozen on 26 October; the release artifacts were never organized or tagged (#111).
+- [x] Test demonstration startup and prepared samples on the presentation machine. **Done 2026-11-05** (owner record, 2026-11-06): the presenting laptop ran the image and the prepared clips locally and served live requests, so startup and samples were exercised on the machine that presented. Not a substitute for the clean-startup measurement G4 asked for - image size, cold start and container parity were never recorded there ([#108](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/108)), and the earlier figures are from `hp-xl420gen9-01`.
 - [ ] Prepare a short backup recording, saved plots and a local fallback. The demo runs remotely over an SSH tunnel to the host, so the local fallback is the presentation image, frozen bundle and demo clips loaded on the laptop's Docker (`docker save`/`load`, `linux/amd64`), verified offline with score parity in G4. **Partial:** `scripts/demo_backup.py` generates pre-scored fallback JSON; needs host run.
 - [x] Check every number in the deck, outline, model card and root README against `docs/evaluation-results-g2.md` and the committed freeze record. Done 2026-10-27: the pooled table re-derives exactly from its own confusion counts; the five thresholds, the deployed bundle hash (also the `configs/serving.yaml` pin), the freeze-record file hash `cfd1406c…`, manifest-hash and commit prefixes all match; the selection-rule means recompute. The sweep found and fixed three deck errors (CNN block 3 has no max-pool, so its output is 64×16×100; the augmentation probabilities are nested, about 25% of clips per transform per epoch, not 50%; A17 is not the hardest attack for `cnn_augmented_seed1`, A10 is) and replaced "roughly in half" with the measured 41–66% reduction.
-- [ ] Numbers that cannot be checked from the repository, to be confirmed against the host outputs before the presentation: the per-input-type latency figures, p99, peak RSS, cold start, container memory, image size and package count (`reports/latency_benchmark.json` and the Docker logs are not committed); the threshold set's 574 bona fide clips and 4.88% achieved FPR and the development EER table (run records on the host); the latency request count (see §10); the locked report JSON itself (hash `c0116ce2…`, on the host and in the archive).
-- [ ] Rehearse and time the presentation, at least twice.
+- [ ] Numbers that cannot be checked from the repository. These were to be confirmed against the host outputs **before** the presentation; the talk was given on 5 November without a recorded confirmation, so they remain unverified from the repository and should be confirmed before any release or publication reuses them: the per-input-type latency figures, p99, peak RSS, cold start, container memory, image size and package count (`reports/latency_benchmark.json` and the Docker logs are not committed); the threshold set's 574 bona fide clips and 4.88% achieved FPR and the development EER table (run records on the host); the latency request count (see §10); the locked report JSON itself (hash `c0116ce2…`, on the host and in the archive).
+- [ ] Rehearse and time the presentation, at least twice. No rehearsal is recorded; the presentation was delivered on 5 November without one on the record (#111).
 - [ ] Release hygiene sweep at the tag: no secrets, `.env`, local absolute paths, raw or private audio, checkpoints or databases in Git. Partial check 2026-10-27 on tracked files: no audio, checkpoint, database, `.env` or `.DS_Store` files; the one local absolute path in this file was removed; `scripts/demo_setup.sh` and `scripts/setup_dl120.sh` still contain host-side `/root/...` paths, which are host paths, not personal data. Repeat at the tag.
 - [ ] Tag the final release and fill in the sign-off record at the end of the Final acceptance checklist (commit, model version, manifest hash and the other listed fields).
 
@@ -319,17 +336,25 @@ ASVspoof 2021 DF/WaveFake, frozen audio transformers, LSTM/extra classifiers, cl
 - [x] Locked unfamiliar attack evaluation and a controlled robustness study are complete. (R7 REPORTED; 5 conditions × 5 bundles; per-attack tables.)
 - [x] Missing transfer or optional experiments are explicitly disclosed. (Deviation register: 2021 DF, wav2vec2, calibration, cloud all disclosed.)
 - [x] Failure analysis supports the conclusions; measured results replace assumptions. (Silence shortcut, seed variance, threshold non-transfer, per-attack difficulty.)
-- [ ] The application runs and handles valid and invalid inputs.
+- [x] The application runs and handles valid and invalid inputs. (Demonstrated live on 5 November 2026 on the presenting laptop's Docker: real responses to valid audio, and the duration, silence and format rejections; owner record 2026-11-06, [`docs/environment.md`](docs/environment.md). Behaviour only - the scores that container returned were never parity-checked against the evaluation build, [#108](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/108).)
 - [x] Reliability and latency measurements identify hardware and test conditions. (Benchmark: hp-xl420gen9-01, 250 rounds, named hardware/config; model card §6.)
 - [x] Model card, setup guide, configs and result reports are available. (`docs/model-card.md` is still a draft with listed open items; `docs/reproduction.md`, `configs/`, `docs/evaluation-results-g2.md`.)
 - [x] Only completed and evaluated features are described as implemented. (Deviations disclosed; no claim of calibration, cloud, or 2021 DF.)
-- [ ] The presentation and backup demonstration are ready.
+- [ ] The presentation and backup demonstration are ready. **2026-11-06:** the presentation was delivered on 5 November; the backup demonstration, offline fallback and rehearsal are not recorded (#111), so this line is unmet and needs either evidence or a waiver.
 
 Any acceptance line that is waived rather than met needs a reason, its impact and an owner/date recorded in the decisions table below; an unmet line with no waiver blocks sign-off.
 
 ### Release sign-off record
 
 Filled in when the release is tagged. Values already established are shown with their source; the rest stay pending until verified.
+
+**Status 2026-11-06: not filled in, and the release is not tagged.** The presentation
+was delivered on 5 November 2026 (owner) without a release. The waiver rule below is
+therefore live: three acceptance lines are unmet with no waiver recorded, which by that
+rule blocks sign-off (it was four until the owner's 5 November demo record closed the
+valid/invalid-input line on 2026-11-06). Closing this requires an owner decision, not more work by an
+agent - either tag the release and complete the fields, or record a dated waiver per
+unmet line with its reason, impact and owner/date.
 
 | Field | Value |
 | --- | --- |
@@ -369,6 +394,11 @@ Filled in when the release is tagged. Values already established are shown with 
 | 26 October 2026 | Feature freeze | No new models, datasets or extensions; analysis text, honest-framing, presentation and bug fixes only | G4 verification and G5 rehearsal (roadmap) |
 | 27 October 2026 | Documentation consolidated: `docs/README.md` index with one authority per topic; stale handoffs, status snapshot, project-management and dev-reservation host runbook removed; three historical records archived; this file kept as the only tracker | Removes contradictions (e.g. the reservation was committed in `81c3cf7`, the host runbook said it was not) | Open items above are unchanged except the status updates noted inline |
 | 27 October 2026 | `reserve-development` no longer rewrites a committed frozen record that matches (#56, #68): a matching re-run keeps it byte-for-byte; a record naming a different manifest is refused unless `--force` | Removes a provenance hazard (a routine re-run changed the authoritative record's freeze time and commit) and the flaky test. A bug fix after the feature freeze; no change to membership, thresholds or any locked result | Owner chose implement then `/code-review`; merge after review |
+| 5 November 2026 | **Presentation delivered** (owner, recorded 2026-11-06). Given with the G4 verification set (#107-#110, #112) and the G5 rehearsal/fallback/tag item (#111) still open; no repository artifact records the event | Phase 1 is presented but not released: no tag, sign-off record unfilled, three acceptance lines unmet without a waiver (four before the demo record of 2026-11-06) | Owner decides the release: tag and complete the sign-off record, or record a dated waiver per unmet line |
+| 6 November 2026 | **Demo record captured from the owner:** the 5 November demo ran in Docker on the presenting laptop (not the DL120, not an SSH tunnel to `hp-xl420gen9-01`), served uploads live, and showed the own-voice clip, Ondoku3 text-to-speech clips and the three invalid-input rejections. Ondoku3 clips were flagged spoof-like (anecdotal) | Two §13 items and one acceptance line close on evidence; unmet acceptance lines drop from four to three. Provenance recorded in `docs/data.md`; the presenting host recorded in `docs/environment.md`. Two gaps remain: Ondoku3's terms, and the own-voice clip's outcome and clip counts ([#109](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/109)). The laptop container was never parity-checked ([#108](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/108)) | Owner supplies the terms and the clip outcomes; release decision unchanged |
+| 6 November 2026 | **Ondoku3 terms checked** against the service's own licence article and Terms of Use (read 2026-11-06). Use in a research presentation is expressly permitted and no Business-Plan purpose is engaged; a free account obliges a visible credit notice wherever the audio is played, and copyright in the generated audio follows the input text | Demo-clip provenance is now substantively documented in `docs/data.md`. A possible compliance gap is disclosed rather than assumed away: if a free account produced the clips and no credit was shown on 5 November, the condition was unmet | Owner states free vs paid account and whether credit was displayed; add the credit line to the deck and any reuse. Not legal advice; the owner accepted the terms ([#109](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/109)) |
+| 6 November 2026 | **Free Ondoku3 account confirmed** (owner), so the free-tier credit condition applied to the 5 November demo. Search of the delivered deck and outline: no Ondoku credit was present | A disclosed, closed-out compliance gap rather than a hidden one. `Voice by Ondoku3.com` added to slide 10 and to the outline's slide-10 notes on 2026-11-06 for any reuse; the deck file now differs from the delivered version in that one respect, which is recorded. Whether credit was given aloud on the day is not recorded and is not claimed | Keep the line while these clips are used; it also covers any recording or re-showing. Owner still to supply clip counts, the own-voice score and the prompt-text author ([#109](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/109)) |
+| 6 November 2026 | Post-presentation status reconciliation (Step 2A). The 27 October issue table was missing the entire G4/G5 set (#107-#112) and #118; status documents still described the presentation as pending | Status layer now matches the evidence: presentation recorded as delivered, G4/G5 recorded as not delivered, expired dated mechanisms closed. No locked result, threshold, config, code or test touched | Report in `reports/documentation-reconciliation-step2a.md`; outstanding owner decisions listed there |
 
 ## First actions
 

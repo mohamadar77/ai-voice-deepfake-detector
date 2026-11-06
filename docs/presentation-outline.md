@@ -203,6 +203,13 @@ shortcut.
 
 Fallback: saved screenshots and pre-recorded results if the live demo fails.
 
+**Keep the credit line on this slide.** The synthetic clips come from Ondoku3 on a free
+account, and Ondoku3 requires a credit notice visible to the audience wherever the audio
+plays (`Voice by Ondoku3.com`; terms summarised in [`data.md`](data.md), "Ondoku3
+terms"). Added to the deck on 2026-11-06 for any reuse; it was **not** on the slide at
+the 5 November delivery. Do not remove it while these clips are used, and if the clips
+are replaced, update or drop the line to match.
+
 If a real-voice phone recording is flagged spoof-like, say so (issue #103: both of
 the owner's two test recordings were; anecdotal, n = 2). It is the measured
 threshold-transfer limitation (#83), not a bug and not a finding about the speaker.
