@@ -12,17 +12,21 @@ detector, and scientifically demonstrate where it succeeds, where it fails, and 
 
 ## Two phases
 
-- **Phase 1, graduation release (presentation 5 November 2026).** A working
+- **Phase 1, graduation release (presented 5 November 2026).** A working
   end-to-end system, correct methodology, reproducible experiments, measured
   results and failure analysis, a demo and a presentation. Correctness is never
-  traded for the deadline.
+  traded for the deadline. The presentation was delivered; the release is not
+  closed (see below).
 - **Phase 2, post-graduation research.** Everything in
   [`research-backlog.md`](research-backlog.md). Not started in Phase 1.
 
-## Where the project stands (27 October 2026)
+## Where the project stands (6 November 2026)
 
-The feature freeze (26 October) has passed: no new models, datasets or extensions.
-Milestones G0 to G3 are complete in substance:
+**Presented, not released.** The presentation was delivered on **5 November 2026**
+(owner, recorded 2026-11-06; no repository artifact records the event — there is no
+release tag and no commit after 3 November). The feature freeze (26 October) has
+passed: no new models, datasets or extensions. Milestones G0 to G3 are complete in
+substance; G4 and G5 are not, and the talk was given with their issues still open:
 
 | Milestone | Outcome | Evidence |
 | --- | --- | --- |
@@ -30,46 +34,60 @@ Milestones G0 to G3 are complete in substance:
 | G1 data and baseline | Manifest, development reservation, metrics, MFCC cache, LR baseline, CNN timing pilot | [`data.md`](data.md), [`pre-tuning-protocol.md`](pre-tuning-protocol.md) |
 | G2 CNN and protocol freeze | Four CNN runs (clean and augmented, two seeds), robustness spec with silence-trim diagnostic, all-candidate FROZEN record | `reports/evaluation_freeze_g2.json` |
 | G3 locked evaluation and demo | Locked scoring and report REPORTED 18 Oct; deployed model recorded 20 Oct; serving API, Streamlit UI, Docker image, latency benchmark and container parity; model card draft | [`evaluation-results-g2.md`](evaluation-results-g2.md), [`deployed-model-decision.md`](deployed-model-decision.md), [`model-card.md`](model-card.md) |
+| G4 release and verification | **Not delivered.** All five issues ([#107](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/107)-[#110](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/110), [#112](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/112)) open and untouched since 26 Oct | GitHub milestone *G4: release and slides*: 5 open, 0 closed |
+| G5 rehearsal and backup | **Not recorded.** [#111](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/111) (rehearsal, fallback, backup recording, release tag) still open | GitHub milestone *G5: rehearsal and backup*: 1 open, 0 closed |
+| Presentation | **Delivered 5 Nov 2026** | Owner statement, recorded 2026-11-06; not corroborated by a repository artifact |
 
 Two items planned for G2 were not delivered and are still open in the TODO plan:
 the EDA / exclusion report with the shortcut-only baseline (#6) and the
-training-fitted PCA / K-means diagnostics (#36). They are not on the critical path
-(see below). Locked results are final; nothing in the remaining sequence may change
-a threshold, checkpoint or locked number ([`evaluation-protocol.md`](evaluation-protocol.md)
-section 8).
+training-fitted PCA / K-means diagnostics (#36). Locked results are final; nothing
+in the remaining work may change a threshold, checkpoint or locked number
+([`evaluation-protocol.md`](evaluation-protocol.md) section 8).
 
-## Remaining sequence
+The open release decision is the owner's and is recorded nowhere yet: either tag the
+release and fill in the sign-off record at the end of
+[`../TODO-Plan.md`](../TODO-Plan.md), or disclose each unmet acceptance line as a
+dated waiver. That file's own rule — an unmet line with no waiver blocks sign-off —
+still applies after the presentation.
 
-Order matters; each step feeds the next.
+## Remaining work to close Phase 1
 
-1. **G4, release and verification (to 1 November).**
-   1. Fresh-checkout reproduction of data preparation, baseline, CNN training and
-      the report on a clean host, following [`reproduction.md`](reproduction.md);
-      correct the guide where it diverges and record the outcome.
-   2. Decide and record which machine presents (see the open host question in
-      [`environment.md`](environment.md)), then run the clean container startup, health
-      check, image size and cold start there, and rehearse the venue access path.
-   3. Choose the demo set (consented own-voice clips and owner-generated synthetic
-      clips with tool, version and terms recorded) and prepare the invalid-input
-      cases. The own-voice false-alarm observation (#103) is presented as a measured
-      limitation, not hidden.
-   4. Finalize the model card: close the open items listed in its status line, or
-      leave it marked draft.
-   5. Freeze the presentation artifacts: slides and speaker notes consistent with
-      the model card and locked results.
-2. **G5, rehearsal and backup (2 to 4 November).** Timed rehearsal within 12
-   minutes; the offline fallback (presentation image, frozen bundle and demo clips
-   loaded in Docker on the presenting laptop, verified offline with score parity)
-   and a backup recording; final fresh-start demonstration.
-3. **Release (by 4 November).** Tag the release and fill in the sign-off record
-   defined at the end of the acceptance checklist in
-   [`../TODO-Plan.md`](../TODO-Plan.md).
-4. **Presentation (5 November, tentative).**
+The original dated sequence (G4 to 1 November, G5 to 4 November, release by
+4 November, presentation 5 November) is spent: the presentation happened and the
+rest did not. What follows is no longer a schedule but a list of what is still
+owed, in the order that makes each item cheapest. The first item is a decision, not
+a task, and it gates the others.
 
-## Not on the critical path
+1. **Decide the release (owner).** Tag the release and fill in the sign-off record
+   at the end of [`../TODO-Plan.md`](../TODO-Plan.md), or record a dated waiver for
+   each unmet acceptance line with its reason and impact. Nothing below can close
+   the project while this is undecided ([#111](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/111)).
+2. **Record what the presentation actually used** ([#108](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/108),
+   [#109](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/109)) - **mostly done 2026-11-06.** The owner's record: the demo ran in
+   Docker on the presenting laptop and served uploads live; the clips were the owner's
+   own recording, Ondoku3 text-to-speech clips and the three invalid-input rejections.
+   Host in [`environment.md`](environment.md), provenance in [`data.md`](data.md).
+   Ondoku3's terms were checked on 2026-11-06: a research presentation is expressly
+   permitted, but the free account the clips came from obliges a visible credit notice
+   wherever the audio plays. The delivered deck had none; `Voice by Ondoku3.com` was
+   added to slide 10 afterwards, and the gap is disclosed rather than papered over.
+   **Gaps remain, both owner-only:** the clip counts and what the own-voice clip scored,
+   and who wrote the prompt text. A further technical one: the laptop's container was
+   never parity-checked against the `linux/amd64` evaluation build (#108).
+3. **Fresh-checkout reproduction** ([#107](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/107))
+   of data preparation, baseline, CNN training and the report on a clean host,
+   following [`reproduction.md`](reproduction.md); correct the guide where it
+   diverges and record the outcome. It remains the largest unmet acceptance claim.
+4. **Model card disposition** ([#110](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/110)):
+   close the open items listed in its status line, or keep it marked DRAFT with
+   that status disclosed in the release record.
+5. **Dataset mirror URL** ([#112](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/112))
+   in [`data.md`](data.md).
 
-Done only if time remains after step 1 and only as documentation or analysis of
-existing results, never as new model work:
+## Optional, and never required for sign-off
+
+Documentation or analysis of existing results only, never new model work. None of
+these is a release blocker; each is either disclosed as undelivered or left open:
 
 - EDA figures, exclusion report and the shortcut-only baseline (#6), which would
   strengthen the silence-shortcut finding (#84) with a development-only control.
@@ -99,12 +117,18 @@ the RAG evidence assistant (no-go, #37) and MCP. See
 - A baseline win, a weak unseen-attack result, a below-chance condition or a
   silence-shortcut collapse is a valid finding. Report it.
 - Evaluation audio and features never leave the host.
-- If the remaining time cannot cover step 1, cut from the end of the
-  "not on the critical path" list, never from the rehearsal, the fallback demo or
-  the model-card honesty items.
+- The presentation has happened, so the old cut rule (drop optional work before
+  the rehearsal, the fallback demo or the model-card honesty items) no longer has
+  anything to protect. What replaces it: nothing still owed may be closed by
+  assertion. An item is either evidenced, or disclosed as a dated waiver.
 
 ## Definition of done
 
 Phase 1 is done when the acceptance checklist at the end of
 [`../TODO-Plan.md`](../TODO-Plan.md) is satisfied or each unmet line is disclosed as
 a deviation, and the presentation has been rehearsed.
+
+**Not met as of 6 November 2026.** The presentation was delivered, but three
+acceptance lines are unmet with no waiver, the sign-off record is unfilled, and no
+rehearsal is recorded (#111). Phase 1 is therefore presented but not done, and the
+gap is the release decision above, not further experiments.

@@ -1,6 +1,6 @@
 # Model card: `cnn_augmented_seed1` (deployed demo model)
 
-**Status: DRAFT** (written 2026-10-20, re-checked against the repository 2026-10-27).
+**Status: DRAFT** (written 2026-10-20; re-checked against the repository 2026-10-27 and again 2026-11-06). It stays DRAFT: the presentation was delivered on 5 November 2026 but none of the five blockers below was closed, and promoting the card would assert evidence that does not exist ([#110](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/110)).
 Every number below is copied from a committed source (`docs/evaluation-results-g2.md`,
 `docs/deployed-model-decision.md`, `configs/*.yaml`) or from the host verification logs
 named in the text. Nothing here is a new measurement. This is a project evaluation,
@@ -12,9 +12,13 @@ The card stays a draft until these are resolved (none is hidden elsewhere):
    host-verified behavior, not reviewed behavior.
 2. A fresh-checkout reproduction of data preparation, training and the report has not been
    run ([`reproduction.md`](reproduction.md); open in the TODO plan).
-3. The demo recordings (consented own voice, owner-generated synthetic clips) and their
-   generator tool, version and terms are not recorded; nothing here characterizes modern
-   voice-cloning systems.
+3. The demo set is now recorded (`docs/data.md`, "Demonstration clips"): the owner's
+   own consented recording, text-to-speech clips from Ondoku3, and the locally generated
+   invalid inputs, with Ondoku3's terms checked and cited there; the free-tier credit
+   notice the delivered deck lacked has been added for reuse. **Still missing: the clip
+   counts and the own-voice clip's outcome** ([#109](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/109)). Nothing in this card characterizes
+   modern voice-cloning systems; see the demo note in section 5, which is an anecdote,
+   not a measurement.
 4. Real-device audio (phone and laptop microphones) was never evaluated; the only
    observation is the anecdote in section 5 (#103).
 5. Evaluation-only duration results do not exist (#85), and redistribution of the model
@@ -36,7 +40,7 @@ uncalibrated, and no calibration was fitted or evaluated.
 | Operating threshold | -1.2519543 (float64 `-1.251954287290573`), fixed on clean development audio from 5 reserved development speakers (574 bona fide clips; achieved false-positive rate 4.88% against a 5% target) |
 | Decision | `flagged_spoof_like` if score >= threshold, else `not_flagged`. The API never returns "real", "fake", a probability or a confidence |
 | Training | Cross-entropy, balanced class weights, Adam (lr 0.001, weight decay 0.0001), batch 32, at most 20 epochs, early stopping (patience 5) on development clip EER. Declared seeds 20261004 and 20261005; see `configs/cnn_study.yaml` |
-| Augmentation (this model) | Per clip with probability 0.5: Opus 24 kbps codec (probability 0.5) and white noise at 10-30 dB SNR (probability 0.5), applied before the random crop. The probabilities are nested and redrawn each epoch, so each transform reaches about 25% of clips per epoch and about 62.5% of clips are left clean. The clean model family was trained without it |
+| Augmentation (this model) | Specified in `configs/robustness_spec.yaml` under `training_augmentation`. Per clip with probability 0.5: Opus 24 kbps codec (probability 0.5) and white noise at 10-30 dB SNR (probability 0.5), applied before the random crop. The probabilities are nested and redrawn each epoch, so each transform reaches about 25% of clips per epoch and about 62.5% of clips are left clean. The clean model family was trained without it |
 
 ## 2. Intended use
 
@@ -149,6 +153,19 @@ threshold -1.2520), while five development bona fide clips scored -4.42 to -2.75
 not flagged. n = 2 is not a measured rate and real-device audio was not evaluated; it is
 consistent with the threshold non-transfer above. The model must not be used to judge a
 person's own recording.
+
+**Live demo, 5 November 2026 (anecdotal, uncounted).** In the presentation the deployed
+service flagged text-to-speech clips from Ondoku3 (an online TTS service) as spoof-like
+- the correct direction for synthetic speech. The clip count, the scores and the
+outcome for the own-voice clip were not recorded, and the clips were never scored under
+a declared protocol. **This is not evidence that the model detects contemporary
+speech synthesis.** It is one impression from one unrecorded demonstration, it does not
+change any number above, and it does not soften the statement in section 3 that no
+other dataset or recent cloning system was evaluated. The opposite anecdote (#103,
+above) came from the same kind of informal check. Provenance: `docs/data.md`,
+"Demonstration clips". The container that produced those scores was an ARM64 build on
+the presenting laptop that was never parity-checked against the `linux/amd64`
+evaluation path ([#108](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/108)).
 
 **Other limits.**
 - Only ASVspoof 2019 LA was evaluated; no other domain, dataset or recent cloning system.

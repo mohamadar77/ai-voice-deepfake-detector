@@ -2,9 +2,13 @@
 
 Owner: Mohamad Abo-Ras. Created 13 October 2026.
 
-Phase 1 is the graduation release (5 November 2026). It delivers a complete,
-scientifically credible, reproducible AI application with a compelling
-demonstration.
+Phase 1 is the graduation release. It was **presented on 5 November 2026** and
+delivers a complete, scientifically credible, reproducible AI application with a
+demonstration. The release itself is not closed: see
+[`roadmap.md`](roadmap.md) for what is still owed and
+[`../TODO-Plan.md`](../TODO-Plan.md) for the sign-off record. Phase 2 does not wait
+on that closure, but it must not consume it either: the Phase 1 evidence stays
+frozen whatever the owner decides about the tag.
 
 Phase 2 extends that validated foundation into a stronger, more generalizable
 detection system, with experiments suitable for potential publication. This file is
@@ -67,7 +71,18 @@ small design rules, not extra features:
 - **Negative results and deviations** stay recorded in Phase 1 documents. Phase 2
   never silently replaces them.
 
-## Pulling backlog items into Phase 1 (progress gate)
+## Pulling backlog items into Phase 1 (progress gate): CLOSED
+
+> **Closed 2026-11-06.** This gate can no longer admit anything. Both of its hard
+> deadlines are spent (declaration before the 22 October G2 freeze; completion
+> before the 26 October feature freeze), and the presentation it was protecting was
+> delivered on 5 November 2026. Nothing may now be pulled into Phase 1: the locked
+> evaluation is REPORTED and the remaining Phase 1 work is release closure, not new
+> evidence. The conditions and candidate ranking below are kept unchanged as the
+> historical record of how the gate was meant to work, and as the starting priority
+> order for Phase 2 — items 1, 3 and 4 of the ranking are now Phase 2 Gate 1 and
+> Gate 2 work. Links to this section from [`../TODO-Plan.md`](../TODO-Plan.md) and
+> [`roadmap.md`](roadmap.md) should be read as pointing at a closed mechanism.
 
 The owner may pull a backlog item into Phase 1 if progress is good. A pull is
 allowed only when **all** of the following hold, and it is recorded in the
@@ -100,6 +115,65 @@ architecture plan decision log before work starts:
 
 Advanced pretrained models, new non-proposal datasets and calibration are **not**
 pull candidates for Phase 1.
+
+## Phase 2 research gates (proposed, 6 November 2026 — not yet approved)
+
+Gates, not dates. Each one states what must be true before it starts and what it has
+to produce to be finished; none of them promises a schedule. **Status: proposed.**
+They were drafted from the Phase 2 readiness work order and need the owner's
+approval before they govern anything; until then the prioritized backlog below is
+still the operative scope and these gates are a structuring proposal over it.
+
+The gates do not change the Phase 1 boundary: the locked 2019 LA evaluation stays
+REPORTED and immutable, and no Phase 2 experiment may tune, select, threshold or
+re-inspect against it. A new test set is a new declared protocol with its own freeze
+record, never an extension of the Phase 1 one.
+
+### Gate 0 — Foundation
+
+**Prerequisites:** Phase 1 evidence preserved and locatable (frozen bundles, freeze
+records, per-clip predictions, run records, manifest, with checksums, per "What
+Phase 1 must preserve for Phase 2" above).
+**Work:** dataset-agnostic ingestion and provenance contracts; run identity and
+artifact integrity; the evaluation safeguards carried over as reusable components
+rather than LA-specific code. The proposed foundation contracts are recorded in
+[`architecture-and-delivery-plan.md`](architecture-and-delivery-plan.md) under
+"Proposed Phase 2 foundation contracts".
+**Exit:** a clean Phase 2 workspace can reproduce and inspect the Phase 1 evidence,
+and can ingest a new dataset, without any risk to a Phase 1 artifact. No training
+and no dataset download is needed to pass this gate.
+
+### Gate 1 — Cross-domain generalization
+
+**Prerequisites:** Gate 0 passed; the transfer protocol declared before scoring.
+**Work:** backlog item 1 (ASVspoof 2021 DF transfer, scoring-only on the frozen
+Phase 1 bundles) with the 2019/2021 source-overlap audit; optionally item 2
+(In-the-Wild / WaveFake) if the owner approves the data and terms separately.
+**Exit:** a protocol-compliant, traceable account of transfer performance **and its
+limitations**, with overlapping and no-overlap subsets reported separately where the
+organizers' source maps allow, and described as a transfer test rather than an
+independent one wherever sources overlap. A collapse is a valid result.
+
+### Gate 2 — Model and robustness research
+
+**Prerequisites:** Gate 1 reported, so a transfer baseline exists to compare against.
+**Work:** backlog items 4 (shortcut-robust training), 6 (matched-input controls,
+#39), 12 (stronger baselines and ablations), 3 (SSL front-ends) and 9 (additional
+seeds), each under its own declared protocol and freeze.
+**Exit:** fair, repeatable comparisons under the new protocols, with equal budgets
+per model family, uncertainty reported, and compute and inference cost stated
+alongside accuracy. Any comparison that cannot state its budget is not finished.
+
+### Gate 3 — Reliability and publication readiness
+
+**Prerequisites:** Gates 1 and 2 reported.
+**Work:** backlog items 5 (calibration and abstention, only if a probability output
+is an explicit objective), 13 (paired statistical analysis with multiple-comparison
+control), 11 (modern generators), 7 (min t-DCF, #38), and a literature and novelty
+review at that time.
+**Exit:** a defensible research package and an evidence-based decision about
+publication. **Publication is not guaranteed and novelty is not assumed**; the
+"Publication framing" section below stays a draft until this gate says otherwise.
 
 ## Backlog, in priority order
 

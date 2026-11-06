@@ -22,14 +22,43 @@ training/evaluation host" (DL120) and "Second host" below.
 | Cross-host dev rehearsal of the freeze and scoring | both | [`archive/dl120-verification-tracker.md`](archive/dl120-verification-tracker.md) |
 | LR training, CNN timing pilot | not recorded in the repository | |
 
-**Presentation machine: unresolved.** The 13 October owner decision names the DL120
-as the target and demo host and expects the laptop to run the offline fallback as
-an Intel Mac. Later artifacts disagree: the container configuration was verified on
-`hp-xl420gen9-01` and not on the DL120 ("not yet the DL120 presentation
-configuration", TODO-Plan §10), and `scripts/demo_setup.sh` describes the
-presentation Mac as an M4 Pro (ARM64) reaching `hp-xl420gen9-01`. An ARM64 Mac runs
-the `linux/amd64` image under emulation, unlike the Intel assumption in the offline
-fallback bullet below. Record the real choice before the G4 container check.
+**Which machine presented: the presenting laptop, locally (owner, recorded
+2026-11-06).** Neither host served the demo. The presentation ran the local path that
+[`../scripts/demo_setup.sh`](../scripts/demo_setup.sh) sets up: the
+`cnn_augmented_seed1` bundle and the demo clips copied from `hp-xl420gen9-01`, the
+image run in Docker Desktop on the laptop. The service answered uploads **live** and
+returned real responses; it was not a pre-scored fallback or screenshots. Valid audio
+and the invalid-input rejections were both demonstrated, the MP3 rejection through
+`curl` as the 3 November correction intended (PR #122/#123).
+
+**Caveat that follows from that choice.** `demo_setup.sh` describes the presenting
+laptop as the owner's M4 Pro, which is ARM64, and its step 1 warns about exactly this:
+a native ARM64 image carries a different torch wheel from the `linux/amd64` wheel
+behind the locked evaluation and behind the recorded container parity (198 development
+clips, max |diff| 0.0, measured on `hp-xl420gen9-01`). **No parity run against the
+laptop's container is recorded**, and the laptop's architecture was not separately
+confirmed. So the demo showed the service behaving correctly, but the scores it
+displayed were produced by a build whose numerical agreement with the evaluation path
+was never checked. That sub-item of
+[#108](https://github.com/mohamadar77/ai-voice-deepfake-detector/issues/108) stays
+open; `scripts/container_parity.py` is the check if it matters later.
+
+The 13 October owner decision names the DL120 as the target and demo host and
+expects the laptop to run the offline fallback as an Intel Mac. Later artifacts
+disagree: the container configuration was verified on `hp-xl420gen9-01` and not on
+the DL120 ("not yet the DL120 presentation configuration", TODO-Plan §10), and
+`scripts/demo_setup.sh` describes the presentation Mac as an M4 Pro (ARM64) reaching
+`hp-xl420gen9-01`. An ARM64 Mac runs the `linux/amd64` image under emulation, unlike
+the Intel assumption in the offline fallback bullet below, and on a different torch
+wheel from the one the recorded container parity was measured with (#108 comment,
+2026-10-27).
+
+So the 13 October decision (DL120 presents) was not what happened, and neither was
+the SSH-tunnel path that slide 10 of the outline describes: the laptop ran the service
+itself. That also means the venue access path was never exercised - there was no
+tunnel to rehearse - which retires the venue-access question rather than answering it.
+What remains unrecorded is how many clips were shown and what the own-voice clip
+scored.
 
 ## Verified training/evaluation host (reconciled 11 October 2026)
 
