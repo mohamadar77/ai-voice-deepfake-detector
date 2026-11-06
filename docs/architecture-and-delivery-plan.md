@@ -323,8 +323,8 @@ The 13 October decision names the DL120 host as the target and demo environment.
 
 **Status: proposals, not contracts.** Everything in this section needs the owner's
 approval before it governs any code, and none of it is implemented. It is recorded
-here because the alternative is leaving design intent in an untracked work order
-where a clean clone would lose it. The research scope these serve is in
+here because the alternative is leaving design intent only in a work order, which
+is not a source of truth. The research scope these serve is in
 [`research-backlog.md`](research-backlog.md) (Gate 0); the contracts above, which
 *are* adopted, describe Phase 1 as built and are unaffected.
 

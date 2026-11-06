@@ -107,7 +107,7 @@ truth for anything. Nothing here may be cited as project status, scope or design
 
 | Item | What it is |
 | --- | --- |
-| `research/INCREMENTAL_UPGRADES_AND_ROBUSTNESS_HARDENING.md` | A superseded external planning input (26 October 2026). Its genuinely missing items were migrated in PR #113, which recorded the decision not to adopt it; it was written without access to this repository, carries an expired schedule of its own, and prescribes duplicate filenames that must not be created. Untracked; not to be committed or staged. |
-| `prompts/` | Agent work orders. They describe work someone intends to have done, not the state of the system, and their design statements are proposals until migrated into the documents above. Untracked. |
+| `research/INCREMENTAL_UPGRADES_AND_ROBUSTNESS_HARDENING.md` | A superseded external planning input (26 October 2026). Its genuinely missing items were migrated in PR #113, which recorded the decision not to adopt it; it was written without access to this repository, carries an expired schedule of its own, and prescribes duplicate filenames that must not be created. Kept for reference only, by the owner's decision of 6 November 2026; this does not adopt it. |
+| `prompts/` | Agent work orders. They describe work someone intends to have done, not the state of the system, and their design statements are proposals until migrated into the documents above. Kept for reference only. |
 | `../reports/documentation-audit-step1.md`, `../reports/documentation-reconciliation-step2a.md` | Dated audit and reconciliation records. They report on the documentation at a point in time; the documents they examine remain the authorities. |
-| The owner's untracked working notes under this directory (handoffs, prompts, supplied plans) | Working material the owner has not published. Leave untracked and untouched. |
+| Any other untracked working notes the owner keeps under this directory | Working material the owner has not published. Leave untracked and untouched. |
