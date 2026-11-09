@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Setup and usage guidance
+    url: https://github.com/mohamadar77/ai-voice-deepfake-detector/blob/main/README.md
+    about: Read the setup, reproduction and usage documentation before opening an issue.
+  - name: Project documentation index
+    url: https://github.com/mohamadar77/ai-voice-deepfake-detector/blob/main/docs/README.md
+    about: Find the authoritative document for each project topic.
+  - name: Security vulnerability reporting
+    url: https://github.com/mohamadar77/ai-voice-deepfake-detector/security/advisories/new
+    about: Do not report exploitable vulnerabilities in public issues.

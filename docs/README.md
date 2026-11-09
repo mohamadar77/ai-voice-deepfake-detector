@@ -87,6 +87,23 @@ are not.
 | --- | --- |
 | [`research-backlog.md`](research-backlog.md) | Everything outside the committed Phase 1 scope, including the Phase 1 to Phase 2 pull gate |
 
+## Repository governance and contributor workflow
+
+| Document | Authoritative for |
+| --- | --- |
+| [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Contribution workflow, review expectations and required checks; does not override project scope or evaluation rules |
+| [`../AGENTS.md`](../AGENTS.md) | Repository-wide coding, data-handling, reproducibility and evaluation constraints for contributors and coding agents |
+| [`repository-guide.md`](repository-guide.md) | GitHub repository metadata recommendations, branch/PR workflow, issue/project usage, settings and release process |
+| [`../SECURITY.md`](../SECURITY.md) | Private reporting and handling of security vulnerabilities |
+| [`../SUPPORT.md`](../SUPPORT.md) | Where to ask usage and project questions |
+| [`../CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) | Community behavior and enforcement expectations |
+| [`../CHANGELOG.md`](../CHANGELOG.md) | User-facing record of project and repository changes; not task status or experiment results |
+
+`TODO-Plan.md` remains the single task-status authority. GitHub Issues and the
+existing Delivery project board carry discrete work items and coordination, not a
+second copy of the checklist. The frozen proposal, architecture plan, machine-readable
+evaluation records and all other authorities above retain their existing precedence.
+
 ## Historical archive
 
 [`archive/`](archive/) holds point-in-time records kept for provenance:
