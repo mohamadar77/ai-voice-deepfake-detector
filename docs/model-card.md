@@ -180,7 +180,7 @@ evaluation path ([#108](https://github.com/mohamadar77/ai-voice-deepfake-detecto
 
 ## 6. Serving and resources
 
-Measured on hp-xl420gen9-01 (Xeon E5-2650L v3 @ 1.80 GHz), CPU only, torch
+Measured on Linux VM (Xeon E5-2650L v3 @ 1.80 GHz), CPU only, torch
 2.14.1+cpu with one thread:
 
 - **Latency benchmark** (`configs/latency_benchmark.yaml`, `scripts/latency_benchmark.py`):
@@ -195,7 +195,7 @@ Measured on hp-xl420gen9-01 (Xeon E5-2650L v3 @ 1.80 GHz), CPU only, torch
 - Image size 4.82 GB (CPU-only torch wheels via `[tool.uv.sources]`; was 19.97 GB with
   CUDA wheels, a 76% reduction). 91 packages (was 110).
 - **Container-vs-library score parity** (`scripts/container_parity.py`, seed 20261021,
-  198 development clips on hp-xl420gen9-01):
+  198 development clips on Linux VM):
   max |score_container − score_library| = 0.0, 0 decision flips, 67 multi-window clips
   included. 2 clips rejected by the service (duration < 1 s). Same inference code path
   confirmed between the Docker container (via HTTP) and the in-process library scorer.

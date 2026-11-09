@@ -138,7 +138,7 @@ The Step 2A report was available in the earlier conversation as file reference `
 - G4 not delivered: #107–#110 and #112 all OPEN; G4 milestone 5 open / 0 closed.
 - G5 not recorded: #111 OPEN; G5 milestone 1 open / 0 closed; no rehearsal, backup recording, or offline-fallback verification in repository.
 - #107 fresh checkout not run; reproduction guide says pipeline itself was not re-run; clean-host run needed.
-- #108 presentation machine unknown at the time of that report. Candidate ambiguity included DL120, `hp-xl420gen9-01`, or presentation Mac M4 Pro ARM64 running `linux/amd64` emulation.
+- #108 presentation machine unknown at the time of that report. Candidate ambiguity included DL120, `Linux VM`, or presentation Mac M4 Pro ARM64 running `linux/amd64` emulation.
 - #109 provenance incomplete at the time: actual human recordings, TTS tool/version/terms, and related details were not all documented.
 - #110 model card remained DRAFT with five blockers open.
 - #111 requires owner decision: either complete sign-off and release, or explicitly waive each unmet checklist line with reason, impact, owner/date. No agent-created waiver.

@@ -241,7 +241,7 @@ and the protocol parser validates the official rows.
 As of 11 October 2026 all four hold:
 
 - **Environment:** `uv sync --frozen --all-groups`, `uv run voice-detector smoke`,
-  `uv run ruff check .` and `uv run pytest` pass on the HPE DL120 Gen10 host (see
+  `uv run ruff check .` and `uv run pytest` pass on the Linux Runtime Host (see
   `docs/environment.md`).
 - **Access / terms / storage:** recorded above — ODC-By 1.0, SHA-256 checksums, and
   the LA-only footprint fits within the host's ~209 GB.

@@ -146,3 +146,15 @@ Delivered: audited manifest, shared preprocessing, reproducible baseline and CNN
 Dataset acquisition is deliberately not part of repository setup. ASVspoof 2019 LA audio must be obtained under its published terms (ODC-By 1.0; provenance, checksums and attribution notice in [`docs/data.md`](docs/data.md)). Large datasets and generated artifacts remain local or are distributed separately where their terms allow.
 
 > Contains information from the ASVspoof 2019 database (<https://datashare.ed.ac.uk/handle/10283/3336>), made available under the ODC Attribution License (<https://opendatacommons.org/licenses/by/1-0/>).
+
+## Contributing and repository governance
+
+Before opening an issue or changing code, read [CONTRIBUTING.md](CONTRIBUTING.md),
+[AGENTS.md](AGENTS.md), and the [documentation authority index](docs/README.md).
+Repository-specific GitHub settings and workflows are documented in
+[docs/repository-guide.md](docs/repository-guide.md). Security reports belong in
+[SECURITY.md](SECURITY.md), not in public issues.
+
+The governance documents do not replace the project records: `TODO-Plan.md` remains
+the only task-completion tracker, and the frozen proposal and evaluation authorities
+remain unchanged.
